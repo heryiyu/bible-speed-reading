@@ -806,6 +806,7 @@ function initReaderControls() {
 
   // Load books list
   populateBookSelector("all");
+  populateChapterSelector();
 
   testamentSelect.addEventListener("change", (e) => {
     populateBookSelector(e.target.value);
