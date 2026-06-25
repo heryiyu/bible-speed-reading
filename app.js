@@ -156,6 +156,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 7. Load Data & Render initial Dashboard
   await loadUserData();
   updateDashboardView();
+
+  // 8. Register Service Worker for PWA offline support
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js")
+      .then(reg => console.log("Service Worker 註冊成功，範圍:", reg.scope))
+      .catch(err => console.error("Service Worker 註冊失敗:", err));
+  }
 });
 
 // Theme Management
