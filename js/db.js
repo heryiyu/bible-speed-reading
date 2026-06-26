@@ -192,6 +192,9 @@ const db = {
             const key = getPresetKeyByName(dbPlan.name);
             const planObj = generatePlanObject(dbPlan.name, dbPlan.start_date, dbPlan.end_date, dbPlan.target_books, key);
             planObj.id = dbPlan.id;
+            planObj.level = dbPlan.level || 'normal';
+            planObj.currentRound = dbPlan.current_round || 1;
+            planObj.wasDowngraded = dbPlan.was_downgraded || false;
             state.activePlans.push(planObj);
           });
           
@@ -383,11 +386,17 @@ const db = {
     const todayISO = new Date().toISOString();
     const planId = state.activePlan ? state.activePlan.id : null;
     const presetKey = state.activePlan ? state.activePlan.presetKey : null;
+    const round = state.activePlan ? (state.activePlan.currentRound || 1) : 1;
     
     if (isChecked) {
-      const existingLog = state.readingLogs.find(l => l.book === book && l.chapter === chapter && (l.plan_id === planId || l.presetKey === presetKey));
+      const existingLog = state.readingLogs.find(l => 
+        l.book === book && 
+        l.chapter === chapter && 
+        (l.plan_id === planId || l.presetKey === presetKey) &&
+        (l.round || 1) === round
+      );
       if (!existingLog) {
-        state.readingLogs.push({ book, chapter, read_at: todayISO, plan_id: planId, presetKey: presetKey });
+        state.readingLogs.push({ book, chapter, read_at: todayISO, plan_id: planId, presetKey: presetKey, round: round });
         
         if (state.isSupabaseMode && state.supabase) {
           const { data: { user } } = await state.supabase.auth.getUser();
@@ -397,7 +406,8 @@ const db = {
               plan_id: planId,
               book,
               chapter,
-              read_at: todayISO
+              read_at: todayISO,
+              round: round
             });
           }
         }
@@ -406,7 +416,7 @@ const db = {
         if (state.isSupabaseMode && state.supabase) {
           const { data: { user } } = await state.supabase.auth.getUser();
           if (user) {
-            let query = state.supabase.from("reading_logs").update({ read_at: todayISO }).eq("user_id", user.id).eq("book", book).eq("chapter", chapter);
+            let query = state.supabase.from("reading_logs").update({ read_at: todayISO }).eq("user_id", user.id).eq("book", book).eq("chapter", chapter).eq("round", round);
             if (planId) {
               query = query.eq("plan_id", planId);
             } else {
@@ -417,12 +427,17 @@ const db = {
         }
       }
     } else {
-      state.readingLogs = state.readingLogs.filter(l => !(l.book === book && l.chapter === chapter && (l.plan_id === planId || l.presetKey === presetKey)));
+      state.readingLogs = state.readingLogs.filter(l => !(
+        l.book === book && 
+        l.chapter === chapter && 
+        (l.plan_id === planId || l.presetKey === presetKey) &&
+        (l.round || 1) === round
+      ));
       
       if (state.isSupabaseMode && state.supabase) {
         const { data: { user } } = await state.supabase.auth.getUser();
         if (user) {
-          let query = state.supabase.from("reading_logs").delete().eq("user_id", user.id).eq("book", book).eq("chapter", chapter);
+          let query = state.supabase.from("reading_logs").delete().eq("user_id", user.id).eq("book", book).eq("chapter", chapter).eq("round", round);
           if (planId) {
             query = query.eq("plan_id", planId);
           } else {
@@ -821,7 +836,10 @@ const db = {
             name: planName,
             start_date: startDate,
             end_date: endDate,
-            target_books: selectedBooks
+            target_books: selectedBooks,
+            level: 'normal',
+            current_round: 1,
+            was_downgraded: false
           }).select().single();
 
           if (error) {

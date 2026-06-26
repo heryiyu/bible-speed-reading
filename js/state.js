@@ -119,9 +119,6 @@ const appRouter = {
       if (typeof renderAdminUserManagement !== 'undefined') {
         renderAdminUserManagement();
       }
-      if (typeof renderAdminPlanManagement !== 'undefined') {
-        renderAdminPlanManagement();
-      }
       if (typeof renderAdminOrgManagement !== 'undefined') {
         renderAdminOrgManagement();
       }

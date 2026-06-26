@@ -69,6 +69,10 @@ function initReaderControls() {
     if (state.activePlan) {
       const planDayChKey = `${bookObj.name}_${state.readerState.chapter}`;
       updatePlanCheckboxState(planDayChKey, isChecked);
+      calculatePlanProgress();
+      if (state.activePlan.progress === 100) {
+        await handleRoundCompletion(state.activePlan);
+      }
     }
     loader.hide();
   });

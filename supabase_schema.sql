@@ -145,6 +145,9 @@ CREATE TABLE IF NOT EXISTS public.reading_plans (
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
   target_books TEXT[] NOT NULL,
+  level TEXT DEFAULT 'normal' NOT NULL,
+  current_round INTEGER DEFAULT 1 NOT NULL,
+  was_downgraded BOOLEAN DEFAULT FALSE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -156,8 +159,9 @@ CREATE TABLE IF NOT EXISTS public.reading_logs (
   book TEXT NOT NULL,
   chapter INTEGER NOT NULL,
   read_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  round INTEGER DEFAULT 1 NOT NULL,
   
-  CONSTRAINT unique_user_plan_book_chapter UNIQUE (user_id, plan_id, book, chapter)
+  CONSTRAINT unique_user_plan_book_chapter_round UNIQUE (user_id, plan_id, book, chapter, round)
 );
 
 -- ==========================================

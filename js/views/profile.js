@@ -157,6 +157,9 @@ function renderProfileView() {
   if (typeof updateAdminNavVisibility === 'function') {
     updateAdminNavVisibility();
   }
+
+  // Render reading stats card
+  renderProfileReadingStats();
 }
 
 // Initialize profile & auth page controls on page load
@@ -289,10 +292,6 @@ function initProfileControls() {
     };
   }
 
-  // Initialize Global Plans Admin Controls
-  if (typeof initAdminPlanManagement === 'function') {
-    initAdminPlanManagement();
-  }
   if (typeof initAdminOrgManagement === 'function') {
     initAdminOrgManagement();
   }
@@ -546,211 +545,17 @@ function updateAdminNavVisibility() {
       btn.classList.add("hidden");
     }
   });
+
+  document.querySelectorAll(".admin-only-plan-card").forEach(card => {
+    if (shouldShowNav) {
+      card.classList.remove("hidden");
+    } else {
+      card.classList.add("hidden");
+    }
+  });
 }
 
-function initAdminPlanManagement() {
-  const addBtn = document.getElementById("admin-add-plan-btn");
-  const cancelBtn = document.getElementById("admin-cancel-plan-btn");
-  const saveBtn = document.getElementById("admin-save-plan-btn");
-  const formContainer = document.getElementById("admin-plan-form-container");
 
-  if (!addBtn || !cancelBtn || !saveBtn || !formContainer) return;
-
-  // Render Bible books selection grids
-  const oldGrid = document.getElementById("admin-old-books-grid");
-  const newGrid = document.getElementById("admin-new-books-grid");
-
-  if (oldGrid && newGrid) {
-    oldGrid.innerHTML = "";
-    newGrid.innerHTML = "";
-    BIBLE_BOOKS.forEach(book => {
-      const label = document.createElement("label");
-      label.style = `
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        font-size: 0.72rem;
-        cursor: pointer;
-        padding: 0.2rem 0.3rem;
-        border-radius: 4px;
-        background: white;
-        border: 1px solid var(--border-card);
-        user-select: none;
-      `;
-      label.innerHTML = `
-        <input type="checkbox" class="admin-book-checkbox" value="${book.name}" style="margin: 0; cursor: pointer;">
-        ${book.name}
-      `;
-      if (book.section === "old") {
-        oldGrid.appendChild(label);
-      } else {
-        newGrid.appendChild(label);
-      }
-    });
-  }
-
-  // Bind quick select buttons
-  document.getElementById("admin-select-all-books").onclick = () => {
-    document.querySelectorAll(".admin-book-checkbox").forEach(cb => cb.checked = true);
-  };
-  document.getElementById("admin-clear-books").onclick = () => {
-    document.querySelectorAll(".admin-book-checkbox").forEach(cb => cb.checked = false);
-  };
-  document.getElementById("admin-select-old-books").onclick = () => {
-    BIBLE_BOOKS.forEach(book => {
-      const cb = document.querySelector(`.admin-book-checkbox[value="${book.name}"]`);
-      if (cb) cb.checked = book.section === "old";
-    });
-  };
-  document.getElementById("admin-select-new-books").onclick = () => {
-    BIBLE_BOOKS.forEach(book => {
-      const cb = document.querySelector(`.admin-book-checkbox[value="${book.name}"]`);
-      if (cb) cb.checked = book.section === "new";
-    });
-  };
-
-  // Toggle Form
-  addBtn.onclick = () => {
-    document.getElementById("admin-plan-form-title").textContent = "新增讀經計畫";
-    document.getElementById("admin-edit-plan-id").value = "";
-    document.getElementById("admin-plan-name").value = "";
-    document.getElementById("admin-plan-start-date").value = "";
-    document.getElementById("admin-plan-end-date").value = "";
-    document.querySelectorAll(".admin-book-checkbox").forEach(cb => cb.checked = false);
-    formContainer.classList.remove("hidden");
-  };
-
-  cancelBtn.onclick = () => {
-    formContainer.classList.add("hidden");
-  };
-
-  // Save Plan
-  saveBtn.onclick = async () => {
-    const id = document.getElementById("admin-edit-plan-id").value;
-    const name = document.getElementById("admin-plan-name").value.trim();
-    const startDate = document.getElementById("admin-plan-start-date").value;
-    const endDate = document.getElementById("admin-plan-end-date").value;
-
-    const checkedBooks = [];
-    document.querySelectorAll(".admin-book-checkbox:checked").forEach(cb => {
-      checkedBooks.push(cb.value);
-    });
-
-    if (!name) {
-      alert("請輸入計畫名稱！");
-      return;
-    }
-    if (!startDate || !endDate) {
-      alert("請選擇計畫開始與結束日期！");
-      return;
-    }
-    if (new Date(startDate) > new Date(endDate)) {
-      alert("開始日期不可晚於結束日期！");
-      return;
-    }
-    if (checkedBooks.length === 0) {
-      alert("請至少選取一個聖經書卷！");
-      return;
-    }
-
-    loader.show("正在儲存計畫...");
-    const success = await db.saveGlobalPlan({
-      id: id || null,
-      name,
-      startDate,
-      endDate,
-      books: checkedBooks
-    });
-    loader.hide();
-
-    if (success) {
-      alert("計畫儲存成功！");
-      formContainer.classList.add("hidden");
-      renderAdminPlanManagement();
-      if (typeof renderPresetPlansList === 'function') {
-        renderPresetPlansList();
-      }
-    }
-  };
-}
-
-async function renderAdminPlanManagement() {
-  const tableBody = document.getElementById("admin-plans-table-body");
-  if (!tableBody) return;
-
-  tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">載入計畫列表中...</td></tr>`;
-
-  try {
-    const plans = state.globalPlans || [];
-    tableBody.innerHTML = "";
-
-    if (plans.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">目前無任何計畫，請點擊上方「新增計畫」建立</td></tr>`;
-      return;
-    }
-
-    plans.forEach(plan => {
-      const tr = document.createElement("tr");
-
-      const bookListText = plan.books.join(", ");
-      const bookCount = plan.books.length;
-      const booksDisplay = bookCount > 6 
-        ? `<span title="${bookListText}" style="cursor: help; text-decoration: underline dashed; text-underline-offset: 3px;">${plan.books.slice(0, 6).join(", ")}... 等 ${bookCount} 卷</span>`
-        : bookListText;
-
-      tr.innerHTML = `
-        <td><strong>${escapeHTML(plan.name)}</strong></td>
-        <td><span style="font-size: 0.8rem; font-weight: 600;">📅 ${plan.startDate} ~ ${plan.endDate}</span></td>
-        <td><span style="font-size: 0.78rem;">${booksDisplay}</span></td>
-        <td style="text-align: center; vertical-align: middle;">
-          <div style="display: flex; gap: 0.3rem; justify-content: center;">
-            <button class="primary-btn admin-edit-plan-btn" style="font-size: 0.72rem; padding: 0.2rem 0.5rem; height: auto; cursor: pointer;">編輯</button>
-            <button class="danger-btn admin-delete-plan-btn" style="font-size: 0.72rem; padding: 0.2rem 0.5rem; height: auto; cursor: pointer;">刪除</button>
-          </div>
-        </td>
-      `;
-
-      // Bind edit event
-      tr.querySelector(".admin-edit-plan-btn").onclick = () => {
-        document.getElementById("admin-plan-form-title").textContent = "編輯讀經計畫";
-        document.getElementById("admin-edit-plan-id").value = plan.id;
-        document.getElementById("admin-plan-name").value = plan.name;
-        document.getElementById("admin-plan-start-date").value = plan.startDate;
-        document.getElementById("admin-plan-end-date").value = plan.endDate;
-        
-        // Check corresponding books
-        document.querySelectorAll(".admin-book-checkbox").forEach(cb => {
-          cb.checked = plan.books.includes(cb.value);
-        });
-
-        document.getElementById("admin-plan-form-container").classList.remove("hidden");
-        document.getElementById("admin-plan-form-container").scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      };
-
-      // Bind delete event
-      tr.querySelector(".admin-delete-plan-btn").onclick = async () => {
-        if (confirm(`您確定要刪除「${plan.name}」嗎？這將使其他會友無法再從列表「加入」此計畫，但已加入該計畫之會友仍可照常閱讀及打卡。`)) {
-          loader.show("刪除計畫中...");
-          const success = await db.deleteGlobalPlan(plan.id);
-          loader.hide();
-          if (success) {
-            alert("計畫已成功刪除！");
-            renderAdminPlanManagement();
-            if (typeof renderPresetPlansList === 'function') {
-              renderPresetPlansList();
-            }
-          }
-        }
-      };
-
-      tableBody.appendChild(tr);
-    });
-
-  } catch (err) {
-    console.error("Failed to render admin plans:", err);
-    tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">載入計畫失敗: ${err.message || err}</td></tr>`;
-  }
-}
 
 function initAdminOrgManagement() {
   const regionSelect = document.getElementById("admin-org-region");
@@ -1115,4 +920,294 @@ function initAvatarDropdown() {
     });
   }
 }
+
+// ─────────────────────────────────────────────
+// Personal Reading Stats Calculation & Rendering
+// ─────────────────────────────────────────────
+
+/**
+ * Calculate reading statistics for the active plan.
+ */
+function calculateProfileStats(plan) {
+  if (!plan) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(plan.startDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(plan.endDate);
+  end.setHours(0, 0, 0, 0);
+
+  const totalDays = plan.totalDays || (Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+  const elapsedDays = Math.max(0, Math.min(totalDays, Math.round((today - start) / (1000 * 60 * 60 * 24)) + 1));
+
+  const level = plan.level || 'normal';
+  let targetRounds = 1;
+  if (level === 'breakthrough') targetRounds = 2;
+  else if (level === 'super') targetRounds = 3;
+
+  // 1. Calculate actual completed chapters across all relevant rounds
+  let actualCompletedChapters = 0;
+  for (let r = 1; r <= targetRounds; r++) {
+    const roundLogs = state.readingLogs.filter(l => 
+      (l.plan_id === plan.id || l.presetKey === plan.presetKey) &&
+      (l.round || 1) === r
+    );
+    const uniqueChapters = new Set(roundLogs.map(l => `${l.book}_${l.chapter}`));
+    
+    let planChaptersCount = 0;
+    plan.days.forEach(day => {
+      day.chapters.forEach(ch => {
+        if (uniqueChapters.has(`${ch.book}_${ch.chapter}`)) {
+          planChaptersCount++;
+        }
+      });
+    });
+    actualCompletedChapters += planChaptersCount;
+  }
+
+  // 2. Build cumulative scheduled chapters list
+  const cumulativeScheduled = [];
+  let sum = 0;
+  for (let i = 0; i < totalDays; i++) {
+    sum += plan.days[i].chapters.length;
+    cumulativeScheduled.push(sum * targetRounds);
+  }
+
+  // 3. Find equivalent day completed
+  let equivalentDay = 0;
+  for (let d = 1; d <= totalDays; d++) {
+    if (actualCompletedChapters >= cumulativeScheduled[d - 1]) {
+      equivalentDay = d;
+    } else {
+      break;
+    }
+  }
+
+  // 4. Calculate lag and lead days
+  let lagDays = 0;
+  let leadDays = 0;
+
+  const currentRound = plan.currentRound || 1;
+  // If currentRound >= 4, the user is in self-managed phase, no lag/lead scheduling checks
+  if (currentRound < 4 && elapsedDays > 0) {
+    const diff = equivalentDay - elapsedDays;
+    if (diff > 0) {
+      leadDays = diff;
+    } else if (diff < 0) {
+      lagDays = -diff;
+    }
+  }
+
+  // 5. Calculate makeup days
+  let makeupDays = 0;
+  for (let r = 1; r <= targetRounds; r++) {
+    plan.days.forEach((day, index) => {
+      const d = index + 1;
+      
+      const scheduledDate = new Date(start);
+      scheduledDate.setDate(start.getDate() + (d - 1));
+      const scheduledDateStr = scheduledDate.toISOString().substring(0, 10);
+      
+      const roundLogs = state.readingLogs.filter(l => 
+        (l.plan_id === plan.id || l.presetKey === plan.presetKey) &&
+        (l.round || 1) === r
+      );
+      
+      let allChaptersCompleted = true;
+      let maxReadDateStr = "";
+      
+      for (const ch of day.chapters) {
+        const log = roundLogs.find(l => l.book === ch.book && l.chapter === ch.chapter);
+        if (!log) {
+          allChaptersCompleted = false;
+          break;
+        }
+        const logDateStr = log.read_at.substring(0, 10);
+        if (!maxReadDateStr || logDateStr > maxReadDateStr) {
+          maxReadDateStr = logDateStr;
+        }
+      }
+      
+      if (allChaptersCompleted && maxReadDateStr) {
+        if (maxReadDateStr > scheduledDateStr) {
+          makeupDays++;
+        }
+      }
+    });
+  }
+
+  return {
+    elapsedDays,
+    totalDays,
+    lagDays,
+    leadDays,
+    makeupDays,
+    startDateStr: plan.startDate,
+    endDateStr: plan.endDate,
+    currentRound
+  };
+}
+
+/**
+ * Render personal reading stats card.
+ */
+function renderProfileReadingStats() {
+  const container = document.getElementById("profile-reading-stats-container");
+  if (!container) return;
+
+  const streakDays = state.currentUser.streak || 0;
+  const plan = state.activePlan;
+  const stats = calculateProfileStats(plan);
+
+  if (!plan || !stats) {
+    // Empty state
+    container.innerHTML = `
+      <div class="empty-state" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+        <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 1rem; opacity: 0.6; display: block;">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="9" y1="15" x2="15" y2="15"></line>
+          <line x1="9" y1="19" x2="15" y2="19"></line>
+          <line x1="9" y1="11" x2="10" y2="11"></line>
+        </svg>
+        <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-primary);">尚未加入讀經計畫</p>
+        <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1.5rem;">
+          請至「讀經計畫」頁面選擇並加入任一計畫，即可在此查看詳細的進度統計。
+        </p>
+        
+        <div class="stat-item-card" style="background: rgba(255, 255, 255, 0.2); border: 1px solid var(--border-card); padding: 0.8rem 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; text-align: left;">
+          <div style="display: flex; align-items: center; gap: 0.8rem;">
+            <div class="stat-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444;">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+            </div>
+            <div>
+              <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">連續讀經</div>
+            </div>
+          </div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: #ef4444; display: flex; align-items: baseline; gap: 0.1rem;">
+            ${streakDays} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">天</span>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // Determine Today's Progress display string
+  let todayProgressText = "";
+  const start = new Date(stats.startDateStr);
+  const end = new Date(stats.endDateStr);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  start.setHours(0,0,0,0);
+  end.setHours(0,0,0,0);
+
+  if (today < start) {
+    todayProgressText = `<span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">尚未開始 (開始於 ${stats.startDateStr})</span>`;
+  } else if (today > end) {
+    todayProgressText = `<span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">已結束 (共 ${stats.totalDays} 天)</span>`;
+  } else {
+    todayProgressText = `<span style="font-size: 1.25rem; font-weight: 800; color: var(--primary-color);">${stats.elapsedDays}</span> <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">/ ${stats.totalDays} 天</span>`;
+  }
+
+  const lagDisplay = stats.lagDays > 0 
+    ? `${stats.lagDays} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">天</span>`
+    : `<span style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted);">0 天</span>`;
+
+  const leadDisplay = stats.leadDays > 0
+    ? `${stats.leadDays} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">天</span>`
+    : `<span style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted);">0 天</span>`;
+
+  const makeupDisplay = stats.makeupDays > 0
+    ? `${stats.makeupDays} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">天</span>`
+    : `<span style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted);">0 天</span>`;
+
+  container.innerHTML = `
+    <div class="profile-stats-grid" style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
+      
+      <!-- Today's Day -->
+      <div class="stat-item-card" style="background: rgba(255, 255, 255, 0.18); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.8rem;">
+          <div class="stat-icon-wrapper" style="background: rgba(99, 102, 241, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary-color);">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">今天計畫進度</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem;">目前已進行的計畫天數</div>
+          </div>
+        </div>
+        <div style="font-weight: 800; display: flex; align-items: baseline; gap: 0.1rem;">
+          ${todayProgressText}
+        </div>
+      </div>
+
+      <!-- Consecutive Streak -->
+      <div class="stat-item-card" style="background: rgba(255, 255, 255, 0.18); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.8rem;">
+          <div class="stat-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ef4444;">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">連續讀經</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem;">每日穩定靈修天數</div>
+          </div>
+        </div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: #ef4444; display: flex; align-items: baseline; gap: 0.1rem;">
+          ${streakDays} <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">天</span>
+        </div>
+      </div>
+
+      <!-- Behind Days -->
+      <div class="stat-item-card" style="background: rgba(255, 255, 255, 0.18); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.8rem;">
+          <div class="stat-icon-wrapper" style="background: ${stats.lagDays > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(229, 231, 235, 0.2)'}; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: ${stats.lagDays > 0 ? '#ef4444' : 'var(--text-muted)'};">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">落後進度</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem;">落後預計進度天數</div>
+          </div>
+        </div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: ${stats.lagDays > 0 ? '#ef4444' : 'var(--text-secondary)'}; display: flex; align-items: baseline; gap: 0.1rem;">
+          ${lagDisplay}
+        </div>
+      </div>
+
+      <!-- Ahead Days -->
+      <div class="stat-item-card" style="background: rgba(255, 255, 255, 0.18); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.8rem;">
+          <div class="stat-icon-wrapper" style="background: ${stats.leadDays > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(229, 231, 235, 0.2)'}; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: ${stats.leadDays > 0 ? '#10b981' : 'var(--text-muted)'};">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">超前進度</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem;">超前預計進度天數</div>
+          </div>
+        </div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: ${stats.leadDays > 0 ? '#10b981' : 'var(--text-secondary)'}; display: flex; align-items: baseline; gap: 0.1rem;">
+          ${leadDisplay}
+        </div>
+      </div>
+
+      <!-- Makeup Days -->
+      <div class="stat-item-card" style="background: rgba(255, 255, 255, 0.18); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 0.8rem;">
+          <div class="stat-icon-wrapper" style="background: ${stats.makeupDays > 0 ? 'rgba(59, 130, 246, 0.1)' : 'rgba(229, 231, 235, 0.2)'}; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: ${stats.makeupDays > 0 ? '#3b82f6' : 'var(--text-muted)'};">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+          </div>
+          <div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">補讀天數</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem;">事後補讀完畢天數</div>
+          </div>
+        </div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: ${stats.makeupDays > 0 ? '#3b82f6' : 'var(--text-secondary)'}; display: flex; align-items: baseline; gap: 0.1rem;">
+          ${makeupDisplay}
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
 
