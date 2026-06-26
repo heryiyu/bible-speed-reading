@@ -82,4 +82,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.error("Service Worker registration failed:", err);
     }
   }
+
+  // 9. Final Auth Verification check (handles race conditions during asynchronous token recovery)
+  try {
+    if (state.isSupabaseMode && state.supabase) {
+      setTimeout(async () => {
+        const { data: { session } } = await state.supabase.auth.getSession();
+        if (session) {
+          console.log("Auth session recovered in delayed check:", session);
+          db.updateAuthUI(session);
+          await db.loadUserData();
+          updateDashboardView();
+        }
+      }, 500); // 500ms delay to allow async Supabase session recovery to complete
+    }
+  } catch (err) {
+    console.error("Failed in final auth verification check:", err);
+  }
 });

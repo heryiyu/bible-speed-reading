@@ -26,16 +26,20 @@ const db = {
 
         // Setup session listener
         state.supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log("Auth state changed:", event);
-          this.updateAuthUI(session);
-          await this.loadUserData();
-          
-          if (appRouter.currentTab === "dashboard-view") {
-            updateDashboardView();
-          } else if (appRouter.currentTab === "profile-view") {
-            renderProfileView();
-          } else if (appRouter.currentTab === "stats-view") {
-            updateStatsView();
+          try {
+            console.log("Auth state changed:", event, !!session);
+            this.updateAuthUI(session);
+            await this.loadUserData();
+            
+            if (appRouter.currentTab === "dashboard-view") {
+              updateDashboardView();
+            } else if (appRouter.currentTab === "profile-view") {
+              renderProfileView();
+            } else if (appRouter.currentTab === "stats-view") {
+              updateStatsView();
+            }
+          } catch (err) {
+            console.error("Error in onAuthStateChange callback:", err);
           }
         });
       } catch (e) {
