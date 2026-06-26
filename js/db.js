@@ -8,7 +8,6 @@ const db = {
     const statusBadge = document.getElementById("connection-status");
     const authSection = document.getElementById("sb-auth-section");
     const placeholder = document.getElementById("sb-disconnected-placeholder");
-    const profileCardCol = document.getElementById("profile-card-col");
 
     if (sbUrl && sbKey) {
       try {
@@ -19,15 +18,7 @@ const db = {
         // Update Status Badge
         statusBadge.className = "status-badge online";
         statusBadge.querySelector(".status-text").textContent = "線上模式";
-        if (authSection) {
-          authSection.classList.remove("hidden");
-          authSection.className = "card-col span-4";
-        }
         if (placeholder) placeholder.classList.add("hidden");
-        
-        if (profileCardCol) {
-          profileCardCol.className = "card-col span-8";
-        }
         
         // Check Auth Session
         const { data: { session } } = await state.supabase.auth.getSession();
@@ -78,29 +69,18 @@ const db = {
 
   // Handle Supabase Auth UI Switches
   updateAuthUI(session) {
-    const loggedOutDiv = document.getElementById("auth-logged-out");
-    const loggedInDiv = document.getElementById("auth-logged-in");
-    const userEmailSpan = document.getElementById("auth-user-email");
     const loginGate = document.getElementById("login-gate");
     const appLayout = document.querySelector(".app-layout");
 
     const isLoggedIn = !!(session && session.user);
 
     if (isLoggedIn) {
-      if (loggedOutDiv) loggedOutDiv.classList.add("hidden");
-      if (loggedInDiv) loggedInDiv.classList.remove("hidden");
-      if (userEmailSpan) userEmailSpan.textContent = session.user.email;
-      
       // Online mode: Hide login gate, show app container
       if (state.isSupabaseMode) {
         if (loginGate) loginGate.classList.add("hidden");
         if (appLayout) appLayout.classList.remove("hidden");
       }
     } else {
-      if (loggedOutDiv) loggedOutDiv.classList.remove("hidden");
-      if (loggedInDiv) loggedInDiv.classList.add("hidden");
-      if (userEmailSpan) userEmailSpan.textContent = "";
-
       // Online mode: Show login gate, hide app container
       if (state.isSupabaseMode) {
         if (loginGate) loginGate.classList.remove("hidden");
@@ -110,6 +90,10 @@ const db = {
         if (loginGate) loginGate.classList.add("hidden");
         if (appLayout) appLayout.classList.remove("hidden");
       }
+    }
+
+    if (typeof updateHeaderAvatar === 'function') {
+      updateHeaderAvatar();
     }
   },
 

@@ -11,6 +11,11 @@ function renderProfileView() {
   const customGroupInput = document.getElementById("profile-group-custom");
   const roleDisplay = document.getElementById("profile-role-display");
 
+  // Keep custom inputs hidden as we are separating database structure management
+  if (customGreatRegionInput) customGreatRegionInput.classList.add("hidden");
+  if (customZoneInput) customZoneInput.classList.add("hidden");
+  if (customGroupInput) customGroupInput.classList.add("hidden");
+
   const roleNames = {
     member: "一般組員",
     group_leader: "小組長",
@@ -34,93 +39,37 @@ function renderProfileView() {
   });
   
   const userGreatRegion = state.currentUser.great_region;
-  const isAdmin = state.currentUser.role === "admin" || state.currentUser.role === "senior_pastor";
 
-  if (isAdmin) {
-    const customOpt = document.createElement("option");
-    customOpt.value = "custom";
-    customOpt.textContent = "自訂大區...";
-    greatRegionSelect.appendChild(customOpt);
-  } else {
-    if (userGreatRegion && !greatRegionsList.includes(userGreatRegion)) {
-      const tempOpt = document.createElement("option");
-      tempOpt.value = userGreatRegion;
-      tempOpt.textContent = userGreatRegion + " (唯讀)";
-      greatRegionSelect.appendChild(tempOpt);
-    }
+  // Append user's value if it's not in the database, without "(唯讀)"
+  if (userGreatRegion && !greatRegionsList.includes(userGreatRegion)) {
+    const tempOpt = document.createElement("option");
+    tempOpt.value = userGreatRegion;
+    tempOpt.textContent = userGreatRegion;
+    greatRegionSelect.appendChild(tempOpt);
   }
 
-  if (userGreatRegion) {
-    if (greatRegionsList.includes(userGreatRegion)) {
-      greatRegionSelect.value = userGreatRegion;
-      customGreatRegionInput.classList.add("hidden");
-    } else {
-      if (isAdmin) {
-        greatRegionSelect.value = "custom";
-        customGreatRegionInput.classList.remove("hidden");
-        customGreatRegionInput.value = userGreatRegion;
-      } else {
-        greatRegionSelect.value = userGreatRegion;
-        customGreatRegionInput.classList.add("hidden");
-      }
-    }
-  } else {
-    greatRegionSelect.value = "";
-    customGreatRegionInput.classList.add("hidden");
-  }
+  greatRegionSelect.value = userGreatRegion || "";
 
   populateProfileZones(greatRegionSelect.value);
 
   greatRegionSelect.onchange = () => {
-    if (greatRegionSelect.value === "custom") {
-      customGreatRegionInput.classList.remove("hidden");
-    } else {
-      customGreatRegionInput.classList.add("hidden");
-    }
     populateProfileZones(greatRegionSelect.value);
     populateProfileGroupSelector();
   };
 
-  customGreatRegionInput.oninput = () => {
-    populateProfileZones("custom");
-  };
-
   zoneSelect.onchange = () => {
-    if (zoneSelect.value === "custom") {
-      customZoneInput.classList.remove("hidden");
-    } else {
-      customZoneInput.classList.add("hidden");
-    }
     populateProfileGroupSelector();
   };
 
-  groupSelect.onchange = () => {
-    if (groupSelect.value === "custom") {
-      customGroupInput.classList.remove("hidden");
-    } else {
-      customGroupInput.classList.add("hidden");
-    }
-  };
+  groupSelect.onchange = () => {};
 
   // Submit profile details
   document.getElementById("profile-form").onsubmit = async (e) => {
     e.preventDefault();
     const name = document.getElementById("profile-name").value.trim();
-    
-    let greatRegion = greatRegionSelect.value;
-    if (greatRegion === "custom") {
-      greatRegion = customGreatRegionInput.value.trim();
-    }
-
-    let zone = zoneSelect.value;
-    if (zone === "custom") {
-      zone = customZoneInput.value.trim();
-    }
-
-    let group = groupSelect.value;
-    if (group === "custom") {
-      group = customGroupInput.value.trim();
-    }
+    const greatRegion = greatRegionSelect.value;
+    const zone = zoneSelect.value;
+    const group = groupSelect.value;
 
     if (!greatRegion || !zone || !group) {
       alert("請完整填寫大區、牧區與小組資料！");
@@ -312,6 +261,12 @@ function initProfileControls() {
   if (typeof initAdminPlanManagement === 'function') {
     initAdminPlanManagement();
   }
+  if (typeof initAdminOrgManagement === 'function') {
+    initAdminOrgManagement();
+  }
+
+  // Initialize header avatar dropdown
+  initAvatarDropdown();
 }
 
 // Render administrative User Permission Management table
@@ -416,38 +371,16 @@ async function renderAdminUserManagement() {
 
 function populateProfileZones(greatRegion) {
   const zoneSelect = document.getElementById("profile-zone");
-  const customZoneInput = document.getElementById("profile-zone-custom");
   const userZone = state.currentUser.pastoral_zone;
-  const isAdmin = state.currentUser.role === "admin" || state.currentUser.role === "senior_pastor";
 
   zoneSelect.innerHTML = `<option value="">-- 請選擇牧區 --</option>`;
-  customZoneInput.classList.add("hidden");
 
   if (!greatRegion) return;
-
-  if (greatRegion === "custom") {
-    if (isAdmin) {
-      zoneSelect.innerHTML += `<option value="custom">自訂牧區...</option>`;
-      if (userZone) {
-        zoneSelect.value = "custom";
-        customZoneInput.classList.remove("hidden");
-        customZoneInput.value = userZone;
-      }
-    } else {
-      if (userZone) {
-        const tempOpt = document.createElement("option");
-        tempOpt.value = userZone;
-        tempOpt.textContent = userZone + " (唯讀)";
-        tempOpt.selected = true;
-        zoneSelect.appendChild(tempOpt);
-      }
-    }
-    return;
-  }
 
   const predefinedZones = (state.orgStructure && state.orgStructure.zones && state.orgStructure.zones[greatRegion]) 
     ? state.orgStructure.zones[greatRegion] 
     : (MOCK_PASTORAL_ZONES_BY_REGION[greatRegion] || []);
+  
   predefinedZones.forEach(zName => {
     const option = document.createElement("option");
     option.value = zName;
@@ -458,36 +391,24 @@ function populateProfileZones(greatRegion) {
     zoneSelect.appendChild(option);
   });
 
-  if (isAdmin) {
-    const customOpt = document.createElement("option");
-    customOpt.value = "custom";
-    customOpt.textContent = "自訂牧區...";
-    if (userZone && !predefinedZones.includes(userZone)) {
-      customOpt.selected = true;
-      customZoneInput.classList.remove("hidden");
-      customZoneInput.value = userZone;
-    }
-    zoneSelect.appendChild(customOpt);
-  } else {
-    if (userZone && !predefinedZones.includes(userZone)) {
-      const tempOpt = document.createElement("option");
-      tempOpt.value = userZone;
-      tempOpt.textContent = userZone + " (唯讀)";
-      tempOpt.selected = true;
-      zoneSelect.appendChild(tempOpt);
-    }
+  // Append user's value if it's not in the predefined list, without "(唯讀)"
+  if (userZone && !predefinedZones.includes(userZone)) {
+    const tempOpt = document.createElement("option");
+    tempOpt.value = userZone;
+    tempOpt.textContent = userZone;
+    tempOpt.selected = true;
+    zoneSelect.appendChild(tempOpt);
   }
+
+  zoneSelect.value = userZone || "";
 }
 
 function populateProfileGroupSelector() {
   const zoneSelect = document.getElementById("profile-zone");
   const groupSelect = document.getElementById("profile-group");
-  const customGroupInput = document.getElementById("profile-group-custom");
   const userGroup = state.currentUser.small_group;
-  const isAdmin = state.currentUser.role === "admin" || state.currentUser.role === "senior_pastor";
 
   groupSelect.innerHTML = `<option value="">-- 請選擇小組 --</option>`;
-  customGroupInput.classList.add("hidden");
 
   const zone = zoneSelect.value;
   if (!zone) return;
@@ -506,40 +427,16 @@ function populateProfileGroupSelector() {
     groupSelect.appendChild(option);
   });
 
-  if (isAdmin) {
-    const customOpt = document.createElement("option");
-    customOpt.value = "custom";
-    customOpt.textContent = "自訂小組...";
-    if (userGroup && !predefinedGroups.includes(userGroup) && zone !== "custom") {
-      customOpt.selected = true;
-      customGroupInput.classList.remove("hidden");
-      customGroupInput.value = userGroup;
-    }
-    groupSelect.appendChild(customOpt);
-
-    if (zone === "custom") {
-      groupSelect.value = "custom";
-      customGroupInput.classList.remove("hidden");
-      customGroupInput.value = userGroup || "";
-    }
-  } else {
-    if (userGroup && !predefinedGroups.includes(userGroup) && zone !== "custom") {
-      const tempOpt = document.createElement("option");
-      tempOpt.value = userGroup;
-      tempOpt.textContent = userGroup + " (唯讀)";
-      tempOpt.selected = true;
-      groupSelect.appendChild(tempOpt);
-    }
-    if (zone === "custom") {
-      if (userGroup) {
-        const tempOpt = document.createElement("option");
-        tempOpt.value = userGroup;
-        tempOpt.textContent = userGroup + " (唯讀)";
-        tempOpt.selected = true;
-        groupSelect.appendChild(tempOpt);
-      }
-    }
+  // Append user's value if it's not in the predefined list, without "(唯讀)"
+  if (userGroup && !predefinedGroups.includes(userGroup)) {
+    const tempOpt = document.createElement("option");
+    tempOpt.value = userGroup;
+    tempOpt.textContent = userGroup;
+    tempOpt.selected = true;
+    groupSelect.appendChild(tempOpt);
   }
+
+  groupSelect.value = userGroup || "";
 }
 
 function updateAdminNavVisibility() {
@@ -760,3 +657,368 @@ async function renderAdminPlanManagement() {
     tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">載入計畫失敗: ${err.message || err}</td></tr>`;
   }
 }
+
+function initAdminOrgManagement() {
+  const regionSelect = document.getElementById("admin-org-region");
+  const zoneSelect = document.getElementById("admin-org-zone");
+  const groupSelect = document.getElementById("admin-org-group");
+
+  if (!regionSelect || !zoneSelect || !groupSelect) return;
+
+  // Bind change handlers
+  regionSelect.onchange = () => {
+    populateAdminZones();
+  };
+
+  zoneSelect.onchange = () => {
+    populateAdminGroups();
+  };
+
+  // Bind click handlers for Great Region
+  document.getElementById("admin-add-region-btn").onclick = async () => {
+    const name = prompt("請輸入新大區名稱 (例如：東區)：");
+    if (name && name.trim()) {
+      loader.show("新增大區中...");
+      const success = await db.createGreatRegion(name.trim());
+      loader.hide();
+      if (success) {
+        alert("大區新增成功！");
+        renderAdminOrgManagement();
+        renderProfileView();
+      }
+    }
+  };
+
+  document.getElementById("admin-edit-region-btn").onclick = async () => {
+    const val = regionSelect.value;
+    if (!val) {
+      alert("請選擇要修改的大區！");
+      return;
+    }
+    const opt = regionSelect.options[regionSelect.selectedIndex];
+    const oldName = opt.text;
+    const newName = prompt(`請輸入大區「${oldName}」的新名稱：`, oldName);
+    if (newName && newName.trim() && newName.trim() !== oldName) {
+      loader.show("更新大區中...");
+      const success = await db.updateGreatRegion(val, newName.trim());
+      loader.hide();
+      if (success) {
+        alert("大區更新成功！");
+        renderAdminOrgManagement();
+        renderProfileView();
+      }
+    }
+  };
+
+  document.getElementById("admin-delete-region-btn").onclick = async () => {
+    const val = regionSelect.value;
+    if (!val) {
+      alert("請選擇要刪除的大區！");
+      return;
+    }
+    const opt = regionSelect.options[regionSelect.selectedIndex];
+    if (confirm(`您確定要刪除大區「${opt.text}」嗎？這將連帶刪除此大區下所有的牧區與小組！`)) {
+      loader.show("刪除大區中...");
+      const success = await db.deleteGreatRegion(val);
+      loader.hide();
+      if (success) {
+        alert("大區已成功刪除！");
+        renderAdminOrgManagement();
+        renderProfileView();
+      }
+    }
+  };
+
+  // Bind click handlers for Pastoral Zone
+  document.getElementById("admin-add-zone-btn").onclick = async () => {
+    const regionVal = regionSelect.value;
+    if (!regionVal) {
+      alert("請先選擇大區！牧區必須歸屬於某個大區下。");
+      return;
+    }
+    const name = prompt("請輸入新牧區名稱 (例如：大安1)：");
+    if (name && name.trim()) {
+      loader.show("新增牧區中...");
+      const success = await db.createPastoralZone(name.trim(), regionVal);
+      loader.hide();
+      if (success) {
+        alert("牧區新增成功！");
+        populateAdminZones();
+        renderProfileView();
+      }
+    }
+  };
+
+  document.getElementById("admin-edit-zone-btn").onclick = async () => {
+    const val = zoneSelect.value;
+    if (!val) {
+      alert("請選擇要修改的牧區！");
+      return;
+    }
+    const opt = zoneSelect.options[zoneSelect.selectedIndex];
+    const oldName = opt.text;
+    const newName = prompt(`請輸入牧區「${oldName}」的新名稱：`, oldName);
+    if (newName && newName.trim() && newName.trim() !== oldName) {
+      loader.show("更新牧區中...");
+      const success = await db.updatePastoralZone(val, newName.trim());
+      loader.hide();
+      if (success) {
+        alert("牧區更新成功！");
+        populateAdminZones();
+        renderProfileView();
+      }
+    }
+  };
+
+  document.getElementById("admin-delete-zone-btn").onclick = async () => {
+    const val = zoneSelect.value;
+    if (!val) {
+      alert("請選擇要刪除的牧區！");
+      return;
+    }
+    const opt = zoneSelect.options[zoneSelect.selectedIndex];
+    if (confirm(`您確定要刪除牧區「${opt.text}」嗎？這將連帶刪除此牧區下所有的小組！`)) {
+      loader.show("刪除牧區中...");
+      const success = await db.deletePastoralZone(val);
+      loader.hide();
+      if (success) {
+        alert("牧區已成功刪除！");
+        populateAdminZones();
+        renderProfileView();
+      }
+    }
+  };
+
+  // Bind click handlers for Small Group
+  document.getElementById("admin-add-group-btn").onclick = async () => {
+    const zoneVal = zoneSelect.value;
+    if (!zoneVal) {
+      alert("請先選擇牧區！小組必須歸屬於某個牧區下。");
+      return;
+    }
+    const name = prompt("請輸入新小組名稱 (例如：馬鈴)：");
+    if (name && name.trim()) {
+      loader.show("新增小組中...");
+      const success = await db.createSmallGroup(name.trim(), zoneVal);
+      loader.hide();
+      if (success) {
+        alert("小組新增成功！");
+        populateAdminGroups();
+        renderProfileView();
+      }
+    }
+  };
+
+  document.getElementById("admin-edit-group-btn").onclick = async () => {
+    const val = groupSelect.value;
+    if (!val) {
+      alert("請選擇要修改的小組！");
+      return;
+    }
+    const opt = groupSelect.options[groupSelect.selectedIndex];
+    const oldName = opt.text;
+    const newName = prompt(`請輸入小組「${oldName}」的新名稱：`, oldName);
+    if (newName && newName.trim() && newName.trim() !== oldName) {
+      loader.show("更新小組中...");
+      const success = await db.updateSmallGroup(val, newName.trim());
+      loader.hide();
+      if (success) {
+        alert("小組更新成功！");
+        populateAdminGroups();
+        renderProfileView();
+      }
+    }
+  };
+
+  document.getElementById("admin-delete-group-btn").onclick = async () => {
+    const val = groupSelect.value;
+    if (!val) {
+      alert("請選擇要刪除的小組！");
+      return;
+    }
+    const opt = groupSelect.options[groupSelect.selectedIndex];
+    if (confirm(`您確定要刪除小組「${opt.text}」嗎？`)) {
+      loader.show("刪除小組中...");
+      const success = await db.deleteSmallGroup(val);
+      loader.hide();
+      if (success) {
+        alert("小組已成功刪除！");
+        populateAdminGroups();
+        renderProfileView();
+      }
+    }
+  };
+}
+
+function renderAdminOrgManagement() {
+  const regionSelect = document.getElementById("admin-org-region");
+  const zoneSelect = document.getElementById("admin-org-zone");
+  const groupSelect = document.getElementById("admin-org-group");
+
+  if (!regionSelect || !zoneSelect || !groupSelect) return;
+
+  // 1. Populate Regions
+  regionSelect.innerHTML = `<option value="">-- 請選擇大區 --</option>`;
+  if (state.isSupabaseMode && state.orgStructure.rawRegions) {
+    state.orgStructure.rawRegions.forEach(r => {
+      regionSelect.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+    });
+  } else {
+    state.orgStructure.regions.forEach(rName => {
+      regionSelect.innerHTML += `<option value="${rName}">${rName}</option>`;
+    });
+  }
+
+  zoneSelect.innerHTML = `<option value="">-- 請選擇大區後載入 --</option>`;
+  groupSelect.innerHTML = `<option value="">-- 請選擇牧區後載入 --</option>`;
+}
+
+function populateAdminZones() {
+  const regionSelect = document.getElementById("admin-org-region");
+  const zoneSelect = document.getElementById("admin-org-zone");
+  const groupSelect = document.getElementById("admin-org-group");
+
+  zoneSelect.innerHTML = `<option value="">-- 請選擇牧區 --</option>`;
+  groupSelect.innerHTML = `<option value="">-- 請選擇牧區後載入 --</option>`;
+
+  const regionVal = regionSelect.value;
+  if (!regionVal) return;
+
+  if (state.isSupabaseMode && state.orgStructure.rawZones) {
+    const regionZones = state.orgStructure.rawZones.filter(z => z.great_region_id === regionVal);
+    regionZones.forEach(z => {
+      zoneSelect.innerHTML += `<option value="${z.id}">${z.name}</option>`;
+    });
+  } else {
+    const regionZones = state.orgStructure.zones[regionVal] || [];
+    regionZones.forEach(zName => {
+      zoneSelect.innerHTML += `<option value="${zName}">${zName}</option>`;
+    });
+  }
+}
+
+function populateAdminGroups() {
+  const zoneSelect = document.getElementById("admin-org-zone");
+  const groupSelect = document.getElementById("admin-org-group");
+
+  groupSelect.innerHTML = `<option value="">-- 請選擇小組 --</option>`;
+
+  const zoneVal = zoneSelect.value;
+  if (!zoneVal) return;
+
+  if (state.isSupabaseMode && state.orgStructure.rawGroups) {
+    const zoneGroups = state.orgStructure.rawGroups.filter(g => g.pastoral_zone_id === zoneVal);
+    zoneGroups.forEach(g => {
+      groupSelect.innerHTML += `<option value="${g.id}">${g.name}</option>`;
+    });
+  } else {
+    const zoneGroups = state.orgStructure.groups[zoneVal] || [];
+    zoneGroups.forEach(gName => {
+      groupSelect.innerHTML += `<option value="${gName}">${gName}</option>`;
+    });
+  }
+}
+
+// ─────────────────────────────────────────────
+// Header Avatar Dropdown
+// ─────────────────────────────────────────────
+
+/**
+ * Update the header avatar button and dropdown with current user info.
+ * Called by db.updateAuthUI() whenever auth state changes.
+ */
+function updateHeaderAvatar() {
+  const roleNames = {
+    member:            "一般組員",
+    group_leader:      "小組長",
+    zone_leader:       "區長",
+    great_zone_leader: "大區長",
+    senior_pastor:     "主任牧師",
+    admin:             "系統管理員"
+  };
+
+  const initial   = document.getElementById("user-avatar-initial");
+  const nameEl    = document.getElementById("dropdown-user-name");
+  const emailEl   = document.getElementById("dropdown-user-email");
+  const roleEl    = document.getElementById("dropdown-user-role");
+
+  if (!initial) return;
+
+  const userName  = state.currentUser.name || "用戶";
+  const userRole  = state.currentUser.role || "member";
+  const roleLabel = roleNames[userRole] || userRole;
+
+  // Avatar initial character
+  initial.textContent = userName.charAt(0) || "用";
+
+  // Name
+  if (nameEl) nameEl.textContent = userName;
+
+  // Email: show real email in Supabase mode, otherwise show offline label
+  if (emailEl) {
+    if (state.isSupabaseMode && state.supabase) {
+      state.supabase.auth.getUser().then(({ data }) => {
+        emailEl.textContent = (data && data.user && data.user.email) ? data.user.email : "Demo 離線模式";
+      });
+    } else {
+      emailEl.textContent = "Demo 離線模式";
+    }
+  }
+
+  // Role badge
+  if (roleEl) roleEl.textContent = roleLabel;
+}
+
+/**
+ * Wire up avatar dropdown toggle, click-outside-to-close, and logout.
+ * Called once during initProfileControls().
+ */
+function initAvatarDropdown() {
+  const container   = document.getElementById("user-avatar-container");
+  const btn         = document.getElementById("user-avatar-btn");
+  const dropdown    = document.getElementById("avatar-dropdown-menu");
+  const btnLogout   = document.getElementById("btn-avatar-logout");
+
+  if (!btn || !dropdown) return;
+
+  // Toggle dropdown on avatar click
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = !dropdown.classList.contains("hidden");
+    dropdown.classList.toggle("hidden", isOpen);
+    btn.setAttribute("aria-expanded", String(!isOpen));
+  });
+
+  // Close when clicking anywhere outside
+  document.addEventListener("click", (e) => {
+    if (container && !container.contains(e.target)) {
+      dropdown.classList.add("hidden");
+      btn.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  // Logout button
+  if (btnLogout) {
+    btnLogout.addEventListener("click", async (e) => {
+      e.preventDefault();
+      dropdown.classList.add("hidden");
+      loader.show("登出中...");
+      try {
+        if (state.isSupabaseMode && state.supabase) {
+          await state.supabase.auth.signOut();
+        }
+        state.realRole = null;
+        db.updateAuthUI(null);
+        await db.loadUserData();
+        updateHeaderAvatar();
+        alert("已成功登出。");
+        appRouter.switchTab("dashboard-view");
+      } catch (err) {
+        alert(`登出失敗: ${err.message}`);
+      } finally {
+        loader.hide();
+      }
+    });
+  }
+}
+
