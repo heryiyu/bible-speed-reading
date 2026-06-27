@@ -232,29 +232,7 @@
               </div>
             </div>
         </div>
-        <!-- Row 3: Pilgrimage Trail -->
-        <div class="grid-layout" style="margin-top: 1.5rem;">
-          <div class="card-col span-12">
-            <div class="glass-card pilgrimage-card" style="display: flex; flex-direction: column;">
-              <div class="card-header-flex" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
-                <h3 class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
-                  <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--primary-color)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                  聖經朝聖之路 (個人與團隊進度)
-                </h3>
-                <div class="zoom-controls" style="display: flex; gap: 0.5rem; align-items: center;">
-                  <button class="secondary-btn" id="decrease-trail-zoom" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; font-weight: 700;">🔍-</button>
-                  <button class="secondary-btn" id="reset-trail-zoom" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; font-weight: 700;">重設</button>
-                  <button class="secondary-btn" id="increase-trail-zoom" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; font-weight: 700;">🔍+</button>
-                </div>
-              </div>
-              <div class="trail-scroll-wrapper" style="overflow: auto; max-height: 480px; background: var(--bg-input); border-radius: var(--radius-sm); border: 1px solid var(--border-card); padding: 1rem; position: relative;">
-                <div id="pilgrimage-trail-board" style="position: relative; width: 920px; height: 900px; transform-origin: top left; transition: transform 0.2s ease;">
-                  <canvas id="pilgrimage-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+
       </section>
 
       <!-- VIEW 2: BIBLE READER -->
@@ -607,8 +585,29 @@
 
           </div>
 
-          <!-- 子分頁 3：小組排行 (Ranking) -->
+          <!-- 子分頁 3：牧區排行 (Ranking) -->
           <div id="subview-plan-ranking" class="hidden" style="display: flex; flex-direction: column; gap: 1.2rem; width: 100%;">
+            <div class="glass-card" style="padding: 1.2rem; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px;">
+              <h3 class="card-title" style="margin-bottom: 1.2rem; font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">各牧區速讀排行榜 (總累計章數)</h3>
+              
+              <!-- Table Headers -->
+              <div style="display: grid; grid-template-columns: 40px 1fr 100px; gap: 0.5rem; border-bottom: 1px solid var(--border-card); padding-bottom: 0.6rem; margin-bottom: 0.8rem; font-size: 0.76rem; font-weight: 800; text-align: center;">
+                <div style="color: var(--text-muted);">名次</div>
+                <div style="text-align: left; color: var(--text-muted); padding-left: 0.5rem;">牧區名稱</div>
+                <div style="color: var(--primary-color);">累計章數</div>
+              </div>
+
+              <!-- Pastoral Rank List Container -->
+              <div id="pastoral-ranking-list-container" style="display: flex; flex-direction: column; gap: 0.8rem; padding-right: 0.2rem;">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 子分頁 4：歷史紀錄 (History) -->
+          <div id="subview-plan-history" class="hidden" style="display: flex; flex-direction: column; gap: 1.2rem; width: 100%;">
+            
+            <!-- 參與者總覽 -->
             <div class="glass-card" style="padding: 1.2rem; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px;">
               <h3 class="card-title" id="ranking-title" style="margin-bottom: 1.2rem; font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">參與者總覽</h3>
               
@@ -622,9 +621,57 @@
               </div>
 
               <!-- Members List Container -->
-              <div id="ranking-participants-list" style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 500px; overflow-y: auto; padding-right: 0.2rem;">
+              <div id="ranking-participants-list" style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 350px; overflow-y: auto; padding-right: 0.2rem;">
                 <!-- Populated dynamically by JS -->
               </div>
+            </div>
+
+            <!-- 聖經朝聖之路 -->
+            <div class="glass-card pilgrimage-card" style="display: flex; flex-direction: column; padding: 1.2rem; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px;">
+              <div class="card-header-flex" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
+                <h3 class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
+                  <svg viewBox="0 0 24 24" width="20" height="20" stroke="var(--primary-color)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  聖經朝聖之路 (個人與團隊進度)
+                </h3>
+                <div class="zoom-controls" style="display: flex; gap: 0.5rem; align-items: center;">
+                  <button class="secondary-btn" id="decrease-trail-zoom" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; font-weight: 700;">🔍-</button>
+                  <button class="secondary-btn" id="reset-trail-zoom" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; font-weight: 700;">重設</button>
+                  <button class="secondary-btn" id="increase-trail-zoom" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; font-weight: 700;">🔍+</button>
+                </div>
+              </div>
+              <div class="trail-scroll-wrapper" style="overflow: auto; max-height: 400px; background: var(--bg-input); border-radius: var(--radius-sm); border: 1px solid var(--border-card); padding: 1rem; position: relative;">
+                <div id="pilgrimage-trail-board" style="position: relative; width: 920px; height: 900px; transform-origin: top left; transition: transform 0.2s ease;">
+                  <canvas id="pilgrimage-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Heatmap -->
+            <div class="glass-card" style="padding: 1.2rem; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px;">
+              <h3 class="card-title" style="margin-bottom: 1rem; font-size: 1.05rem; font-weight: 800; color: var(--text-primary);">個人讀經熱點地圖 (365天打卡活躍度)</h3>
+              <div id="bible-heatmap-container" style="overflow-x: auto; background: var(--bg-input); border-radius: 10px; padding: 1.2rem; border: 1px solid var(--border-card); display: flex; align-items: center; justify-content: center;">
+                <!-- Generated dynamically -->
+              </div>
+              <div class="heatmap-legend" style="display: flex; justify-content: flex-end; align-items: center; gap: 0.4rem; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.6rem;">
+                <span>少</span>
+                <span style="width: 10px; height: 10px; border-radius: 2px; background: var(--border-card); opacity: 0.2;"></span>
+                <span style="width: 10px; height: 10px; border-radius: 2px; background: rgba(99, 102, 241, 0.4);"></span>
+                <span style="width: 10px; height: 10px; border-radius: 2px; background: rgba(99, 102, 241, 0.6);"></span>
+                <span style="width: 10px; height: 10px; border-radius: 2px; background: rgba(99, 102, 241, 0.8);"></span>
+                <span style="width: 10px; height: 10px; border-radius: 2px; background: rgba(99, 102, 241, 1);"></span>
+                <span>多</span>
+              </div>
+            </div>
+
+            <!-- Honors Badge Wall -->
+            <div class="glass-card" style="padding: 1.2rem; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; margin-bottom: 0.5rem;">
+              <h3 class="card-title" style="margin-bottom: 1rem; font-size: 1.05rem; font-weight: 800; color: var(--text-primary);">我的榮譽勳章牆</h3>
+              <div id="stats-badge-wall-container" style="display: grid; grid-template-columns: 1fr; gap: 0.75rem; max-height: 250px; overflow-y: auto; padding-right: 0.2rem;">
+                <!-- Generated dynamically -->
+              </div>
+            </div>
+
+          </div>
             </div>
           </div>
       </section>

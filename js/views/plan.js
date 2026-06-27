@@ -1458,9 +1458,22 @@ async function renderPlanStatsView() {
 
 async function renderPlanHistoryView() {
   if (!state.activePlan) return;
-  // Render heatmap and badges wall
+  
+  // 1. Render Group Rankings table at the very top of history
+  await renderGroupParticipantsRankingTable();
+
+  // 2. Render Heatmap and Badges wall
   renderPersonalHeatmap();
   renderPersonalUnlockedBadges();
+
+  // 3. Render Bible Pilgrimage Trail canvas
+  if (typeof renderPilgrimageTrail === 'function') {
+    await renderPilgrimageTrail();
+  }
+  if (typeof initPilgrimageControls === 'function' && !state.pilgrimageControlsInit) {
+    initPilgrimageControls();
+    state.pilgrimageControlsInit = true;
+  }
 }
 
 function renderPersonalHeatmap() {
@@ -1573,6 +1586,58 @@ function renderPersonalUnlockedBadges() {
 }
 
 async function renderPlanRankingView() {
+  const container = document.getElementById("pastoral-ranking-list-container");
+  if (!container) return;
+
+  container.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.82rem;">載入排行中...</div>`;
+
+  let pastoralStats = [];
+  try {
+    const allUsers = await db.fetchMergedUsersList();
+    const zoneMap = {};
+    allUsers.forEach(u => {
+      const zone = u.pastoral_zone || "未知";
+      if (!zoneMap[zone]) {
+        zoneMap[zone] = { name: zone, total_chapters: 0 };
+      }
+      zoneMap[zone].total_chapters += (u.chapters_read || 0);
+    });
+    pastoralStats = Object.values(zoneMap).sort((a, b) => b.total_chapters - a.total_chapters);
+  } catch(e) {
+    console.error("Failed to load pastoral rankings", e);
+  }
+
+  container.innerHTML = "";
+  if (pastoralStats.length === 0) {
+    container.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">尚無排行資料</div>`;
+    return;
+  }
+
+  pastoralStats.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.style.cssText = `
+      display: grid;
+      grid-template-columns: 40px 1fr 100px;
+      gap: 0.5rem;
+      align-items: center;
+      padding: 0.6rem 0.2rem;
+      border-bottom: 1px solid var(--border-card);
+      font-size: 0.88rem;
+      font-weight: 700;
+      text-align: center;
+    `;
+    const rankClass = index === 0 ? "color: #ef4444;" : index === 1 ? "color: #f59e0b;" : index === 2 ? "color: #10b981;" : "color: var(--text-secondary);";
+
+    row.innerHTML = `
+      <div style="font-weight: 800; font-size: 1rem; ${rankClass}">${index + 1}</div>
+      <div style="text-align: left; padding-left: 0.5rem; color: var(--text-primary);">${escapeHTML(item.name)}</div>
+      <div style="color: var(--primary-color);">${item.total_chapters} 章</div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+async function renderGroupParticipantsRankingTable() {
   if (!state.activePlan) return;
 
   const rankingTitle = document.getElementById("ranking-title");
