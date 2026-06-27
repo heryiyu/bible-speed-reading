@@ -126,7 +126,7 @@ function initPlanControls() {
         if (presetContainer) presetContainer.classList.add("hidden");
         if (sidebarCard) sidebarCard.classList.remove("hidden");
         renderJoinedPlansList();
-      } else if (filter === "church") {
+      } else if (filter === "saved") {
         if (joinedContainer) joinedContainer.classList.add("hidden");
         if (presetContainer) presetContainer.classList.remove("hidden");
         if (sidebarCard) sidebarCard.classList.remove("hidden");
@@ -140,8 +140,8 @@ function initPlanControls() {
         if (joinedList) {
           joinedList.innerHTML = `
             <div class="empty-state" style="text-align: center; padding: 3rem 0; width: 100%;">
-              <p style="color: var(--text-secondary); margin-bottom: 1rem; font-weight: 700;">目前沒有${filter === "saved" ? "已儲存" : "已完成"}的計畫</p>
-              <p style="font-size: 0.82rem; color: var(--text-muted);">前往「尋找計畫」加入新挑戰吧！</p>
+              <p style="color: var(--text-secondary); margin-bottom: 1rem; font-weight: 700;">目前沒有已完成的計畫</p>
+              <p style="font-size: 0.82rem; color: var(--text-muted);">前往「已儲存」加入新挑戰吧！</p>
             </div>
           `;
         }
