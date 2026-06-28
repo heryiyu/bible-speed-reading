@@ -584,8 +584,12 @@
           <div id="subview-plan-history" class="hidden" style="display: flex; flex-direction: column; gap: 1.2rem; width: 100%;">
 
             <!-- 參與者總覽 -->
-            <div class="glass-card" class="glass-card">
-              <h3 class="card-title" id="ranking-title" style="margin-bottom: 1.2rem; font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">參與者總覽</h3>
+            <div class="glass-card">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; gap: 1rem; flex-wrap: wrap;">
+                <h3 class="card-title" id="ranking-title" style="margin-bottom: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">參與者總覽</h3>
+                <!-- Zone Filter Selector, hidden by default -->
+                <select id="ranking-zone-selector" class="form-control hidden" style="width: auto; font-size: 0.82rem; padding: 0.3rem 0.6rem;"></select>
+              </div>
               <div style="overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch;">
                 <div style="min-width: 480px; padding-bottom: 0.4rem;">
                   <div style="display: grid; grid-template-columns: 1fr 80px 80px 70px 90px; gap: 0.4rem; border-bottom: 1px solid var(--border-card); padding-bottom: 0.6rem; margin-bottom: 0.8rem; font-size: 0.74rem; font-weight: 800; text-align: center;">

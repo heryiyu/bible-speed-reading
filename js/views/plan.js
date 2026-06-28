@@ -1871,12 +1871,8 @@ async function renderGroupParticipantsRankingTable() {
   const userZone = state.currentUser.pastoral_zone || "大安1";
   const userRole = state.currentUser.role || "member";
   const isAdmin = userRole === "admin" || userRole === "senior_pastor";
-  
-  if (rankingTitle) {
-    rankingTitle.textContent = isAdmin 
-      ? `參與者總覽 (全教會排行)` 
-      : `參與者總覽 (${userZone}牧區排行)`;
-  }
+  const isGreatZoneLeader = userRole === "great_zone_leader";
+  const hasFilterPermission = isAdmin || isGreatZoneLeader;
 
   const listContainer = document.getElementById("ranking-participants-list");
   if (listContainer) {
@@ -1889,11 +1885,81 @@ async function renderGroupParticipantsRankingTable() {
     } catch(e) {
       console.warn("Failed to fetch merged users, fallback to empty array", e);
     }
-    
-    // Permission: Only show users of their own pastoral zone if not admin/senior_pastor
+
+    // Handle Zone Filter Dropdown Population (Only for admin, senior_pastor, great_zone_leader)
+    const rankingZoneSelector = document.getElementById("ranking-zone-selector");
+    if (rankingZoneSelector) {
+      if (hasFilterPermission) {
+        rankingZoneSelector.classList.remove("hidden");
+        
+        // Rebuild options on each render to support demo profile switching correctly
+        const currentValue = rankingZoneSelector.value;
+        rankingZoneSelector.innerHTML = "";
+        
+        let zones = [];
+        if (isAdmin) {
+          zones = [...new Set(allUsers.map(u => u.pastoral_zone).filter(Boolean))].sort();
+          
+          const defaultOpt = document.createElement("option");
+          defaultOpt.value = "all";
+          defaultOpt.textContent = "全教會排行";
+          rankingZoneSelector.appendChild(defaultOpt);
+        } else if (isGreatZoneLeader) {
+          const userGreatRegion = state.currentUser.great_region;
+          zones = [...new Set(allUsers.filter(u => u.great_region === userGreatRegion).map(u => u.pastoral_zone).filter(Boolean))].sort();
+          
+          const defaultOpt = document.createElement("option");
+          defaultOpt.value = "all_great_region";
+          defaultOpt.textContent = `全部 (${userGreatRegion || '大區'})`;
+          rankingZoneSelector.appendChild(defaultOpt);
+        }
+        
+        zones.forEach(zone => {
+          const opt = document.createElement("option");
+          opt.value = zone;
+          opt.textContent = `${zone}牧區`;
+          rankingZoneSelector.appendChild(opt);
+        });
+
+        // Try to restore previous selection
+        if (currentValue && [...rankingZoneSelector.options].some(o => o.value === currentValue)) {
+          rankingZoneSelector.value = currentValue;
+        } else {
+          rankingZoneSelector.value = isGreatZoneLeader ? "all_great_region" : "all";
+        }
+        
+        // Setup change listener if not set
+        if (!rankingZoneSelector.dataset.listenerInitialized) {
+          rankingZoneSelector.dataset.listenerInitialized = "true";
+          rankingZoneSelector.addEventListener("change", () => {
+            renderGroupParticipantsRankingTable();
+          });
+        }
+      } else {
+        rankingZoneSelector.classList.add("hidden");
+      }
+    }
+
+    // Determine Group Members based on filter selection
     let groupMembers = allUsers;
-    if (!isAdmin) {
+    const selectedFilter = rankingZoneSelector ? rankingZoneSelector.value : null;
+
+    if (hasFilterPermission && selectedFilter) {
+      if (selectedFilter === "all") {
+        groupMembers = allUsers;
+        if (rankingTitle) rankingTitle.textContent = "參與者總覽 (全教會排行)";
+      } else if (selectedFilter === "all_great_region") {
+        const userGreatRegion = state.currentUser.great_region;
+        groupMembers = allUsers.filter(u => u.great_region === userGreatRegion);
+        if (rankingTitle) rankingTitle.textContent = `參與者總覽 (${userGreatRegion || '大區'}排行)`;
+      } else {
+        groupMembers = allUsers.filter(u => u.pastoral_zone === selectedFilter);
+        if (rankingTitle) rankingTitle.textContent = `參與者總覽 (${selectedFilter}牧區排行)`;
+      }
+    } else {
+      // Regular user or pastoral zone leader with no filter permission: only show their own zone members
       groupMembers = allUsers.filter(u => u.pastoral_zone === userZone);
+      if (rankingTitle) rankingTitle.textContent = `參與者總覽 (${userZone}牧區排行)`;
     }
 
     // Map list to values and calculate progress status (ahead/behind days)
