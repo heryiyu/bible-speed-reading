@@ -511,16 +511,13 @@
             
             <!-- 讀經統計內層 4-tab 列 -->
             <div class="stats-inner-tab-row">
-              <button class="stats-inner-tab active" data-tab="personal" onclick="window.switchStatTab('personal')">👤 個人</button>
-              <button class="stats-inner-tab" data-tab="zone" onclick="window.switchStatTab('zone')">🏛 牧區</button>
-              <button class="stats-inner-tab" data-tab="church" onclick="window.switchStatTab('church')">⛪ 全教會</button>
-              <button class="stats-inner-tab" id="stats-inner-tab-admin" data-tab="admin" onclick="window.switchStatTab('admin')">🔐 管理</button>
+              <button class="stats-inner-tab active" data-tab="personal" onclick="window.switchStatTab('personal')">&#x500B;&#x4EBA;</button>
+              <button class="stats-inner-tab" id="stats-inner-tab-admin" data-tab="admin" onclick="window.switchStatTab('admin')">&#x5718;&#x9AD4;&#x7D71;&#x8A08;</button>
             </div>
 
             <!-- 管理權限統計篩選器 (只在 管理 tab 顯示) -->
             <div class="stats-admin-scope-bar hidden" id="stats-admin-scope-bar" style="display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
-              <span style="font-size: 0.82rem; font-weight: 700; color: #d97706; white-space: nowrap;">切換統計管理範圍：</span>
-              <select id="stats-admin-region-select" class="form-control" style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 700; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
+              <span style="font-size: 0.82rem; font-weight: 700; color: #d97706; white-space: nowrap;">&#x7D71;&#x8A08;&#x7BC4;&#x570D;</span><select id="stats-basic-scope-select" class="form-control" style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 700; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select><select id="stats-admin-region-select" class="form-control" style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 700; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
               <select id="stats-admin-zone-select" class="form-control" style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 700; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
               <select id="stats-admin-group-select" class="form-control" style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 700; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
               
@@ -533,7 +530,7 @@
               <!-- Grid Stats Cards -->
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                 <!-- 累積閱讀章數 -->
-                <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%); border: 1px solid var(--border-card); border-radius: 16px; padding: 1.2rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; grid-column: span 2;">
+                <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%); border: 1px solid var(--border-card); border-radius: 16px; padding: 1.2rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; ">
                   <span style="font-size: 0.95rem; font-weight: 800; color: var(--text-primary);">累積閱讀章數</span>
                   <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; margin-bottom: 0.6rem;">包含所有計畫與補讀之累積章數</span>
                   <div style="font-size: 2.2rem; font-weight: 800; color: var(--primary-color);">
@@ -651,7 +648,7 @@
                   </div>
                   
                   <!-- Status Grid right column (2x2 mini grid) -->
-                  <div style="grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                  <div style=" display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                     
                     <!-- 超前進度 -->
                     <div style="background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.12); border-radius: 10px; padding: 0.6rem 0.8rem; display: flex; flex-direction: column; justify-content: space-between;">
@@ -1030,7 +1027,7 @@
       </button>
 
       <!-- Secondary: Google Signin as fallback -->
-      <button class="primary-btn" id="btn-gate-google-login" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.8rem; padding: 0.75rem 1.8rem; width: 100%; font-size: 0.92rem; font-weight: 600; background: rgba(255,255,255,0.06); color: var(--text-primary); border: 1px solid var(--border-card); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
+      <button class="primary-btn" id="btn-gate-google-login" style="display: none; align-items: center; justify-content: center; gap: 0.8rem; padding: 0.75rem 1.8rem; width: 100%; font-size: 0.92rem; font-weight: 600; background: rgba(255,255,255,0.06); color: var(--text-primary); border: 1px solid var(--border-card); border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;">
         <svg viewBox="0 0 24 24" width="16" height="16" style="display: block;"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"></path><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"></path></svg>
         使用 Google 帳號登入
       </button>

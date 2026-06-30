@@ -3,39 +3,39 @@
 window._currentStatsTab = 'personal';
 window._statsTabScope = null;
 
+function canUseAdvancedGroupStats() {
+  const role = (state.currentUser && state.currentUser.role) || "member";
+  return ["admin", "senior_pastor", "great_zone_leader", "zone_leader", "group_leader"].includes(role);
+}
+
+function getDefaultGroupStatsScope() {
+  const myZone = (state.currentUser && state.currentUser.pastoral_zone) || "";
+  return myZone ? `zone:${myZone.split(",")[0].trim()}` : "all";
+}
+
+function applyBasicStatsScope() {
+  const basicSelect = document.getElementById("stats-basic-scope-select");
+  if (!basicSelect) return getDefaultGroupStatsScope();
+  if (!basicSelect.value) basicSelect.value = getDefaultGroupStatsScope();
+  if (basicSelect.value === "advanced") return null;
+  return basicSelect.value;
+}
+
 window.switchStatTab = async function(tab) {
   window._currentStatsTab = tab;
-  
-  // Highlight active inner tab button
-  const tabs = document.querySelectorAll(".stats-inner-tab");
-  tabs.forEach(t => {
-    if (t.getAttribute("data-tab") === tab) {
-      t.classList.add("active");
-    } else {
-      t.classList.remove("active");
-    }
-  });
 
-  // Toggle admin scope bar visibility
+  const tabs = document.querySelectorAll(".stats-inner-tab");
+  tabs.forEach(t => t.classList.toggle("active", t.getAttribute("data-tab") === tab));
+
   const adminScopeBar = document.getElementById("stats-admin-scope-bar");
   if (adminScopeBar) {
-    if (tab === 'admin') {
-      adminScopeBar.classList.remove("hidden");
-    } else {
-      adminScopeBar.classList.add("hidden");
-    }
+    adminScopeBar.classList.toggle("hidden", tab !== 'admin');
   }
 
-  // Set the scope override variable based on selected tab
-  const myZone = (state.currentUser && state.currentUser.pastoral_zone) || "";
   if (tab === 'personal') {
     window._statsTabScope = 'me';
-  } else if (tab === 'zone') {
-    window._statsTabScope = myZone ? `zone:${myZone}` : 'zone:未設定牧區';
-  } else if (tab === 'church') {
-    window._statsTabScope = 'all';
   } else if (tab === 'admin') {
-    window._statsTabScope = null; // Uses rankingZoneSelector.value
+    window._statsTabScope = applyBasicStatsScope();
   }
 
   if (state.activePlan) {
@@ -104,15 +104,7 @@ function initPlanControls() {
 
   // Control visibility of inner admin stats tab
   const innerAdminTab = document.getElementById("stats-inner-tab-admin");
-  if (innerAdminTab) {
-    if (_canSeeMembers) {
-      innerAdminTab.style.display = "";
-      innerAdminTab.classList.remove("hidden");
-    } else {
-      innerAdminTab.style.display = "none";
-      innerAdminTab.classList.add("hidden");
-    }
-  }
+  if (innerAdminTab) { innerAdminTab.style.display = ""; innerAdminTab.classList.remove("hidden"); }
 
   const allTabs = [tabSchedule, tabStats, tabRanking, _canSeeMembers ? tabMembers : null].filter(Boolean);
   const allSubviews = [subviewSchedule, subviewPlanStats, subviewPlanRanking, _canSeeMembers ? subviewPlanMembers : null].filter(Boolean);
@@ -420,12 +412,15 @@ function calculateAllPlansProgress() {
       day.chapters.forEach(ch => {
         const checkRoundLog = (rTarget) => {
           return state.readingLogs.some(l => {
-            const isPlanMatch = 
-              (plan.id && l.plan_id === plan.id) || 
-              (plan.presetKey && l.presetKey === plan.presetKey) ||
-              (!l.plan_id && !l.presetKey);
+            const logPlanId = l.plan_id || null;
+            const logPresetKey = l.presetKey || l.preset_key || null;
+            const isPlanMatch =
+              (plan.id && logPlanId && logPlanId === plan.id) ||
+              (plan.presetKey && logPresetKey && logPresetKey === plan.presetKey) ||
+              ((plan.id || plan.presetKey) && !logPlanId && !logPresetKey) ||
+              (!plan.id && !plan.presetKey && !logPlanId && !logPresetKey);
             const isRoundMatch = (l.round || 1) === rTarget;
-            return l.book === ch.book && l.chapter === ch.chapter && isPlanMatch && isRoundMatch;
+            return l.book === ch.book && Number(l.chapter) === Number(ch.chapter) && isPlanMatch && isRoundMatch;
           });
         };
 
@@ -900,8 +895,6 @@ async function renderPlanScheduleTracker(skipCarouselUpdate = false) {
     taskItem.className = "plan-task-item";
 
     const { cssClass, content } = getChapterCheckboxState(ch, currentRound);
-
-    // 第 n 遍提示文字（第二遍起才顯示）
     const roundLabelHtml = currentRound >= 2
       ? `<div class="task-round-label round-${currentRound}">第${currentRound}遍</div>`
       : '';
@@ -924,55 +917,30 @@ async function renderPlanScheduleTracker(skipCarouselUpdate = false) {
   });
 }
 
-/**
- * 返回根據各遊完成狀態產生 checkbox 的 cssClass 與內容
- * 第一遍 ✓ (綠色)  / 第二遍 ⚡ 閃電 (靛藍)  / 第三遍 ★ 星星 (金色)
- */
 function getChapterCheckboxState(ch, currentRound) {
-  // 第一遍：單勾 ✓
   const ICON_R1 = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-  // 第二遍：閃電 ⚡
   const ICON_R2 = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" style="width:14px;height:14px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
-  // 第三遍：星星 ★
   const ICON_R3 = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" style="width:15px;height:15px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
 
   if (currentRound === 1) {
-    return ch.isRead
-      ? { cssClass: 'checked', content: ICON_R1 }
-      : { cssClass: '', content: '' };
+    return ch.isRead ? { cssClass: 'checked', content: ICON_R1 } : { cssClass: '', content: '' };
   }
 
   if (currentRound === 2) {
-    if (ch.isReadR2) {
-      // 第二遍完成：靛藍閃電
-      return { cssClass: 'checked round-2', content: ICON_R2 };
-    } else if (ch.isReadR1) {
-      // 第一遍完成但第二遍尚未：淡化 ✓
-      return { cssClass: 'checked round-1 dimmed', content: ICON_R1 };
-    }
+    if (ch.isReadR2) return { cssClass: 'checked round-2', content: ICON_R2 };
+    if (ch.isReadR1) return { cssClass: 'checked round-1 dimmed', content: ICON_R1 };
     return { cssClass: '', content: '' };
   }
 
   if (currentRound >= 3) {
-    if (ch.isReadR3) {
-      // 第三遍完成：金色星星
-      return { cssClass: 'checked round-3', content: ICON_R3 };
-    } else if (ch.isReadR2) {
-      // 第二遍完成：靛藍閃電
-      return { cssClass: 'checked round-2', content: ICON_R2 };
-    } else if (ch.isReadR1) {
-      // 只第一遍：淡化 ✓
-      return { cssClass: 'checked round-1 dimmed', content: ICON_R1 };
-    }
-    return { cssClass: '', content: '' };
+    if (ch.isReadR3) return { cssClass: 'checked round-3', content: ICON_R3 };
+    if (ch.isReadR2) return { cssClass: 'checked round-2', content: ICON_R2 };
+    if (ch.isReadR1) return { cssClass: 'checked round-1 dimmed', content: ICON_R1 };
   }
 
   return { cssClass: '', content: '' };
 }
 
-/**
- * 小强調 badge：顯示第一遍已讀的就記號
- */
 function getRoundBadge(ch, currentRound) {
   if (currentRound >= 3 && ch.isReadR2 && !ch.isReadR3) return '✓✓已讀';
   if (currentRound >= 2 && ch.isReadR1 && !ch.isReadR2) return '✓第1遍';
@@ -980,42 +948,62 @@ function getRoundBadge(ch, currentRound) {
 }
 
 window.toggleYouVersionChapter = async function(checkboxEl, book, chapter) {
-  // 使用 data-is-current-read 屬性判斷「當前遍次」是否已讀
-  // 不轉用 classList.contains("checked")，因為 round-1 dimmed 也會有 checked class
+  if (checkboxEl.dataset.saving === "true") return;
+
   const isCurrentlyRead = checkboxEl.dataset.isCurrentRead === 'true';
   const willBeChecked = !isCurrentlyRead;
-  
-  loader.show("記錄中...");
-  await db.logChapterRead(book, chapter, willBeChecked);
-  
+  const currentRound = state.activePlan ? (state.activePlan.currentRound || 1) : 1;
+  const selectedDay = state.activePlan && state.activePlan.days
+    ? state.activePlan.days.find(d => d.dayNum === state.selectedPlanDay)
+    : null;
+  const chapterObj = selectedDay && selectedDay.chapters
+    ? selectedDay.chapters.find(ch => ch.book === book && Number(ch.chapter) === Number(chapter))
+    : null;
+
+  const applyLocalReadState = (ch, checked) => {
+    if (!ch) return;
+    if (currentRound === 1) ch.isReadR1 = checked;
+    else if (currentRound === 2) ch.isReadR2 = checked;
+    else if (currentRound === 3) ch.isReadR3 = checked;
+    ch.isRead = checked;
+  };
+
+  checkboxEl.dataset.saving = "true";
+  checkboxEl.classList.add("saving");
+  applyLocalReadState(chapterObj, willBeChecked);
   calculatePlanProgress();
-  db.saveLocalUserStats();
-  
-  // Re-render to reflect new multi-round state
   renderPlanScheduleTracker(true);
-  
-  // Check if round completion is reached
-  if (state.activePlan && state.activePlan.progress === 100) {
-    await handleRoundCompletion(state.activePlan);
+
+  try {
+    await db.logChapterRead(book, chapter, willBeChecked);
+    calculatePlanProgress();
+    db.saveLocalUserStats();
+
+    if (state.activePlan && state.activePlan.progress === 100) {
+      await handleRoundCompletion(state.activePlan);
+    }
+  } catch (error) {
+    console.error("Failed to update reading progress", error);
+    applyLocalReadState(chapterObj, isCurrentlyRead);
+    calculatePlanProgress();
+    renderPlanScheduleTracker(true);
+    showToast("讀經進度更新失敗，請稍後再試");
   }
-  
-  loader.hide();
 };
 
 window.showPlanLevelModal = async function() {
   if (!state.activePlan) return;
   const level = state.activePlan.level || 'normal';
   const newLevel = prompt(
-    "變更計畫進度等級：\n- normal: 一般進度 (讀1遍)\n- breakthrough: 突破進度 (讀2遍)\n- super: 超強進度 (讀3遍)\n\n請輸入 normal、breakthrough 或 super：", 
+    "變更計畫進度等級：\n- normal: 一般進度 (讀1遍)\n- breakthrough: 突破進度 (讀2遍)\n- super: 超強進度 (讀3遍)\n\n請輸入 normal、breakthrough 或 super：",
     level
   );
   if (newLevel && ['normal', 'breakthrough', 'super'].includes(newLevel)) {
     await window.changePlanLevel(newLevel);
   } else if (newLevel !== null) {
-    alert("輸入無效，請重新嘗試！");
+    alert("輸入無效，請輸入 normal、breakthrough 或 super。");
   }
 };
-
 function readChapterDirect(bookName, chapter) {
   const book = BIBLE_BOOKS.find(b => b.name === bookName);
   if (book) {
@@ -1572,9 +1560,7 @@ window.addEventListener("scroll", async () => {
     // Check if already read
     const isAlreadyRead = state.readingLogs.some(l => l.book === currentCh.book && l.chapter === currentCh.chapter);
     if (!isAlreadyRead) {
-      loader.show("記錄已讀中...");
       await db.logChapterRead(currentCh.book, currentCh.chapter, true);
-      loader.hide();
       
       currentCh.isRead = true;
       calculatePlanProgress();
@@ -1836,16 +1822,54 @@ function setupCascadingSelectors(regionId, zoneId, groupId, masterId) {
 
 // ==================== STATS SELECTOR POPULATOR ====================
 function populateStatsSelector() {
-  setupCascadingSelectors("stats-admin-region-select", "stats-admin-zone-select", "stats-admin-group-select", "ranking-zone-selector");
-  
+  const basicSelect = document.getElementById("stats-basic-scope-select");
+  const regionSelect = document.getElementById("stats-admin-region-select");
+  const zoneSelect = document.getElementById("stats-admin-zone-select");
+  const groupSelect = document.getElementById("stats-admin-group-select");
   const rankingZoneSelector = document.getElementById("ranking-zone-selector");
+  const canAdvanced = canUseAdvancedGroupStats();
+  const myZone = (state.currentUser && state.currentUser.pastoral_zone || "").split(",")[0].trim();
+  const zoneScope = myZone ? `zone:${myZone}` : "all";
+
+  if (basicSelect && !basicSelect.dataset.initialized) {
+    basicSelect.dataset.initialized = "true";
+    basicSelect.addEventListener("change", async () => {
+      const useAdvanced = basicSelect.value === "advanced";
+      [regionSelect, zoneSelect, groupSelect].forEach(el => {
+        if (el) el.style.display = canAdvanced && useAdvanced ? "" : "none";
+      });
+      window._statsTabScope = applyBasicStatsScope();
+      if (rankingZoneSelector && window._statsTabScope) rankingZoneSelector.value = window._statsTabScope;
+      await renderPlanStatsView();
+    });
+  }
+
+  if (basicSelect) {
+    const previous = basicSelect.value || zoneScope;
+    basicSelect.innerHTML = "";
+    basicSelect.options.add(new Option(myZone ? `\u6211\u7684\u7267\u5340\uFF1A${myZone}` : "\u6211\u7684\u7267\u5340", zoneScope));
+    basicSelect.options.add(new Option("\u5168\u6559\u6703", "all"));
+    if (canAdvanced) basicSelect.options.add(new Option("\u9032\u968E\u7BC4\u570D", "advanced"));
+    basicSelect.value = [...basicSelect.options].some(o => o.value === previous) ? previous : zoneScope;
+  }
+
+  setupCascadingSelectors("stats-admin-region-select", "stats-admin-zone-select", "stats-admin-group-select", "ranking-zone-selector");
+
+  const useAdvanced = canAdvanced && basicSelect && basicSelect.value === "advanced";
+  [regionSelect, zoneSelect, groupSelect].forEach(el => {
+    if (el) el.style.display = useAdvanced ? "" : "none";
+  });
+  window._statsTabScope = useAdvanced ? null : (basicSelect ? basicSelect.value : getDefaultGroupStatsScope());
+
   if (rankingZoneSelector && !rankingZoneSelector.dataset.listenerInitialized) {
     rankingZoneSelector.dataset.listenerInitialized = "true";
     rankingZoneSelector.addEventListener("change", async () => {
+      if (basicSelect && basicSelect.value !== "advanced") return;
+      window._statsTabScope = null;
       const tabStats = document.getElementById("tab-plan-stats");
       const tabRanking = document.getElementById("tab-plan-ranking");
       const tabMembers = document.getElementById("tab-plan-members");
-      
+
       if (tabStats && tabStats.classList.contains("active")) {
         await renderPlanStatsView();
       } else if (tabRanking && tabRanking.classList.contains("active")) {
@@ -1856,7 +1880,6 @@ function populateStatsSelector() {
     });
   }
 }
-
 // ==================== MEMBERS SELECTOR POPULATOR ====================
 function populateMembersSelector() {
   setupCascadingSelectors("members-admin-region-select", "members-admin-zone-select", "members-admin-group-select", "members-zone-selector");
@@ -2099,12 +2122,7 @@ async function renderGroupMiniStats() {
 
   const totalChapters = scopedUsers.reduce((sum, u) => sum + (u.chapters_read || 0), 0);
   const totalMembers = scopedUsers.length;
-  const now = new Date();
-  const twoAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
-  const totalActive = scopedUsers.filter(u => {
-    if (!u.last_read) return false;
-    return new Date(u.last_read) >= twoAgo;
-  }).length;
+  const totalActive = scopedUsers.filter(u => (u.chapters_read || 0) > 0 || Boolean(u.last_read)).length;
 
   // Determine current scope label from selector
   let scopeLabel = "全教會";
@@ -2152,6 +2170,9 @@ async function renderGroupMiniStats() {
   if (labelMembers) labelMembers.textContent = scopeLabel === "全教會" ? '全教會參與人數' : `${scopeLabel} 參與人數`;
   if (labelActive) labelActive.textContent = scopeLabel === "全教會" ? '本週全教會活躍人數' : `${scopeLabel} 本週活躍人數`;
 
+  const legacyMiniStatsGrid = document.getElementById("grp-total-read")?.parentElement?.parentElement;
+  if (legacyMiniStatsGrid) legacyMiniStatsGrid.style.display = "none";
+
   const elTotal = document.getElementById('grp-total-read');
   const elMembers = document.getElementById('grp-total-members');
   const elActive = document.getElementById('grp-active-members');
@@ -2173,51 +2194,25 @@ function renderGroupProgressDistribution() {
   if (totalCount === 0) {
     if (distCard) distCard.style.display = "none";
     return;
-  } else {
-    if (distCard) distCard.style.display = "";
+  }
+  if (distCard) distCard.style.display = "";
+
+  let titleSuffix = "團體進度狀態分佈";
+  const rankingZoneSelector = document.getElementById("ranking-zone-selector");
+  const selectedFilter = window._statsTabScope !== null
+    ? window._statsTabScope
+    : (rankingZoneSelector ? rankingZoneSelector.value : null);
+
+  if (selectedFilter) {
+    if (selectedFilter === "all") titleSuffix = "全教會進度狀態分佈";
+    else if (selectedFilter === "all_great_region") titleSuffix = `${state.currentUser.great_region || "大區"}進度狀態分佈`;
+    else if (selectedFilter === "all_zones") titleSuffix = `${state.currentUser.pastoral_zone || "牧區"}進度狀態分佈`;
+    else if (selectedFilter === "all_groups") titleSuffix = `${state.currentUser.small_group || "小組"}進度狀態分佈`;
+    else if (selectedFilter.startsWith("region:")) titleSuffix = `${selectedFilter.replace("region:", "")}大區進度狀態分佈`;
+    else if (selectedFilter.startsWith("zone:")) titleSuffix = `${selectedFilter.replace("zone:", "")}牧區進度狀態分佈`;
+    else if (selectedFilter.startsWith("group:")) titleSuffix = `${selectedFilter.replace("group:", "")}小組進度狀態分佈`;
   }
 
-  // Update card title to reflect active pastoral zone or group
-  const titleEl = document.getElementById("grp-distribution-title");
-  if (titleEl) {
-    let titleSuffix = "團體進度狀態分佈";
-    const rankingZoneSelector = document.getElementById("ranking-zone-selector");
-    const selectedFilter = window._statsTabScope !== null 
-      ? window._statsTabScope 
-      : (rankingZoneSelector ? rankingZoneSelector.value : null);
-
-    if (selectedFilter) {
-      if (selectedFilter === "all") {
-        titleSuffix = "全教會進度狀態分佈";
-      } else if (selectedFilter === "all_great_region") {
-        titleSuffix = `${state.currentUser.great_region}大區進度狀態分佈`;
-      } else if (selectedFilter === "all_zones") {
-        titleSuffix = `${state.currentUser.pastoral_zone}牧區進度狀態分佈`;
-      } else if (selectedFilter === "all_groups") {
-        titleSuffix = `${state.currentUser.small_group}小組進度狀態分佈`;
-      } else if (selectedFilter.startsWith("region:")) {
-        titleSuffix = `${selectedFilter.replace("region:", "")}大區進度狀態分佈`;
-      } else if (selectedFilter.startsWith("zone:")) {
-        titleSuffix = `${selectedFilter.replace("zone:", "")}牧區進度狀態分佈`;
-      } else if (selectedFilter.startsWith("group:")) {
-        titleSuffix = `${selectedFilter.replace("group:", "")}小組進度狀態分佈`;
-      }
-    } else {
-      const userRole = state.currentUser.role || "member";
-      if (userRole === "admin" || userRole === "senior_pastor") {
-        titleSuffix = "全教會進度狀態分佈";
-      } else if (userRole === "great_zone_leader") {
-        titleSuffix = `${state.currentUser.great_region}大區進度狀態分佈`;
-      } else if (userRole === "zone_leader") {
-        titleSuffix = `${state.currentUser.pastoral_zone}牧區進度狀態分佈`;
-      } else {
-        titleSuffix = `${state.currentUser.small_group}小組進度狀態分佈`;
-      }
-    }
-    titleEl.textContent = titleSuffix;
-  }
-
-  // Calculate expected progress percentage from activePlan
   let expectedPct = 50;
   if (state.activePlan) {
     const start = new Date(state.activePlan.startDate);
@@ -2230,38 +2225,104 @@ function renderGroupProgressDistribution() {
 
   const todayStr = new Date().toISOString().substring(0, 10);
   const todayDoneCount = scopedUsers.filter(u => u.last_read === todayStr).length;
-  const todayRate = Math.round((todayDoneCount / totalCount) * 100);
+  const todayRate = totalCount ? Math.round((todayDoneCount / totalCount) * 100) : 0;
+  const totalChapters = scopedUsers.reduce((sum, u) => sum + (u.chapters_read || 0), 0);
+  const dailyActiveCount = scopedUsers.filter(u => u.last_read === todayStr).length;
 
-  let aheadCount = 0, onCount = 0, behindCount = 0, round2Count = 0;
+  let aheadCount = 0;
+  let onCount = 0;
+  let behindCount = 0;
+  let rereadCount = 0;
+
   scopedUsers.forEach(u => {
-    const round = u.current_round !== undefined 
-      ? u.current_round 
+    const currentRound = u.current_round !== undefined
+      ? u.current_round
       : (u.chapters_read > 850 ? 3 : u.chapters_read > 500 ? 2 : 1);
-    if (round >= 2) round2Count++;
-    if (u.plan_progress === 0) { behindCount++; }
-    else if (u.plan_progress > expectedPct + 5) { aheadCount++; }
-    else if (u.plan_progress < expectedPct - 5) { behindCount++; }
-    else { onCount++; }
+    if (currentRound >= 2) rereadCount++;
+
+    if (u.plan_progress === 0) behindCount++;
+    else if (u.plan_progress > expectedPct + 5) aheadCount++;
+    else if (u.plan_progress < expectedPct - 5) behindCount++;
+    else onCount++;
   });
 
-  const aheadRate = Math.round((aheadCount / totalCount) * 100);
-  const onRate = Math.round((onCount / totalCount) * 100);
-  const behindRate = Math.round((behindCount / totalCount) * 100);
-  const round2Rate = Math.round((round2Count / totalCount) * 100);
+  const segments = [
+    { key: "behind", label: "落後", count: behindCount, color: "#ef4444" },
+    { key: "on", label: "在進度上", count: onCount, color: "#64748b" },
+    { key: "ahead", label: "超前", count: aheadCount, color: "#10b981" }
+  ].map(item => ({
+    ...item,
+    pct: totalCount ? Math.round((item.count / totalCount) * 100) : 0
+  }));
 
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.style.width = val + '%'; };
-  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const titleEl = document.getElementById("grp-distribution-title");
+  if (titleEl) titleEl.textContent = titleSuffix;
 
-  setText('grp-today-rate', todayRate + '%');
-  set('grp-today-bar', todayRate);
-  setText('grp-ahead-label', `${aheadCount} 人 (${aheadRate}%)`);
-  set('grp-ahead-bar', aheadRate);
-  setText('grp-on-schedule-label', `${onCount} 人 (${onRate}%)`);
-  set('grp-on-schedule-bar', onRate);
-  setText('grp-behind-label', `${behindCount} 人 (${behindRate}%)`);
-  set('grp-behind-bar', behindRate);
-  setText('grp-round2-label', `${round2Count} 人 (${round2Rate}%)`);
-  set('grp-round2-bar', round2Rate);
+  Array.from(distCard.children).forEach(child => {
+    if (child !== titleEl) child.remove();
+  });
+
+  const body = document.createElement("div");
+  body.className = "stacked-progress-body distribution-redesign";
+  body.innerHTML = `
+    <div class="distribution-primary-stats">
+      <div class="distribution-metric-card primary">
+        <span>總閱讀章數</span>
+        <strong>${totalChapters} 章</strong>
+        <small>目前範圍累計</small>
+      </div>
+      <div class="distribution-metric-card success">
+        <span>參與人數</span>
+        <strong>${totalCount} 人</strong>
+        <small>目前範圍</small>
+      </div>
+      <div class="distribution-metric-card warning">
+        <span>每日活躍人數</span>
+        <strong>${dailyActiveCount} 人</strong>
+        <small>今日有讀即計入</small>
+      </div>
+    </div>
+    <div class="distribution-secondary-stats">
+      <div class="distribution-metric-card compact">
+        <span>今日已完成</span>
+        <strong>${todayRate}%</strong>
+        <small>${todayDoneCount} / ${totalCount} 人</small>
+      </div>
+      <div class="distribution-metric-card compact">
+        <span>複讀人數</span>
+        <strong>${rereadCount} 人</strong>
+        <small>${totalCount ? Math.round((rereadCount / totalCount) * 100) : 0}%</small>
+      </div>
+    </div>
+    <div class="stacked-progress-summary">
+      <span>落後</span>
+      <span>在進度上</span>
+      <span>超前</span>
+    </div>
+    <div class="stacked-percent-bar" role="img" aria-label="讀經進度分佈百分比堆疊條形圖：落後、在進度上、超前">
+      ${segments.map(seg => `
+        <div class="stacked-segment ${seg.key}" style="--segment-width: ${seg.pct}%; --segment-color: ${seg.color};" title="${seg.label}: ${seg.count} 人 (${seg.pct}%)">
+          ${seg.pct >= 10 ? `<span>${seg.pct}%</span>` : ""}
+        </div>
+      `).join("")}
+    </div>
+    <div class="stacked-progress-legend">
+      ${segments.map(seg => `
+        <div class="stacked-legend-item ${seg.key}">
+          <span class="stacked-dot" style="background: ${seg.color};"></span>
+          <span class="stacked-label">${seg.label}</span>
+          <strong>${seg.count} 人</strong>
+          <span>${seg.pct}%</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+  distCard.appendChild(body);
+  requestAnimationFrame(() => {
+    body.querySelectorAll(".stacked-segment").forEach(seg => {
+      seg.style.width = seg.style.getPropertyValue("--segment-width");
+    });
+  });
 }
 
 function renderGroupPastoralChart() {
@@ -2611,58 +2672,88 @@ async function renderMyPersonalRankings() {
 }
 
 async function renderPlanRankingView() {
-  // Render my personal rankings
   await renderMyPersonalRankings();
 
   const container = document.getElementById("pastoral-ranking-list-container");
   if (!container) return;
 
-  container.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.82rem;">載入排行中...</div>`;
+  if (!canUseAdvancedGroupStats()) {
+    const rankingCard = container.closest(".glass-card");
+    if (rankingCard) rankingCard.style.display = "none";
+    return;
+  }
+  const rankingCard = container.closest(".glass-card");
+  if (rankingCard) rankingCard.style.display = "";
+
+  const header = container.previousElementSibling;
+  if (header) header.style.display = "none";
+  container.className = "bar-race-list";
+  container.style.cssText = "";
+  container.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.82rem;">載入牧區排行中...</div>`;
 
   let pastoralStats = [];
   try {
     const allUsers = await db.fetchMergedUsersList();
     const zoneMap = {};
     allUsers.forEach(u => {
-      const zone = u.pastoral_zone || "未知";
-      if (!zoneMap[zone]) {
-        zoneMap[zone] = { name: zone, total_chapters: 0 };
-      }
+      const zone = u.pastoral_zone || "未設定";
+      if (!zoneMap[zone]) zoneMap[zone] = { name: zone, total_chapters: 0, members: 0 };
       zoneMap[zone].total_chapters += (u.chapters_read || 0);
+      zoneMap[zone].members += 1;
     });
     pastoralStats = Object.values(zoneMap).sort((a, b) => b.total_chapters - a.total_chapters);
   } catch(e) {
     console.error("Failed to load pastoral rankings", e);
   }
 
-  container.innerHTML = "";
   if (pastoralStats.length === 0) {
-    container.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">尚無排行資料</div>`;
+    container.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">目前沒有排行資料</div>`;
     return;
   }
 
-  pastoralStats.forEach((item, index) => {
-    const row = document.createElement("div");
-    row.style.cssText = `
-      display: grid;
-      grid-template-columns: 40px 1fr 100px;
-      gap: 0.5rem;
-      align-items: center;
-      padding: 0.6rem 0.2rem;
-      border-bottom: 1px solid var(--border-card);
-      font-size: 0.88rem;
-      font-weight: 700;
-      text-align: center;
+  const maxChapters = Math.max(...pastoralStats.map(item => item.total_chapters), 1);
+  const renderRace = () => {
+    container.innerHTML = `
+      <div class="bar-race-toolbar">
+        <div>
+          <div class="bar-race-title">牧區動態長條圖競賽</div>
+          <div class="bar-race-subtitle">依總累計閱讀章數排序</div>
+        </div>
+        <button type="button" class="bar-race-replay" onclick="window.replayPastoralRace()" title="重新播放排行動畫">重播</button>
+      </div>
+      <div class="bar-race-track"></div>
     `;
-    const rankClass = index === 0 ? "color: #ef4444;" : index === 1 ? "color: #f59e0b;" : index === 2 ? "color: #10b981;" : "color: var(--text-secondary);";
+    const track = container.querySelector(".bar-race-track");
 
-    row.innerHTML = `
-      <div style="font-weight: 800; font-size: 1rem; ${rankClass}">${index + 1}</div>
-      <div style="text-align: left; padding-left: 0.5rem; color: var(--text-primary);">${escapeHTML(item.name)}</div>
-      <div style="color: var(--primary-color);">${item.total_chapters} 章</div>
-    `;
-    container.appendChild(row);
-  });
+    pastoralStats.forEach((item, index) => {
+      const pct = Math.max(4, Math.round((item.total_chapters / maxChapters) * 100));
+      const row = document.createElement("div");
+      row.className = "bar-race-row";
+      row.style.setProperty("--target-width", `${pct}%`);
+      row.style.transitionDelay = `${index * 90}ms`;
+      row.innerHTML = `
+        <div class="bar-race-rank">${index + 1}</div>
+        <div class="bar-race-main">
+          <div class="bar-race-meta">
+            <span class="bar-race-name">${escapeHTML(item.name)}</span>
+            <span class="bar-race-members">${item.members} 人</span>
+          </div>
+          <div class="bar-race-bar-shell">
+            <div class="bar-race-bar"></div>
+            <span class="bar-race-value">${item.total_chapters} 章</span>
+          </div>
+        </div>
+      `;
+      track.appendChild(row);
+    });
+
+    requestAnimationFrame(() => {
+      track.querySelectorAll(".bar-race-row").forEach(row => row.classList.add("is-running"));
+    });
+  };
+
+  window.replayPastoralRace = renderRace;
+  renderRace();
 }
 
 async function renderGroupParticipantsRankingTable() {

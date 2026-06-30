@@ -112,79 +112,95 @@ function buildHeatmapGrid(containerId, logsByDate, teamSize = 1, label = "章", 
 
   container.innerHTML = "";
 
-  const grid = document.createElement("div");
-  grid.className = "heatmap-grid";
-  grid.style.cssText = "display: grid; grid-template-rows: repeat(7, 10px); grid-auto-flow: column; gap: 3px; max-height: 90px; overflow-x: auto; padding: 0.2rem 0;";
-
   let startDate, endDate;
 
   if (planStartDate && planEndDate) {
-    // Parse plan dates
     startDate = new Date(planStartDate);
     startDate.setUTCHours(12, 0, 0, 0);
-    // Align to the preceding Sunday
-    const dayOfWeek = startDate.getUTCDay();
-    startDate.setUTCDate(startDate.getUTCDate() - dayOfWeek);
 
     endDate = new Date(planEndDate);
     endDate.setUTCHours(12, 0, 0, 0);
-    // Align to the succeeding Saturday
-    const endDayOfWeek = endDate.getUTCDay();
-    endDate.setUTCDate(endDate.getUTCDate() + (6 - endDayOfWeek));
   } else {
-    // Fallback: past 30 days (heatmaps should normally always be plan-bound)
     startDate = new Date();
     startDate.setUTCHours(12, 0, 0, 0);
     startDate.setUTCDate(startDate.getUTCDate() - 30);
-    const dayOfWeek = startDate.getUTCDay();
-    startDate.setUTCDate(startDate.getUTCDate() - dayOfWeek);
 
     endDate = new Date();
     endDate.setUTCHours(12, 0, 0, 0);
   }
 
-  const oneDayMs = 24 * 60 * 60 * 1000;
-  const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / oneDayMs);
+  const monthNames = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"];
+  const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+  const wrapper = document.createElement("div");
+  wrapper.className = "calendar-heatmap";
 
-  for (let i = 0; i <= daysDiff; i++) {
-    const currentDate = new Date(startDate.getTime() + i * oneDayMs);
-    const dateStr = currentDate.toISOString().substring(0, 10);
-    const count = logsByDate[dateStr] || 0;
+  const cursor = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1, 12));
+  const lastMonth = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1, 12));
 
-    const cell = document.createElement("div");
-    cell.className = "heatmap-cell";
-    cell.setAttribute("data-date", dateStr);
-    cell.setAttribute("data-count", count);
+  while (cursor <= lastMonth) {
+    const year = cursor.getUTCFullYear();
+    const month = cursor.getUTCMonth();
+    const firstDay = new Date(Date.UTC(year, month, 1, 12));
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0, 12)).getUTCDate();
 
-    let background = "var(--border-card)";
-    let opacity = "0.4";
+    const monthBlock = document.createElement("section");
+    monthBlock.className = "calendar-month";
 
-    if (count > 0) {
-      opacity = "1";
-      const maxCount = Math.max(2, Math.round(teamSize * 1.5));
-      const ratio = count / maxCount;
-      if (ratio <= 0.1)      background = "rgba(99, 102, 241, 0.25)";
-      else if (ratio <= 0.3) background = "rgba(99, 102, 241, 0.5)";
-      else if (ratio <= 0.6) background = "rgba(99, 102, 241, 0.75)";
-      else                   background = "rgba(99, 102, 241, 1)";
+    const title = document.createElement("div");
+    title.className = "calendar-month-title";
+    title.textContent = `${year} ${monthNames[month]}`;
+    monthBlock.appendChild(title);
+
+    const grid = document.createElement("div");
+    grid.className = "calendar-month-grid";
+
+    weekdays.forEach(day => {
+      const labelEl = document.createElement("div");
+      labelEl.className = "calendar-weekday";
+      labelEl.textContent = day;
+      grid.appendChild(labelEl);
+    });
+
+    for (let i = 0; i < firstDay.getUTCDay(); i++) {
+      const blank = document.createElement("div");
+      blank.className = "calendar-day blank";
+      grid.appendChild(blank);
     }
 
-    cell.style.backgroundColor = background;
-    cell.style.opacity = opacity;
-    cell.title = `${dateStr}: ${count} ${label}`;
-    grid.appendChild(cell);
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentDate = new Date(Date.UTC(year, month, day, 12));
+      const dateStr = currentDate.toISOString().substring(0, 10);
+      const count = logsByDate[dateStr] || 0;
+      const inPlanRange = currentDate >= startDate && currentDate <= endDate;
+
+      const cell = document.createElement("div");
+      cell.className = "calendar-day";
+      cell.setAttribute("data-date", dateStr);
+      cell.setAttribute("data-count", count);
+      cell.textContent = day;
+
+      let level = 0;
+      if (count > 0) {
+        const maxCount = Math.max(2, Math.round(teamSize * 1.5));
+        const ratio = count / maxCount;
+        if (ratio <= 0.1) level = 1;
+        else if (ratio <= 0.3) level = 2;
+        else if (ratio <= 0.6) level = 3;
+        else level = 4;
+      }
+      cell.dataset.level = String(level);
+      if (!inPlanRange) cell.classList.add("out-of-range");
+      cell.title = `${dateStr}: ${count} ${label}`;
+      grid.appendChild(cell);
+    }
+
+    monthBlock.appendChild(grid);
+    wrapper.appendChild(monthBlock);
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
   }
 
-  container.appendChild(grid);
+  container.appendChild(wrapper);
 }
-
-// ── Badge Wall Renderer ──────────────────────────────────────
-/**
- * Render the achievement badge wall into any container.
- * Can be used by both the stats tab and the plan's personal-stats tab.
- *
- * @param {string} containerId - ID of the container element
- */
 function renderBadgeWall(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;

@@ -1,3 +1,18 @@
+function isLocalhostGoogleLoginAllowed() {
+  return window.location.hostname === "localhost" ||
+         window.location.hostname === "127.0.0.1" ||
+         window.location.hostname === "::1";
+}
+
+function updateGoogleLoginVisibility() {
+  const allowGoogle = isLocalhostGoogleLoginAllowed();
+  ["btn-google-login", "btn-gate-google-login"].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.style.display = allowGoogle ? "inline-flex" : "none";
+    btn.disabled = !allowGoogle;
+  });
+}
 // Profile & settings tab view controller
 
 function renderProfileView() {
@@ -167,9 +182,11 @@ function renderProfileView() {
 
 // Initialize profile & auth page controls on page load
 function initProfileControls() {
+  updateGoogleLoginVisibility();
+  const allowGoogleLogin = isLocalhostGoogleLoginAllowed();
   // Google OAuth Login
   const btnGoogle = document.getElementById("btn-google-login");
-  if (btnGoogle) {
+  if (btnGoogle && allowGoogleLogin) {
     btnGoogle.onclick = async (e) => {
       e.preventDefault();
       loader.show("開啟 Google 登入中...");
@@ -195,7 +212,7 @@ function initProfileControls() {
   }
 
   const btnGoogleGate = document.getElementById("btn-gate-google-login");
-  if (btnGoogleGate) {
+  if (btnGoogleGate && allowGoogleLogin) {
     btnGoogleGate.onclick = async (e) => {
       e.preventDefault();
       loader.show("開啟 Google 登入中...");
@@ -1298,6 +1315,3 @@ function showResponsibilityModal(role, user) {
     };
   });
 }
-
-
-

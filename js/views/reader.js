@@ -90,31 +90,38 @@ function initReaderControls() {
   const markReadBtn = document.getElementById("mark-read-btn");
   if (markReadBtn) {
     markReadBtn.addEventListener("click", async () => {
-      const isChecked = !markReadBtn.classList.contains("checked");
+      if (markReadBtn.dataset.saving === "true") return;
+
+      const wasChecked = markReadBtn.classList.contains("checked");
+      const isChecked = !wasChecked;
       const bookObj = BIBLE_BOOKS.find(b => b.id === state.readerState.bookId);
-      
-      loader.show(isChecked ? "標記已讀中..." : "取消標記中...");
-      await db.logChapterRead(bookObj.name, state.readerState.chapter, isChecked);
-      
-      if (isChecked) {
-        markReadBtn.classList.add("checked");
-      } else {
-        markReadBtn.classList.remove("checked");
-      }
-      
-      // Auto update reading plan progress checkbox if exists
-      if (state.activePlan) {
-        const planDayChKey = `${bookObj.name}_${state.readerState.chapter}`;
-        updatePlanCheckboxState(planDayChKey, isChecked);
-        calculatePlanProgress();
-        if (state.activePlan.progress === 100) {
-          await handleRoundCompletion(state.activePlan);
+      if (!bookObj) return;
+
+      markReadBtn.dataset.saving = "true";
+      markReadBtn.disabled = true;
+      markReadBtn.classList.toggle("checked", isChecked);
+
+      try {
+        await db.logChapterRead(bookObj.name, state.readerState.chapter, isChecked);
+
+        if (state.activePlan) {
+          const planDayChKey = `${bookObj.name}_${state.readerState.chapter}`;
+          updatePlanCheckboxState(planDayChKey, isChecked);
+          calculatePlanProgress();
+          if (state.activePlan.progress === 100) {
+            await handleRoundCompletion(state.activePlan);
+          }
         }
+      } catch (error) {
+        console.error("Failed to update reader progress", error);
+        markReadBtn.classList.toggle("checked", wasChecked);
+        showToast("讀經進度更新失敗，請稍後再試");
+      } finally {
+        markReadBtn.dataset.saving = "false";
+        markReadBtn.disabled = false;
       }
-      loader.hide();
     });
   }
-
   // Scroll to bottom detection to automatically mark as read
   window.addEventListener("scroll", async () => {
     const readerView = document.getElementById("reader-view");
@@ -372,4 +379,3 @@ function showContextToolbar(verseElement, highlightKey) {
     document.addEventListener("click", documentClickHandler);
   }, 10);
 }
-

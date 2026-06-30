@@ -25,6 +25,12 @@ const db = {
     const statusBadge = document.getElementById("connection-status");
     const authSection = document.getElementById("sb-auth-section");
     const placeholder = document.getElementById("sb-disconnected-placeholder");
+    const allowGoogleLogin = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname === "::1";
+    const btnGoogleGateEarly = document.getElementById("btn-gate-google-login");
+    if (btnGoogleGateEarly) {
+      btnGoogleGateEarly.style.display = allowGoogleLogin ? "inline-flex" : "none";
+      btnGoogleGateEarly.disabled = !allowGoogleLogin;
+    }
 
     // ── NLC SSO button wiring (always, even before Supabase) ──
     const btnNlcGate = document.getElementById("btn-gate-nlc-login");
@@ -156,6 +162,7 @@ const db = {
     const statusBadge = document.getElementById("connection-status");
     const authSection = document.getElementById("sb-auth-section");
     const placeholder = document.getElementById("sb-disconnected-placeholder");
+
     const profileCardCol = document.getElementById("profile-card-col");
 
     statusBadge.className = "status-badge offline";
@@ -619,14 +626,23 @@ const db = {
     const planId = state.activePlan ? state.activePlan.id : null;
     const presetKey = state.activePlan ? state.activePlan.presetKey : null;
     const round = state.activePlan ? (state.activePlan.currentRound || 1) : 1;
+    const isSamePlanLog = (log) => {
+      const logPlanId = log.plan_id || null;
+      const logPresetKey = log.presetKey || log.preset_key || null;
+      if (planId && logPlanId) return logPlanId === planId;
+      if (presetKey && logPresetKey) return logPresetKey === presetKey;
+      if (planId && !logPlanId && !logPresetKey) return true;
+      if (presetKey && !logPlanId && !logPresetKey) return true;
+      return !planId && !presetKey && !logPlanId && !logPresetKey;
+    };
+    const isSameChapterLog = (log) =>
+      log.book === book &&
+      Number(log.chapter) === Number(chapter) &&
+      (log.round || 1) === round &&
+      isSamePlanLog(log);
 
     if (isChecked) {
-      const existingLog = state.readingLogs.find(l =>
-        l.book === book &&
-        l.chapter === chapter &&
-        (l.plan_id === planId || l.presetKey === presetKey) &&
-        (l.round || 1) === round
-      );
+      const existingLog = state.readingLogs.find(isSameChapterLog);
       if (!existingLog) {
         state.readingLogs.push({ book, chapter, read_at: todayISO, plan_id: planId, presetKey: presetKey, round: round });
 
@@ -645,33 +661,27 @@ const db = {
         }
       } else {
         existingLog.read_at = todayISO;
+        if (!existingLog.plan_id && planId) existingLog.plan_id = planId;
+        if (!existingLog.presetKey && presetKey) existingLog.presetKey = presetKey;
         if (state.isSupabaseMode && state.supabase && !(state.currentUser && state.currentUser.is_demo)) {
           const { data: { user } } = await state.supabase.auth.getUser();
           if (user) {
             let query = state.supabase.from("reading_logs").update({ read_at: todayISO }).eq("user_id", user.id).eq("book", book).eq("chapter", chapter).eq("round", round);
-            if (planId) {
-              query = query.eq("plan_id", planId);
-            } else {
-              query = query.is("plan_id", null);
-            }
+            if (planId) query = query.eq("plan_id", planId);
+            else query = query.is("plan_id", null);
             await query;
           }
         }
       }
     } else {
-      state.readingLogs = state.readingLogs.filter(l => !(
-        l.book === book &&
-        l.chapter === chapter &&
-        (l.plan_id === planId || l.presetKey === presetKey) &&
-        (l.round || 1) === round
-      ));
+      state.readingLogs = state.readingLogs.filter(l => !isSameChapterLog(l));
 
       if (state.isSupabaseMode && state.supabase && !(state.currentUser && state.currentUser.is_demo)) {
         const { data: { user } } = await state.supabase.auth.getUser();
         if (user) {
           let query = state.supabase.from("reading_logs").delete().eq("user_id", user.id).eq("book", book).eq("chapter", chapter).eq("round", round);
           if (planId) {
-            query = query.eq("plan_id", planId);
+            query = query.or(`plan_id.eq.${planId},plan_id.is.null`);
           } else {
             query = query.is("plan_id", null);
           }
@@ -693,7 +703,6 @@ const db = {
     if (typeof checkAchievements !== 'undefined') {
       await checkAchievements();
     }
-    window._cachedAllUsersList = null;
   },
 
   async syncProfileStatsToSupabase() {
@@ -1020,6 +1029,7 @@ const db = {
         statusBadge.querySelector(".status-text").textContent = "線上模式";
       }
       const placeholder = document.getElementById("sb-disconnected-placeholder");
+
       if (placeholder) placeholder.classList.add("hidden");
       
       const authSection = document.getElementById("sb-auth-section");
