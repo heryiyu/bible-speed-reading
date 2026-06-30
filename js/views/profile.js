@@ -106,6 +106,11 @@ function renderProfileView() {
     const zone = zoneSelect.value === "custom" ? customZoneInput.value.trim() : zoneSelect.value;
     const group = groupSelect.value === "custom" ? customGroupInput.value.trim() : groupSelect.value;
 
+    if (!name) {
+      alert("請填寫顯示名稱！");
+      return;
+    }
+
     if (!greatRegion || !zone || !group) {
       alert("請完整填寫大區、牧區與小組資料！");
       return;
@@ -167,57 +172,36 @@ function renderProfileView() {
 
 // Initialize profile & auth page controls on page load
 function initProfileControls() {
-  // Google OAuth Login
+  async function handleNlcSignIn(e) {
+    e.preventDefault();
+    loader.show("開啟 NLC 登入中...");
+    try {
+      await nlcAuth.signIn();
+    } catch (err) {
+      alert(`NLC 登入失敗: ${err.message}`);
+      loader.hide();
+    }
+  }
+
+  const btnNlc = document.getElementById("btn-nlc-login");
+  if (btnNlc) {
+    btnNlc.onclick = handleNlcSignIn;
+  }
+
+  const btnNlcGate = document.getElementById("btn-gate-nlc-login");
+  if (btnNlcGate) {
+    btnNlcGate.onclick = handleNlcSignIn;
+  }
+
+  // Legacy Google button id (if present in older markup)
   const btnGoogle = document.getElementById("btn-google-login");
   if (btnGoogle) {
-    btnGoogle.onclick = async (e) => {
-      e.preventDefault();
-      loader.show("開啟 Google 登入中...");
-      try {
-        if (!state.supabase) {
-          throw new Error("Supabase 未初始化。請確認已設定連線資訊或檢查網路狀態！");
-        }
-        const { error } = await state.supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin + window.location.pathname,
-            queryParams: {
-              prompt: 'select_account'
-            }
-          }
-        });
-        if (error) throw error;
-      } catch (err) {
-        alert(`Google 登入失敗: ${err.message}`);
-        loader.hide();
-      }
-    };
+    btnGoogle.onclick = handleNlcSignIn;
   }
 
   const btnGoogleGate = document.getElementById("btn-gate-google-login");
   if (btnGoogleGate) {
-    btnGoogleGate.onclick = async (e) => {
-      e.preventDefault();
-      loader.show("開啟 Google 登入中...");
-      try {
-        if (!state.supabase) {
-          throw new Error("Supabase 未初始化。請確認已設定連線資訊或檢查網路狀態！");
-        }
-        const { error } = await state.supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: window.location.origin + window.location.pathname,
-            queryParams: {
-              prompt: 'select_account'
-            }
-          }
-        });
-        if (error) throw error;
-      } catch (err) {
-        alert(`Google 登入失敗: ${err.message}`);
-        loader.hide();
-      }
-    };
+    btnGoogleGate.onclick = handleNlcSignIn;
   }
 
   // Email Auth Button triggers
@@ -276,7 +260,12 @@ function initProfileControls() {
       e.preventDefault();
       loader.show("登出中...");
       try {
-        await state.supabase.auth.signOut();
+        if (state.isSupabaseMode && state.supabase) {
+          state.realRole = null;
+          db.updateAuthUI(null);
+          await nlcAuth.signOut();
+          return;
+        }
         state.realRole = null;
         db.updateAuthUI(null);
         await db.loadUserData();
@@ -1012,7 +1001,10 @@ function initAvatarDropdown() {
       loader.show("登出中...");
       try {
         if (state.isSupabaseMode && state.supabase) {
-          await state.supabase.auth.signOut();
+          state.realRole = null;
+          db.updateAuthUI(null);
+          await nlcAuth.signOut();
+          return;
         }
         state.realRole = null;
         db.updateAuthUI(null);

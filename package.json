@@ -6,8 +6,11 @@
   "scripts": {
     "build": "node build-config.js",
     "start": "npx serve .",
-    "dev": "npx serve ."
+    "dev": "npx serve .",
+    "verify:integration": "node scripts/verify-integration.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1"
+  },
   "devDependencies": {}
 }

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'church-bible-reading-v79';
-const DYNAMIC_CACHE_NAME = 'church-bible-dynamic-v79';
+const CACHE_NAME = 'church-bible-reading-v80';
+const DYNAMIC_CACHE_NAME = 'church-bible-dynamic-v80';
 
 // Static resources to precache
 const PRECACHE_ASSETS = [
@@ -12,6 +12,7 @@ const PRECACHE_ASSETS = [
   './assets/icon-192.png',
   './assets/icon-512.png',
   './js/state.js',
+  './js/auth.js',
   './js/db.js',
   './js/utils.js',
   './demo/mock_stats.js',
@@ -68,9 +69,13 @@ function cleanResponse(response) {
 self.addEventListener('fetch', (e) => {
   const requestUrl = new URL(e.request.url);
 
-  // 1. Bypass caching for Supabase API requests (authentication, database reads/writes)
-  if (requestUrl.hostname.includes('supabase.co')) {
-    return; // Let the browser handle normally (network only)
+  // 1. Bypass caching for auth, API bridge, Supabase, and NLC identity endpoints
+  if (
+    requestUrl.pathname.startsWith('/api/') ||
+    requestUrl.hostname.includes('supabase.co') ||
+    requestUrl.hostname.includes('newlife.org.tw')
+  ) {
+    return; // Network only
   }
 
   // 2. Cache-First Strategy for Bible Text API (bible-api.com) to allow offline reading

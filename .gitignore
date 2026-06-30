@@ -2,6 +2,9 @@
 .env
 config.js
 
+# Node dependencies
+node_modules/
+
 
 # 系統暫存與編輯器檔案
 .DS_Store

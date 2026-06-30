@@ -77,7 +77,7 @@ const db = {
     state.isSupabaseMode = true;
 
     // Disable Google login gate button
-    const btnGoogleGate = document.getElementById("btn-gate-google-login");
+    const btnGoogleGate = document.getElementById("btn-gate-nlc-login");
     if (btnGoogleGate) {
       btnGoogleGate.disabled = true;
       btnGoogleGate.style.opacity = "0.5";
@@ -149,6 +149,126 @@ const db = {
     }
   },
 
+  applyProfileRow(profile) {
+    state.currentUser.name = profile.name;
+    state.currentUser.great_region = profile.great_region;
+    state.currentUser.pastoral_zone = profile.pastoral_zone;
+    state.currentUser.small_group = profile.small_group;
+    state.currentUser.role = profile.role;
+    state.currentUser.is_demo = !!profile.is_demo;
+    state.realRole = profile.role;
+    state.currentUser.identity_provider = profile.identity_provider || null;
+    state.currentUser.identity_subject = profile.identity_subject || null;
+    state.currentUser.member_id = profile.member_id || null;
+    state.currentUser.membership_status = profile.membership_status || null;
+    state.currentUser.home_node_id = profile.home_node_id || null;
+    state.currentUser.home_node_name = profile.home_node_name || null;
+    state.currentUser.hub_primary_role = profile.hub_primary_role || null;
+    state.currentUser.hub_roles = profile.hub_roles || [];
+    state.currentUser.member_context_synced_at = profile.member_context_synced_at || null;
+    state.currentUser.org_fields_locked = !!profile.org_fields_locked;
+  },
+
+  shouldSyncIdentity(profile) {
+    if (!profile) return true;
+    if (!profile.identity_subject) return true;
+    if (!profile.member_context_synced_at) return true;
+    const syncedAt = new Date(profile.member_context_synced_at).getTime();
+    if (Number.isNaN(syncedAt)) return true;
+    return Date.now() - syncedAt > 24 * 60 * 60 * 1000;
+  },
+
+  async syncIdentityContext(userId, profile) {
+    if (!state.isSupabaseMode || !state.supabase || typeof nlcAuth === 'undefined') {
+      return null;
+    }
+
+    const { data: { session } } = await state.supabase.auth.getSession();
+    if (!session) return null;
+
+    const hasLocalName = !!(
+      profile &&
+      profile.name &&
+      profile.name.trim() &&
+      profile.name !== '新使用者' &&
+      profile.name !== '未設定'
+    );
+
+    try {
+      const res = await fetch('/api/member-context', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          Accept: 'application/json',
+        },
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload.ok) {
+        console.warn('Identity sync skipped:', payload.error || payload.reason || res.status);
+        return null;
+      }
+
+      if (!payload.synced || !payload.context) {
+        console.info('Identity sync not available:', payload.reason || 'no context returned');
+        return null;
+      }
+
+      const identityPayload = nlcAuth.applyIdentityContext(payload.context, { hasLocalName });
+      if (!identityPayload) return null;
+
+      await state.supabase.from('profiles').update({
+        ...identityPayload,
+      }).eq('id', userId);
+
+      return payload.context;
+    } catch (err) {
+      console.error('Identity sync failed:', err);
+      return null;
+    }
+  },
+
+  /** @deprecated Use syncIdentityContext — kept as alias for compatibility */
+  async syncMemberContext(userId, profile) {
+    return this.syncIdentityContext(userId, profile);
+  },
+
+  async bootstrapProfile(user) {
+    const displayName =
+      (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) ||
+      user.email ||
+      '新使用者';
+
+    state.currentUser.name = displayName;
+    state.currentUser.great_region = '';
+    state.currentUser.pastoral_zone = '';
+    state.currentUser.small_group = '';
+    state.currentUser.role = 'member';
+    state.currentUser.is_demo = false;
+    state.realRole = 'member';
+    state.currentUser.org_fields_locked = false;
+
+    nlcAuth.applyAuthUserIdentity(user);
+
+    try {
+      await state.supabase.from('profiles').insert({
+        id: user.id,
+        name: state.currentUser.name,
+        great_region: '未設定',
+        pastoral_zone: '未設定',
+        small_group: '未設定',
+        role: state.currentUser.role,
+        identity_provider: state.currentUser.identity_provider,
+        identity_subject: state.currentUser.identity_subject,
+        org_fields_locked: false,
+      });
+    } catch (dbErr) {
+      console.error('Failed to auto-create user profile in Supabase:', dbErr);
+    }
+
+    await this.syncIdentityContext(user.id, { name: state.currentUser.name });
+  },
+
   // Load User Data (either Supabase or LocalStorage fallbacks)
   async loadUserData() {
     // 0. Load global preset plans first
@@ -168,35 +288,12 @@ const db = {
           .single();
 
         if (profile) {
-          state.currentUser.name = profile.name;
-          state.currentUser.great_region = profile.great_region;
-          state.currentUser.pastoral_zone = profile.pastoral_zone;
-          state.currentUser.small_group = profile.small_group;
-          state.currentUser.role = profile.role;
-          state.currentUser.is_demo = !!profile.is_demo;
-          state.realRole = profile.role;
-        } else {
-          // First-time login: create profile automatically in Supabase
-          state.currentUser.name = (user.user_metadata && user.user_metadata.full_name) || "新使用者";
-          state.currentUser.great_region = "東區";
-          state.currentUser.pastoral_zone = "大安1";
-          state.currentUser.small_group = "馬鈴";
-          state.currentUser.role = "member";
-          state.currentUser.is_demo = false;
-          state.realRole = "member";
-
-          try {
-            await state.supabase.from("profiles").insert({
-              id: user.id,
-              name: state.currentUser.name,
-              great_region: state.currentUser.great_region,
-              pastoral_zone: state.currentUser.pastoral_zone,
-              small_group: state.currentUser.small_group,
-              role: state.currentUser.role
-            });
-          } catch (dbErr) {
-            console.error("Failed to auto-create user profile in Supabase:", dbErr);
+          this.applyProfileRow(profile);
+          if (this.shouldSyncIdentity(profile)) {
+            await this.syncIdentityContext(user.id, profile);
           }
+        } else {
+          await this.bootstrapProfile(user);
         }
 
         // 2. Load Reading Logs

@@ -63,7 +63,18 @@ const state = {
     chapters_read: 0,
     plan_progress: 0,
     streak: 0,
-    last_read: null
+    last_read: null,
+    // NLC ecosystem / Member Hub projection
+    identity_provider: null,
+    identity_subject: null,
+    member_id: null,
+    membership_status: null,
+    home_node_id: null,
+    home_node_name: null,
+    hub_primary_role: null,
+    hub_roles: [],
+    member_context_synced_at: null,
+    org_fields_locked: false
   },
   orgStructure: {
     regions: [],
