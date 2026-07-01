@@ -3670,3 +3670,248 @@ body.warm-theme .avatar-dropdown {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+
+/* Native-like PWA App Shell */
+:root {
+  --app-top-bar-height: 64px;
+  --app-bottom-nav-height: 72px;
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body,
+body * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea,
+select,
+.bible-text-container,
+.bible-text-container * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.app-layout {
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+}
+
+.main-header {
+  height: calc(var(--app-top-bar-height) + var(--app-safe-top));
+  padding-top: var(--app-safe-top);
+  z-index: 300;
+}
+
+.header-container {
+  max-width: 100%;
+  padding: 0 0.85rem;
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  gap: 0.4rem;
+  justify-items: center;
+}
+
+.brand {
+  grid-column: 2;
+  min-width: 0;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.brand-icon,
+.nav-tabs,
+.header-actions,
+.main-footer {
+  display: none !important;
+}
+
+.brand-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.app-back-btn {
+  grid-column: 1;
+  grid-row: 1;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  box-shadow: none;
+  justify-self: start;
+}
+
+.app-back-btn span {
+  display: none;
+}
+
+.app-back-btn.is-home svg {
+  display: block;
+  opacity: 0;
+}
+
+.main-content {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: calc(var(--app-top-bar-height) + var(--app-safe-top));
+  bottom: calc(var(--app-bottom-nav-height) + var(--app-safe-bottom));
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 1rem clamp(0.85rem, 3vw, 1.4rem) 1.4rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.mobile-nav-bar {
+  display: flex;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--app-bottom-nav-height) + var(--app-safe-bottom));
+  padding: 0.35rem 0.35rem calc(0.35rem + var(--app-safe-bottom));
+  background-color: var(--bg-header);
+  border-top: 1px solid var(--border-card);
+  backdrop-filter: var(--glass-blur);
+  z-index: 300;
+  justify-content: space-around;
+  align-items: stretch;
+  gap: 0.2rem;
+}
+
+.mobile-nav-btn {
+  min-width: 44px;
+  min-height: 44px;
+  flex: 1 1 0;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: transform 0.12s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.mobile-nav-btn .icon {
+  width: 23px;
+  height: 23px;
+  flex: 0 0 auto;
+}
+
+.mobile-nav-btn.active {
+  color: var(--primary-color);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+button,
+[role="button"],
+.tab-btn,
+.icon-btn,
+.primary-btn,
+.secondary-btn,
+.pill-btn,
+.danger-btn,
+.avatar-btn,
+.circular-action-btn,
+.reader-pill-badge,
+.reader-pill-icon-btn,
+.floating-nav-btn,
+.options-dropdown-item,
+.plan-task-item,
+.date-card {
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active,
+[role="button"]:active,
+.tab-btn:active,
+.icon-btn:active,
+.primary-btn:active,
+.secondary-btn:active,
+.pill-btn:active,
+.danger-btn:active,
+.avatar-btn:active,
+.circular-action-btn:active,
+.reader-pill-badge:active,
+.reader-pill-icon-btn:active,
+.floating-nav-btn:active,
+.options-dropdown-item:active,
+.plan-task-item:active,
+.date-card:active,
+.mobile-nav-btn:active {
+  transform: scale(0.96);
+}
+
+button:focus,
+button:focus-visible,
+.mobile-nav-btn:focus,
+.mobile-nav-btn:focus-visible,
+.app-back-btn:focus,
+.app-back-btn:focus-visible {
+  outline: none;
+}
+
+@media (min-width: 769px) {
+  .main-content {
+    padding-left: max(1.4rem, calc((100vw - 1180px) / 2));
+    padding-right: max(1.4rem, calc((100vw - 1180px) / 2));
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-nav-btn {
+    font-size: 0.62rem;
+  }
+
+  .mobile-nav-btn .icon {
+    width: 21px;
+    height: 21px;
+  }
+}
+

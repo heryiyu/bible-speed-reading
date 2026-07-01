@@ -137,6 +137,8 @@ const appRouter = {
   updateNavigationChrome() {
     const backBtn = document.getElementById("global-back-btn");
     const backLabel = document.getElementById("global-back-label");
+    const titleEl = document.querySelector(".brand-text");
+    if (titleEl) titleEl.textContent = this.getTabLabel(this.currentTab);
     if (!backBtn || !backLabel) return;
 
     const isHome = this.currentTab === "dashboard-view" && !(state.activePlan && state.planDetailOpen);
