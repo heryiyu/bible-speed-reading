@@ -62,15 +62,32 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("Failed to initialize profile/auth controls:", err);
   }
 
-  // 6.5 & 7. Load Data in Parallel & Render initial Dashboard
+  // 6.5 & 7. Load Data in Parallel, Verify Session & Render initial Dashboard
   try {
+    // 💡 體驗優化：平行載入組織結構與用戶資料，顯著縮短冷啟動等待時間
     await Promise.all([
       db.loadOrgStructure(),
       db.loadUserData()
     ]);
+
+    // 💡 最終會話校驗：確保非同步 token 恢復完成（防制多重連線邊際狀況）
+    if (state.isSupabaseMode && state.supabase) {
+      const { data: { session } } = await state.supabase.auth.getSession();
+      if (session) {
+        db.updateAuthUI(session);
+        await db.loadUserData();
+      }
+    }
+
+    // 渲染初始儀表板
     updateDashboardView();
   } catch (err) {
     console.error("Failed to load initial data & render dashboard:", err);
+  } finally {
+    // 💡 體驗最優化：保證所有資料載入與畫面渲染「完全就緒」後才隱藏 Loading，不讓使用者看見空白或 Demo 畫面
+    if (typeof loader !== "undefined" && loader.hide) {
+      loader.hide();
+    }
   }
 
   // 8. Register Service Worker for PWA offline support
@@ -98,39 +115,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       } catch (err) {
         console.error("Service Worker registration failed:", err);
       }
-    }
-  }
-
-  // 9. Final Auth Verification check (handles race conditions during asynchronous token recovery)
-  try {
-    if (state.isSupabaseMode && state.supabase) {
-      setTimeout(async () => {
-        try {
-          const { data: { session } } = await state.supabase.auth.getSession();
-          if (session) {
-            console.log("Auth session recovered in delayed check:", session);
-            db.updateAuthUI(session);
-            await db.loadUserData();
-            updateDashboardView();
-          }
-        } catch (recoverErr) {
-          console.error("Session recovery error:", recoverErr);
-        } finally {
-          // 💡 體驗優化：等最終連線檢查完成後，才隱藏 Loading 畫面
-          if (typeof loader !== "undefined" && loader.hide) {
-            loader.hide();
-          }
-        }
-      }, 500); // 500ms delay to allow async Supabase session recovery to complete
-    } else {
-      if (typeof loader !== "undefined" && loader.hide) {
-        loader.hide();
-      }
-    }
-  } catch (err) {
-    console.error("Failed in final auth verification check:", err);
-    if (typeof loader !== "undefined" && loader.hide) {
-      loader.hide();
     }
   }
 });

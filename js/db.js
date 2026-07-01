@@ -440,8 +440,14 @@ const db = {
   },
 
   // Load User Data (either Supabase or LocalStorage fallbacks)
+  _userDataPromise: null,
   async loadUserData() {
-    if (state.isSupabaseMode && state.supabase) {
+    if (this._userDataPromise) {
+      return this._userDataPromise;
+    }
+    this._userDataPromise = (async () => {
+      try {
+        if (state.isSupabaseMode && state.supabase) {
       if (state.currentUser) {
         state.currentUser.is_demo = false;
       }
@@ -739,13 +745,18 @@ const db = {
       state.currentUser.chapters_read = state.readingLogs.length;
     }
 
-    this.calculateStreak();
-    if (typeof checkAchievements !== 'undefined') {
-      await checkAchievements();
-    }
-    if (typeof updateAdminNavVisibility === 'function') {
-      updateAdminNavVisibility();
-    }
+        this.calculateStreak();
+        if (typeof checkAchievements !== 'undefined') {
+          await checkAchievements();
+        }
+        if (typeof updateAdminNavVisibility === 'function') {
+          updateAdminNavVisibility();
+        }
+      } finally {
+        this._userDataPromise = null;
+      }
+    })();
+    return this._userDataPromise;
   },
 
   // Load Church Organization Structure (from Supabase or Local Mock)
