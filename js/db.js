@@ -166,20 +166,30 @@ const db = {
   createNlcDataClient() {
     const cfg = state.supabaseConfig || {};
     const callEdge = async (request) => {
-      const accessToken = typeof auth !== "undefined" ? localStorage.getItem(auth.keys.accessToken) : "";
-      if (!accessToken) throw new Error("NLC access token is missing.");
-      const response = await fetch(cfg.url.replace(/\/+$/, "") + "/functions/v1/nlc-data", {
-        method: "POST",
-        headers: {
-          apikey: cfg.anonKey,
-          Authorization: "Bearer " + accessToken,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(request)
-      });
-      const payload = await response.json().catch(() => ({}));
+      if (typeof auth === "undefined") throw new Error("NLC auth client is missing.");
+      const send = async (forceRefresh = false) => {
+        const accessToken = await auth.getValidAccessToken(forceRefresh);
+        const response = await fetch(cfg.url.replace(/\/+$/, "") + "/functions/v1/nlc-data", {
+          method: "POST",
+          headers: {
+            apikey: cfg.anonKey,
+            Authorization: "Bearer " + accessToken,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(request)
+        });
+        const payload = await response.json().catch(() => ({}));
+        return { response, payload };
+      };
+
+      let { response, payload } = await send(false);
+      const tokenRejected = response.status === 401 || payload?.message?.includes("invalid_token") || payload?.message?.includes("Invalid token") || payload?.error === "invalid_token";
+      if (tokenRejected) {
+        ({ response, payload } = await send(true));
+      }
+
       if (!response.ok) return { data: null, error: payload };
-      if (payload.profile) this.applyNlcProfile(payload.profile);
+      if (payload.profile) this.applyNlcProfile(payload.profile, payload.locked_fields || null);
       return { data: payload.data, error: null };
     };
 
@@ -297,8 +307,7 @@ const db = {
       return { edge_session: true, profile: cachedProfile ? JSON.parse(cachedProfile) : null, locked_fields: cachedLockedFields };
     }
 
-    const accessToken = localStorage.getItem(auth.keys.accessToken);
-    if (!accessToken) throw new Error("NLC access token is missing.");
+    const accessToken = await auth.getValidAccessToken();
 
     const cfg = state.supabaseConfig || {};
     const functionUrl = cfg.url.replace(/\/+$/, "") + "/functions/v1/nlc-session";

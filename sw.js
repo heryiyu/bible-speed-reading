@@ -1,5 +1,5 @@
-const CACHE_NAME = 'church-bible-reading-v73';
-const DYNAMIC_CACHE_NAME = 'church-bible-dynamic-v73';
+const CACHE_NAME = 'church-bible-reading-v74';
+const DYNAMIC_CACHE_NAME = 'church-bible-dynamic-v74';
 
 // Static resources to precache
 const PRECACHE_ASSETS = [
@@ -19,7 +19,7 @@ const PRECACHE_ASSETS = [
   './js/views/reader.js',
   './js/views/plan.js',
   './js/views/stats.js',
-  './js/views/profile.js?v=nlc-edge-20260701-10'
+  './js/views/profile.js?v=nlc-edge-20260701-11'
 ];
 
 // Install Event: cache static shell assets

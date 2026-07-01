@@ -354,8 +354,28 @@ const auth = {
 
   isLoggedIn() {
     const token = localStorage.getItem(this.keys.accessToken);
+    const refreshToken = localStorage.getItem(this.keys.refreshToken);
     const expiresAt = parseInt(localStorage.getItem(this.keys.expiresAt) || "0", 10);
-    return !!token && Date.now() < expiresAt;
+    return (!!token && Date.now() < expiresAt) || !!refreshToken;
+  },
+
+  async getValidAccessToken(forceRefresh = false) {
+    const token = localStorage.getItem(this.keys.accessToken);
+    const expiresAt = parseInt(localStorage.getItem(this.keys.expiresAt) || "0", 10);
+    const shouldRefresh = forceRefresh || !token || Date.now() > expiresAt - 60000;
+
+    if (shouldRefresh) {
+      const refreshed = await this.refreshTokens();
+      if (!refreshed) {
+        this._clearStoredTokens();
+        this._resetAppAuthState();
+        throw new Error("\u767b\u5165\u72c0\u614b\u5df2\u5931\u6548\uff0c\u8acb\u91cd\u65b0\u767b\u5165\u3002");
+      }
+    }
+
+    const nextToken = localStorage.getItem(this.keys.accessToken);
+    if (!nextToken) throw new Error("\u767b\u5165\u72c0\u614b\u5df2\u5931\u6548\uff0c\u8acb\u91cd\u65b0\u767b\u5165\u3002");
+    return nextToken;
   },
 
   getLogtoSubject() {
