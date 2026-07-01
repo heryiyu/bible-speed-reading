@@ -383,8 +383,21 @@ const auth = {
     return payload ? payload.sub : null;
   },
 
+  _getTokenClientId(token) {
+    const payload = this._parseJwt(token || "");
+    if (!payload) return "";
+    const aud = Array.isArray(payload.aud) ? payload.aud[0] : payload.aud;
+    return payload.azp || payload.client_id || aud || "";
+  },
+
+  _finishLocalLogout() {
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.location.replace(cleanUrl);
+  },
+
   async logout() {
     const idToken = localStorage.getItem(this.keys.idToken);
+    const tokenClientId = this._getTokenClientId(idToken);
     this._clearStoredTokens();
     this._clearFlowState();
     this._resetAppAuthState();
@@ -398,21 +411,24 @@ const auth = {
       console.warn("Could not clear app caches during logout", err);
     }
 
-    if (idToken) {
+    if (idToken && tokenClientId && tokenClientId === this.config.clientId) {
       try {
         const endpoints = await this._getEndpoints();
         const postLogoutRedirectUri = this._getRedirectUri();
         const logoutParams = new URLSearchParams({
           id_token_hint: idToken,
+          client_id: this.config.clientId,
           post_logout_redirect_uri: postLogoutRedirectUri
         });
-        window.location.href = `${endpoints.endSessionEndpoint}?${logoutParams.toString()}`;
+        window.location.href = endpoints.endSessionEndpoint + "?" + logoutParams.toString();
         return;
       } catch (err) {
         console.error("OIDC logout endpoint discovery failed:", err);
       }
+    } else if (idToken) {
+      console.warn("Skipping remote OIDC logout because the stored ID token belongs to a different client.", { tokenClientId, currentClientId: this.config.clientId });
     }
 
-    window.location.reload();
+    this._finishLocalLogout();
   }
 };
