@@ -523,7 +523,7 @@ function populateProfileZones(greatRegion, autoSelect = true) {
 
   let predefinedZones = (state.orgStructure && state.orgStructure.zones && state.orgStructure.zones[greatRegion] && state.orgStructure.zones[greatRegion].length > 0) 
     ? state.orgStructure.zones[greatRegion] 
-    : (MOCK_PASTORAL_ZONES_BY_REGION[greatRegion] || []);
+    : ((typeof MOCK_PASTORAL_ZONES_BY_REGION !== "undefined" && MOCK_PASTORAL_ZONES_BY_REGION[greatRegion]) || []);
   
   if (!showDemoData) {
     predefinedZones = predefinedZones.filter(z => !z.startsWith("示範"));
@@ -590,7 +590,7 @@ function populateProfileGroupSelector(autoSelect = true) {
 
   let predefinedGroups = (state.orgStructure && state.orgStructure.groups && state.orgStructure.groups[zone] && state.orgStructure.groups[zone].length > 0) 
     ? state.orgStructure.groups[zone] 
-    : (MOCK_SMALL_GROUPS[zone] || []);
+    : ((typeof MOCK_SMALL_GROUPS !== "undefined" && MOCK_SMALL_GROUPS[zone]) || []);
 
   if (!showDemoData) {
     predefinedGroups = predefinedGroups.filter(g => !g.startsWith("示範"));

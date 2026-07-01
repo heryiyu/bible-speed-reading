@@ -94,7 +94,7 @@ const db = {
 
           // Sync Logto login through the Edge Function so Supabase RLS can resolve profiles.
           if (auth.isLoggedIn()) {
-            await this.syncNlcSessionWithSupabase();
+            await this.syncNlcSessionWithSupabase(true);
             this.updateAuthUI({ user: { id: state.currentProfileId || auth.getLogtoSubject() } });
             return; // loadUserData() will be called in main.js
           }
@@ -147,6 +147,7 @@ const db = {
     };
 
     if (externalJwt) {
+      options.accessToken = async () => externalJwt;
       options.global = {
         headers: {
           Authorization: "Bearer " + externalJwt
@@ -155,6 +156,7 @@ const db = {
       options.auth.persistSession = false;
       options.auth.autoRefreshToken = false;
       options.auth.detectSessionInUrl = false;
+      options.auth.storageKey = "nlc-external-supabase-session";
     }
 
     return supabase.createClient(cfg.url, cfg.anonKey, options);
@@ -322,7 +324,7 @@ const db = {
       let user = null;
       const isOidcMode = typeof auth !== "undefined" && auth.isLoggedIn();
       if (isOidcMode) {
-        await this.syncNlcSessionWithSupabase();
+        await this.syncNlcSessionWithSupabase(true);
         user = state.currentProfileId ? { id: state.currentProfileId, oidc: true } : null;
       }
 
@@ -617,6 +619,29 @@ const db = {
   },
 
   // Load Church Organization Structure (from Supabase or Local Mock)
+  ensureCurrentUserOrgStructure() {
+    const user = state.currentUser || {};
+    const region = user.great_region || "";
+    const zone = user.pastoral_zone || "";
+    const group = user.small_group || "";
+
+    if (!state.orgStructure.regions) state.orgStructure.regions = [];
+    if (!state.orgStructure.zones) state.orgStructure.zones = {};
+    if (!state.orgStructure.groups) state.orgStructure.groups = {};
+
+    if (region && !state.orgStructure.regions.includes(region)) {
+      state.orgStructure.regions.push(region);
+    }
+    if (region && zone) {
+      if (!state.orgStructure.zones[region]) state.orgStructure.zones[region] = [];
+      if (!state.orgStructure.zones[region].includes(zone)) state.orgStructure.zones[region].push(zone);
+    }
+    if (zone && group) {
+      if (!state.orgStructure.groups[zone]) state.orgStructure.groups[zone] = [];
+      if (!state.orgStructure.groups[zone].includes(group)) state.orgStructure.groups[zone].push(group);
+    }
+  },
+
   async loadOrgStructure() {
     if (state.isSupabaseMode && state.supabase) {
       try {
@@ -644,6 +669,7 @@ const db = {
           state.orgStructure.groups[zone.name] = zoneGroups;
         });
 
+        this.ensureCurrentUserOrgStructure();
         return;
       } catch (err) {
         console.error("Failed to load schema from Supabase:", err);
@@ -653,6 +679,7 @@ const db = {
         state.orgStructure.rawGroups = [];
         state.orgStructure.zones = {};
         state.orgStructure.groups = {};
+        this.ensureCurrentUserOrgStructure();
         return;
       }
     }
