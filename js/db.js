@@ -32,6 +32,47 @@ window.showDebugOverlay = function(title, data) {
     titleEl.style.color = "#ffffff";
     titleEl.style.fontSize = "14px";
     header.appendChild(titleEl);
+
+    const btnWrapper = document.createElement("div");
+    
+    const copyBtn = document.createElement("button");
+    copyBtn.textContent = "複製內容 (Copy)";
+    copyBtn.style.backgroundColor = "#10b981";
+    copyBtn.style.color = "black";
+    copyBtn.style.border = "none";
+    copyBtn.style.padding = "6px 12px";
+    copyBtn.style.borderRadius = "4px";
+    copyBtn.style.fontWeight = "bold";
+    copyBtn.style.marginRight = "10px";
+    copyBtn.style.cursor = "pointer";
+    copyBtn.onclick = () => {
+      const content = document.getElementById("debug-overlay-content").textContent;
+      navigator.clipboard.writeText(content)
+        .then(() => {
+          copyBtn.textContent = "已複製！ (Copied)";
+          copyBtn.style.backgroundColor = "#34d399";
+          setTimeout(() => {
+            copyBtn.textContent = "複製內容 (Copy)";
+            copyBtn.style.backgroundColor = "#10b981";
+          }, 2000);
+        })
+        .catch(() => {
+          // Fallback selection copy for older mobile browsers
+          const textarea = document.createElement("textarea");
+          textarea.value = content;
+          document.body.appendChild(textarea);
+          textarea.select();
+          try {
+            document.execCommand("copy");
+            copyBtn.textContent = "已複製！ (Copied)";
+            setTimeout(() => { copyBtn.textContent = "複製內容 (Copy)"; }, 2000);
+          } catch {
+            alert("無法自動複製，請在文字欄位中全選複製。");
+          }
+          document.body.removeChild(textarea);
+        });
+    };
+    btnWrapper.appendChild(copyBtn);
     
     const closeBtn = document.createElement("button");
     closeBtn.textContent = "關閉 (Close)";
@@ -43,7 +84,9 @@ window.showDebugOverlay = function(title, data) {
     closeBtn.style.fontWeight = "bold";
     closeBtn.style.cursor = "pointer";
     closeBtn.onclick = () => overlay.remove();
-    header.appendChild(closeBtn);
+    btnWrapper.appendChild(closeBtn);
+
+    header.appendChild(btnWrapper);
     
     overlay.appendChild(header);
     
