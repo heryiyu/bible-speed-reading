@@ -375,13 +375,22 @@ function rebuildPlanScheduleForLevel(plan, level) {
 function generatePlanObject(name, startDate, endDate, selectedBooks, presetKey = null, level = "normal") {
   const preset = presetKey ? CHURCH_PLAN_PRESETS[presetKey] : null;
 
-  if (preset && preset.months) {
+  // 1. Calculate parseLocalDate
+  const parseLocalDate = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+  // 2. If level is normal AND it is a preset plan, use the original month-by-month calendar grid
+  if (level === "normal" && preset && preset.months) {
     const days = [];
     let dayNumCounter = 1;
     let totalChaptersCount = 0;
 
     preset.months.forEach(mSpec => {
-      // 1. Get all chapters of the books in this month
       const allChapters = [];
       mSpec.books.forEach(bookName => {
         if (bookName === "詩篇 1-110") {
@@ -403,21 +412,18 @@ function generatePlanObject(name, startDate, endDate, selectedBooks, presetKey =
       });
 
       const expandedChapters = expandChaptersForLevel(allChapters, level);
-      const totalChapters = expandedChapters.length;
-      totalChaptersCount += totalChapters;
+      totalChaptersCount += expandedChapters.length;
 
       const readingDays = mSpec.readingDays;
       const dailyChapters = distributeChaptersAcrossDays(expandedChapters, readingDays);
-
-      // 2. Generate calendar days for this month
       const daysInMonth = new Date(mSpec.year, mSpec.month, 0).getDate();
 
       for (let dayOffset = 0; dayOffset < daysInMonth; dayOffset++) {
         const dayDate = new Date(mSpec.year, mSpec.month - 1, dayOffset + 1);
         const mm = String(dayDate.getMonth() + 1).padStart(2, '0');
         const dd = String(dayDate.getDate()).padStart(2, '0');
-        const dateStr = `${mm}/${dd}`; // MM/DD
-        
+        const dateStr = `${mm}/${dd}`;
+
         let chapters = [];
         if (dayOffset < readingDays) {
           chapters = dailyChapters[dayOffset].map(ch => ({
@@ -455,17 +461,10 @@ function generatePlanObject(name, startDate, endDate, selectedBooks, presetKey =
     };
   }
 
-  // FALLBACK: Standard linear generation
-  const parseLocalDate = (dateStr) => {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  };
-  const start = parseLocalDate(startDate);
-  const end = parseLocalDate(endDate);
-  const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-
+  // 3. Otherwise (custom plans, or upgraded preset plans), use the new segmented round-distribution logic!
   const allChapters = [];
-  selectedBooks.forEach(bookName => {
+  const booksToUse = preset && preset.months ? preset.months.flatMap(m => m.books) : selectedBooks;
+  booksToUse.forEach(bookName => {
     if (bookName === "詩篇 1-110") {
       for (let i = 1; i <= 110; i++) {
         allChapters.push({ book: "詩篇", chapter: i });
@@ -484,17 +483,82 @@ function generatePlanObject(name, startDate, endDate, selectedBooks, presetKey =
     }
   });
 
-  const expandedChapters = expandChaptersForLevel(allChapters, level);
-  const totalChapters = expandedChapters.length;
-  const dailyChapters = distributeChaptersAcrossDays(expandedChapters, totalDays);
+  // Calculate D1 and D2 (round completion days) dynamically from reading logs
+  let d1 = null;
+  let d2 = null;
+
+  if (level === "breakthrough" || level === "super") {
+    const round1Logs = (state.readingLogs || []).filter(l => (l.round || 1) === 1);
+    if (round1Logs.length > 0) {
+      const maxDateStr = round1Logs.reduce((max, log) => log.read_at > max ? log.read_at : max, round1Logs[0].read_at);
+      const maxDate = new Date(maxDateStr.substring(0, 10));
+      maxDate.setHours(0, 0, 0, 0);
+      start.setHours(0, 0, 0, 0);
+      d1 = Math.max(1, Math.floor((maxDate - start) / (1000 * 60 * 60 * 24)) + 1);
+      d1 = Math.min(d1, totalDays - 1);
+    } else {
+      d1 = Math.floor(totalDays / (level === "super" ? 3 : 2));
+    }
+
+    if (level === "super") {
+      const round2Logs = (state.readingLogs || []).filter(l => l.round === 2);
+      if (round2Logs.length > 0) {
+        const maxDateStr = round2Logs.reduce((max, log) => log.read_at > max ? log.read_at : max, round2Logs[0].read_at);
+        const maxDate = new Date(maxDateStr.substring(0, 10));
+        maxDate.setHours(0, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
+        d2 = Math.max(d1 + 1, Math.floor((maxDate - start) / (1000 * 60 * 60 * 24)) + 1);
+        d2 = Math.min(d2, totalDays - 1);
+      } else {
+        d2 = Math.floor(totalDays * 2 / 3);
+      }
+    }
+  }
+
+  let dailyChapters = Array.from({ length: totalDays }, () => []);
+
+  // Distribute Round 1
+  const round1Chapters = allChapters.map(ch => ({ ...ch, round: 1 }));
+  if (d1 === null) {
+    dailyChapters = distributeChaptersAcrossDays(round1Chapters, totalDays);
+  } else {
+    const r1Daily = distributeChaptersAcrossDays(round1Chapters, d1);
+    for (let i = 0; i < d1; i++) {
+      dailyChapters[i] = dailyChapters[i].concat(r1Daily[i]);
+    }
+
+    // Distribute Round 2
+    const round2Chapters = allChapters.map(ch => ({ ...ch, round: 2 }));
+    if (level === "breakthrough") {
+      const r2Days = totalDays - d1;
+      const r2Daily = distributeChaptersAcrossDays(round2Chapters, r2Days);
+      for (let i = 0; i < r2Days; i++) {
+        dailyChapters[d1 + i] = dailyChapters[d1 + i].concat(r2Daily[i]);
+      }
+    } else if (level === "super") {
+      const r2Days = d2 - d1;
+      const r2Daily = distributeChaptersAcrossDays(round2Chapters, r2Days);
+      for (let i = 0; i < r2Days; i++) {
+        dailyChapters[d1 + i] = dailyChapters[d1 + i].concat(r2Daily[i]);
+      }
+
+      // Distribute Round 3
+      const round3Chapters = allChapters.map(ch => ({ ...ch, round: 3 }));
+      const r3Days = totalDays - d2;
+      const r3Daily = distributeChaptersAcrossDays(round3Chapters, r3Days);
+      for (let i = 0; i < r3Days; i++) {
+        dailyChapters[d2 + i] = dailyChapters[d2 + i].concat(r3Daily[i]);
+      }
+    }
+  }
 
   const days = dailyChapters.map((chapters, index) => {
     const dayDate = new Date(start);
     dayDate.setDate(start.getDate() + index);
     const mm = String(dayDate.getMonth() + 1).padStart(2, '0');
     const dd = String(dayDate.getDate()).padStart(2, '0');
-    const dateStr = `${mm}/${dd}`; // MM/DD
-    
+    const dateStr = `${mm}/${dd}`;
+
     return {
       dayNum: index + 1,
       date: dateStr,
@@ -514,18 +578,16 @@ function generatePlanObject(name, startDate, endDate, selectedBooks, presetKey =
     startDate,
     endDate,
     totalDays,
-    totalChapters,
+    totalChapters: allChapters.length * getPlanLevelRounds(level),
     completedChapters: 0,
     progress: 0,
     days,
     presetKey,
     target_books: selectedBooks,
     level,
-    currentRound: 1,
+    currentRound: getPlanLevelRounds(level),
     wasDowngraded: false
   };
-}
-
 function calculatePlanProgress() {
   calculateAllPlansProgress();
   if (state.activePlan && state.activePlans) {
