@@ -146,48 +146,7 @@ function initReaderControls() {
       }
     });
   }
-  // Scroll to bottom detection to automatically mark as read
-  window.addEventListener("scroll", async () => {
-    const readerView = document.getElementById("reader-view");
-    if (!readerView || readerView.classList.contains("hidden")) return;
-
-    if (state.readerState.autoMarked) return;
-
-    const scrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
-    const windowHeight = window.innerHeight;
-    const docHeight = document.documentElement.scrollHeight;
-
-    // Use a 50px buffer to account for mobile zooming/elastic scroll
-    if (scrollTop + windowHeight >= docHeight - 50) {
-      state.readerState.autoMarked = true; // prevent double trigger
-      
-      const bookObj = BIBLE_BOOKS.find(b => b.id === state.readerState.bookId);
-      const chapter = state.readerState.chapter;
-      
-      if (!bookObj) return;
-
-      const isAlreadyRead = state.readingLogs.some(l => l.book === bookObj.name && l.chapter === chapter);
-      if (!isAlreadyRead) {
-        // Log chapter read in DB
-        await db.logChapterRead(bookObj.name, chapter, true);
-        
-        // Update states and recalculate progress
-        calculatePlanProgress();
-        db.saveLocalUserStats();
-
-        // Update plan list page checkbox if matching
-        updatePlanCheckboxState(`${bookObj.name}_${chapter}`, true);
-
-        // Check if active plan finishes
-        if (state.activePlan && state.activePlan.isPlanCompleted && !state.activePlan.upgradePromptHandled) {
-          await handleRoundCompletion(state.activePlan);
-        }
-
-        // Show premium toast alert
-        showToast(`📖 已自動將 ${bookObj.name} 第 ${chapter} 章標記為已讀！`);
-      }
-    }
-  });
+  // Reading progress is updated only by the user's explicit check action.
 }
 
 function renderReaderPicker() {

@@ -1750,48 +1750,7 @@ window.navigateInlineChapter = function(direction) {
   }
 };
 
-// Window scroll listener for inline reader automatic check-in
-window.addEventListener("scroll", async () => {
-  if (!state.inlineReader || !state.inlineReader.active) return;
-  if (state.inlineReader.autoMarked) return;
-
-  const scrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
-  const windowHeight = window.innerHeight;
-  const docHeight = document.documentElement.scrollHeight;
-
-  if (scrollTop + windowHeight >= docHeight - 50) {
-    state.inlineReader.autoMarked = true; // prevent double trigger
-    
-    const currentCh = state.inlineReader.chaptersList[state.inlineReader.currentIndex];
-    if (!currentCh) return;
-
-    const readRound = currentCh.round || (state.activePlan ? (state.activePlan.currentRound || 1) : 1);
-    const isAlreadyRead = state.readingLogs.some(l =>
-      l.book === currentCh.book &&
-      Number(l.chapter) === Number(currentCh.chapter) &&
-      Number(l.round || 1) === Number(readRound)
-    );
-    if (!isAlreadyRead) {
-      await db.logChapterRead(currentCh.book, currentCh.chapter, true, readRound);
-      
-      if (readRound === 1) currentCh.isReadR1 = true;
-      else if (readRound === 2) currentCh.isReadR2 = true;
-      else if (readRound === 3) currentCh.isReadR3 = true;
-      currentCh.isRead = true;
-      calculatePlanProgress();
-      db.saveLocalUserStats();
-
-      if (state.activePlan && state.activePlan.isPlanCompleted && !state.activePlan.upgradePromptHandled) {
-        await handleRoundCompletion(state.activePlan);
-      }
-
-      // Show toast
-      if (typeof showToast === 'function') {
-        showToast(`📖 已自動將 ${currentCh.book} 第 ${currentCh.chapter} 章標記為已讀！`);
-      }
-    }
-  }
-});
+// Inline reading progress is updated only by the user's explicit check action.
 
 
 // ==================== PERSONAL STATS & HEATMAP & ACHIEVEMENTS ====================

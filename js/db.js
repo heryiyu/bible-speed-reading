@@ -647,7 +647,12 @@ const db = {
         return;
       } catch (err) {
         console.error("Failed to load schema from Supabase:", err);
-        alert("無法從資料庫載入教會組織架構，請檢查網路連線或重新整理頁面。");
+        state.orgStructure.regions = [];
+        state.orgStructure.rawRegions = [];
+        state.orgStructure.rawZones = [];
+        state.orgStructure.rawGroups = [];
+        state.orgStructure.zones = {};
+        state.orgStructure.groups = {};
         return;
       }
     }
