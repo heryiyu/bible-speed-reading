@@ -1069,22 +1069,30 @@ const db = {
       console.warn("syncProfileStatsToSupabase aborted: current user is demo user.");
       return { aborted: true, reason: "demo" };
     }
+
+    // 💡 關鍵修復：在呼叫 getCurrentDbUser() 之前，先備份使用者剛剛填寫的編輯資料
+    // 因為 getCurrentDbUser() 會調用 syncNlcSessionWithSupabase()，這會從快取中載入舊資料並覆寫 state.currentUser！
+    const editedName = state.currentUser.name || "";
+    const editedRegion = state.currentUser.great_region || "";
+    const editedZone = state.currentUser.pastoral_zone || "";
+    const editedGroup = state.currentUser.small_group || "";
+
     const user = await this.getCurrentDbUser();
     if (!user) {
       throw new Error("Current login session is unavailable. Please sign in again.");
     }
 
     {
-      const regionObj = state.orgStructure && state.orgStructure.rawRegions ? state.orgStructure.rawRegions.find(r => r.name === state.currentUser.great_region) : null;
-      const zoneObj = state.orgStructure && state.orgStructure.rawZones ? state.orgStructure.rawZones.find(z => z.name === state.currentUser.pastoral_zone) : null;
-      const groupObj = state.orgStructure && state.orgStructure.rawGroups ? state.orgStructure.rawGroups.find(g => g.name === state.currentUser.small_group) : null;
+      const regionObj = state.orgStructure && state.orgStructure.rawRegions ? state.orgStructure.rawRegions.find(r => r.name === editedRegion) : null;
+      const zoneObj = state.orgStructure && state.orgStructure.rawZones ? state.orgStructure.rawZones.find(z => z.name === editedZone) : null;
+      const groupObj = state.orgStructure && state.orgStructure.rawGroups ? state.orgStructure.rawGroups.find(g => g.name === editedGroup) : null;
 
       const profilePayload = {
         id: user.id,
-        name: state.currentUser.name,
-        great_region: state.currentUser.great_region,
-        pastoral_zone: state.currentUser.pastoral_zone,
-        small_group: state.currentUser.small_group,
+        name: editedName,
+        great_region: editedRegion,
+        pastoral_zone: editedZone,
+        small_group: editedGroup,
         great_region_id: regionObj ? regionObj.id : null,
         pastoral_zone_id: zoneObj ? zoneObj.id : null,
         small_group_id: groupObj ? groupObj.id : null,
@@ -1126,6 +1134,8 @@ const db = {
         throw new Error("儲存的 Supabase 檔案驗證失敗。nlc-data Edge Function 無法驗證寫入。Supabase 專案：" + projectUrl);
       }
 
+      // 💡 關鍵修復：儲存成功後，立即更新 LocalStorage 快取檔案，防止重新整理或快取載入時再次被舊資料覆寫！
+      localStorage.setItem("nlc_supabase_profile", JSON.stringify(verifiedProfile));
       this.applyNlcProfile(verifiedProfile);
       return saveResult;
     }
