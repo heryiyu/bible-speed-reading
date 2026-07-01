@@ -1,154 +1,25 @@
-const CACHE_NAME = 'church-bible-reading-v83';
-const DYNAMIC_CACHE_NAME = 'church-bible-dynamic-v83';
-
-// Static resources to precache
-const PRECACHE_ASSETS = [
-  './',
-  './index.html',
-  './index.css',
-  './js/data/bible_data.js',
-  './manifest.json',
-  './assets/icon-192.png',
-  './assets/icon-512.png',
-  './js/state.js',
-  './js/db.js',
-  './js/utils.js',
-  './js/gamification.js',
-  './js/main.js',
-  './js/views/dashboard.js',
-  './js/views/reader.js',
-  './js/views/plan.js?v=nlc-edge-20260701-35',
-  './js/views/stats.js',
-  './js/views/profile.js?v=nlc-edge-20260701-18'
-];
-
-// Install Event: cache static shell assets
+// Service Worker Cache Buster
+// 💡 徹底註銷 Service Worker 並清空 Cache Storage，解決手機端快取鎖死舊版 plan.js 的問題
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[Service Worker] Precaching app shell...');
-        return cache.addAll(PRECACHE_ASSETS);
-      })
-      .then(() => self.skipWaiting())
-  );
+  self.skipWaiting();
 });
 
-// Activate Event: clear old caches
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME && key !== DYNAMIC_CACHE_NAME) {
-            console.log('[Service Worker] Removing old cache:', key);
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
-});
-
-// Helper to "clean" a response so Safari doesn't fail with "Response served by service worker has redirections"
-function cleanResponse(response) {
-  if (!response || !response.redirected) {
-    return response;
-  }
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers
-  });
-}
-
-// Fetch Event: intercept requests and apply cache strategies
-self.addEventListener('fetch', (e) => {
-  const requestUrl = new URL(e.request.url);
-
-  if (e.request.method !== 'GET' || (requestUrl.protocol !== 'http:' && requestUrl.protocol !== 'https:')) {
-    return;
-  }
-
-  // 1. Bypass caching for runtime config, auth redirects and Supabase API requests.
-  if (
-    requestUrl.pathname.endsWith('/config.js') ||
-    requestUrl.searchParams.has('code') ||
-    requestUrl.searchParams.has('state') ||
-    requestUrl.searchParams.has('error') ||
-    requestUrl.hostname.includes('supabase.co') ||
-    requestUrl.hostname.includes('sso.newlife.org.tw') ||
-    requestUrl.hostname.includes('member.newlife.org.tw')
-  ) {
-    return; // Let the browser handle normally (network only)
-  }
-
-  // 2. Cache-First Strategy for Bible Text API (bible-api.com) to allow offline reading
-  if (requestUrl.hostname.includes('bible-api.com')) {
-    e.respondWith(
-      caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
-        return cache.match(e.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            console.log('[Service Worker] Serving Bible text from cache:', requestUrl.pathname);
-            return cleanResponse(cachedResponse);
-          }
-
-          return fetch(e.request).then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              cache.put(e.request, networkResponse.clone());
-            }
-            return cleanResponse(networkResponse);
-          }).catch((err) => {
-            console.warn('[Service Worker] Bible API fetch failed, no cache matches:', err);
-            throw err;
-          });
-        });
-      })
-    );
-    return;
-  }
-
-  // 3. Stale-While-Revalidate for CDN assets (fonts, supabase client, chart.js)
-  if (
-    requestUrl.hostname.includes('jsdelivr.net') ||
-    requestUrl.hostname.includes('googleapis.com') ||
-    requestUrl.hostname.includes('gstatic.com')
-  ) {
-    e.respondWith(
-      caches.open(DYNAMIC_CACHE_NAME).then((cache) => {
-        return cache.match(e.request).then((cachedResponse) => {
-          const fetchPromise = fetch(e.request).then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              cache.put(e.request, networkResponse.clone());
-            }
-            return networkResponse; // Network response is clean if direct to CDN
-          }).catch(() => {
-            if (cachedResponse) return cachedResponse;
-          });
-          return cleanResponse(cachedResponse) || fetchPromise;
-        });
-      })
-    );
-    return;
-  }
-
-  // 4. Network-first for local app shell assets so auth fixes ship immediately.
-  if (requestUrl.origin !== self.location.origin) {
-    return;
-  }
-
-  e.respondWith(
-    fetch(e.request).then((networkResponse) => {
-      if (networkResponse && networkResponse.status === 200) {
-        const cacheCopy = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(e.request, cleanResponse(cacheCopy)).catch(() => {});
-        });
-      }
-      return cleanResponse(networkResponse);
-    }).catch((err) => {
-      console.warn('[Service Worker] Fetch failed, returning cache if available:', err);
-      return caches.match(e.request).then((cachedResponse) => cleanResponse(cachedResponse));
+      return Promise.all(keys.map(key => caches.delete(key)));
+    }).then(() => {
+      console.log('[Service Worker Cache Buster] Caches cleared successfully.');
+      return self.registration.unregister();
+    }).then(() => {
+      console.log('[Service Worker Cache Buster] Service Worker unregistered.');
+      return self.clients.matchAll();
+    }).then((clients) => {
+      clients.forEach(client => {
+        if (client.url) {
+          client.navigate(client.url);
+        }
+      });
     })
   );
 });
