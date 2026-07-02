@@ -1081,6 +1081,31 @@ function renderBibleNavContent() {
       grid.appendChild(item);
     }
     container.appendChild(grid);
+  } else if (navOverlayState.activeTab === 'verse') {
+    document.querySelector("#bible-nav-overlay .mode-selector-bar").style.display = "none";
+    
+    const grid = document.createElement("div");
+    grid.className = "verse-nav-grid";
+    
+    let totalVerses = 30; // sensible default fallback
+    if (book && typeof BIBLE_VERSE_COUNTS !== "undefined") {
+      const bookCounts = BIBLE_VERSE_COUNTS[book.eng];
+      if (bookCounts && bookCounts[navOverlayState.selectedChapter - 1]) {
+        totalVerses = bookCounts[navOverlayState.selectedChapter - 1];
+      }
+    }
+    
+    console.log(`➡️ [Debug] 聖經目錄載入節數，自本地取得總節數: ${totalVerses}`);
+    
+    for (let v = 1; v <= totalVerses; v++) {
+      const item = document.createElement("div");
+      item.className = "grid-item-number";
+      item.classList.toggle("active", v === navOverlayState.selectedVerse);
+      item.textContent = v;
+      item.addEventListener("click", () => selectNavVerse(v));
+      grid.appendChild(item);
+    }
+    container.appendChild(grid);
   }
 }
 
@@ -1094,7 +1119,7 @@ function selectNavBook(bookId) {
 function selectNavChapter(chNum) {
   console.log(`➡️ [Debug] 聖經目錄選擇章節數: ${chNum}`);
   navOverlayState.selectedChapter = chNum;
-  selectNavVerse(1);
+  window.switchNavTab('verse');
 }
 
 async function selectNavVerse(vNum) {
