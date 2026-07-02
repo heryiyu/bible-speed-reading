@@ -263,19 +263,7 @@
           <input type="text" class="reader-search-input" id="reader-search-input" placeholder="&#x641C;&#x5C0B;&#x672C;&#x7AE0;&#x7D93;&#x6587;...">
           <button type="button" class="reader-icon-btn" id="reader-search-close-btn" title="&#x95DC;&#x9589;"><i class="bi bi-x-lg"></i></button>
         </div>
-
-        <!-- Hidden reader selectors kept for existing state logic; visual catalog is the full-page overlay. -->
-        <div class="reader-hidden-state-controls" aria-hidden="true">
-          <select id="reader-testament-select" tabindex="-1">
-            <option value="all">&#x5168;&#x90E8;</option>
-            <option value="old">&#x820A;&#x7D04;</option>
-            <option value="new">&#x65B0;&#x7D04;</option>
-          </select>
-          <select id="reader-book-select" tabindex="-1"></select>
-          <select id="reader-chapter-select" tabindex="-1"></select>
-        </div>
-
-        <!-- ── Floating Navigation Buttons ── -->
+<!-- ── Floating Navigation Buttons ── -->
         <div class="reader-floating-nav">
           <button class="floating-nav-btn prev" id="floating-prev-btn" title="上一章">
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
@@ -286,8 +274,7 @@
         </div>
 
         <!-- ── Main Bible Text Area ── -->
-        <article class="reader-body reader-body-full">
-          <div class="glass-card reader-card">
+        <article class="reader-body reader-body-full reader-reading-surface">
             <div class="reader-header">
               <h2 id="bible-title" class="bible-heading">創世記 1章</h2>
               <div class="reader-actions-top"></div>
@@ -305,7 +292,6 @@
               <button class="toolbar-action" data-action="highlight" style="background-color: #a7ffeb; color: #000;" title="綠色螢光筆"></button>
               <button class="toolbar-action" data-action="clear" title="清除標記">❌</button>
             </div>
-          </div>
         </article>
       </section>
 

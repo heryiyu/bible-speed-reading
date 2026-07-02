@@ -430,13 +430,15 @@ function renderReaderChapterGrid() {
 
 function populateBookSelector(filter) {
   const bookSelect = document.getElementById("reader-book-select");
+  if (!bookSelect) return;
+
   bookSelect.innerHTML = "";
 
   BIBLE_BOOKS.forEach(book => {
     if (filter === "all" || book.section === filter) {
       const option = document.createElement("option");
       option.value = book.id;
-      option.textContent = `${book.name} (${book.abbrev})`;
+      option.textContent = book.name + " (" + book.abbrev + ")";
       if (book.id === state.readerState.bookId) {
         option.selected = true;
       }
@@ -448,34 +450,30 @@ function populateBookSelector(filter) {
 function populateChapterSelector() {
   const bookSelect = document.getElementById("reader-book-select");
   const chapterSelect = document.getElementById("reader-chapter-select");
-  
-  const bookId = parseInt(bookSelect.value);
+  const bookId = bookSelect ? parseInt(bookSelect.value || state.readerState.bookId, 10) : Number(state.readerState.bookId || 1);
   state.readerState.bookId = bookId;
-  
+
   const book = BIBLE_BOOKS.find(b => b.id === bookId);
   if (!book) {
     console.error("Book not found for ID:", bookId);
     return;
   }
-  
+
+  if (state.readerState.chapter > book.chapters) {
+    state.readerState.chapter = 1;
+  }
+
+  if (!chapterSelect) return;
   chapterSelect.innerHTML = "";
 
   for (let i = 1; i <= book.chapters; i++) {
     const option = document.createElement("option");
     option.value = i;
-    option.textContent = `${i} 章`;
+    option.textContent = i + " 章";
     if (i === state.readerState.chapter) {
       option.selected = true;
     }
     chapterSelect.appendChild(option);
-  }
-
-  // Ensure chapter fits within scope
-  if (state.readerState.chapter > book.chapters) {
-    state.readerState.chapter = 1;
-    if (chapterSelect.options.length > 0) {
-      chapterSelect.options[0].selected = true;
-    }
   }
 }
 
@@ -536,7 +534,8 @@ function navigateToChapter(direction) {
       state.readerState.bookId = prevBookId;
       state.readerState.chapter = prevBook.chapters;
       
-      document.getElementById("reader-testament-select").value = "all";
+      const testamentSelect = document.getElementById("reader-testament-select");
+      if (testamentSelect) testamentSelect.value = "all";
       populateBookSelector("all");
       populateChapterSelector();
       saveReaderPreferences();
@@ -549,7 +548,8 @@ function navigateToChapter(direction) {
       state.readerState.bookId = nextBookId;
       state.readerState.chapter = 1;
       
-      document.getElementById("reader-testament-select").value = "all";
+      const testamentSelect = document.getElementById("reader-testament-select");
+      if (testamentSelect) testamentSelect.value = "all";
       populateBookSelector("all");
       populateChapterSelector();
       saveReaderPreferences();
@@ -558,7 +558,8 @@ function navigateToChapter(direction) {
   } else {
     // Stay in same book
     state.readerState.chapter = newChapter;
-    document.getElementById("reader-chapter-select").value = newChapter;
+    const chapterSelect = document.getElementById("reader-chapter-select");
+    if (chapterSelect) chapterSelect.value = newChapter;
     saveReaderPreferences();
     renderReaderText();
   }

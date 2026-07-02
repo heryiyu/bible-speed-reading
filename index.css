@@ -5221,3 +5221,50 @@ body.reader-page .reader-ref-chip {
     letter-spacing: 0;
   }
 }
+
+
+/* Reader page flattened app layout, all viewport sizes */
+.app-layout.reader-mode .main-content,
+.app-layout:has(#reader-view.active) .main-content {
+  overflow: hidden !important;
+}
+
+#reader-view.active {
+  height: 100%;
+  overflow: hidden;
+}
+
+#reader-view .reader-reading-surface {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, transparent 180px), var(--bg-app) !important;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+#reader-view .reader-header {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+#reader-view .bible-text-container {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+#reader-view .reader-card,
+#reader-view .glass-card.reader-card {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
