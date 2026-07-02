@@ -88,6 +88,30 @@
             </svg>
           </button>
 
+          <!-- Plan Options Menu (visible only when viewing plan details) -->
+          <div class="options-menu-container hidden" id="global-plan-options-container" style="position: relative; display: flex; align-items: center; justify-content: center;">
+            <button class="icon-btn" id="btn-plan-options" title="計畫選項" style="position: relative;">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle><circle cx="5" cy="12" r="1.5"></circle></svg>
+            </button>
+            <div class="options-dropdown hidden" id="plan-options-dropdown" style="right: 0; left: auto; top: 48px;">
+              <button class="options-dropdown-item" id="menu-plan-stats" type="button">
+                <span class="menu-icon">📊</span><span>讀經統計</span>
+              </button>
+              <button class="options-dropdown-item" id="menu-plan-ranking" type="button">
+                <span class="menu-icon">🏆</span><span>排名</span>
+              </button>
+              <button class="options-dropdown-item" id="menu-plan-members" type="button">
+                <span class="menu-icon">👥</span><span>組員狀況</span>
+              </button>
+              <button class="options-dropdown-item" id="menu-plan-level" type="button">
+                <span class="menu-icon">⚙️</span><span>調整進度設定</span>
+              </button>
+              <button class="options-dropdown-item danger-item" id="delete-plan-btn">
+                <span class="menu-icon">⊖</span><span>退出此計畫</span>
+              </button>
+            </div>
+          </div>
+
           <!-- User Profile Avatar Button -->
           <div class="user-avatar-container" id="user-avatar-container">
             <button class="avatar-btn" id="user-avatar-btn" title="帳號選單">
@@ -403,34 +427,7 @@
 
         <!-- 子檢視 2: 計畫進度與詳情 (YouVersion 風格) -->
         <div id="plan-detail-subview" class="hidden plan-detail-compact" style="display: flex; flex-direction: column; gap: 1rem;">
-          <!-- YouVersion Style Header Bar -->
-          <div class="youversion-detail-header">
-            <button class="plan-back-button" id="btn-back-to-plans" title="返回計畫列表">
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg><span>返回計畫列表</span></button>
-            <h3 id="plan-detail-title" style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin: 0; text-align: center; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.5rem;">計畫名稱</h3>
-            <div class="options-menu-container">
-              <button class="circular-action-btn" id="btn-plan-options" title="計畫選項">
-                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none"><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle><circle cx="5" cy="12" r="1.5"></circle></svg>
-              </button>
-              <div class="options-dropdown hidden" id="plan-options-dropdown">
-                <button class="options-dropdown-item" id="menu-plan-stats" type="button">
-                  <span class="menu-icon">📊</span><span>讀經統計</span>
-                </button>
-                <button class="options-dropdown-item" id="menu-plan-ranking" type="button">
-                  <span class="menu-icon">🏆</span><span>排名</span>
-                </button>
-                <button class="options-dropdown-item" id="menu-plan-members" type="button">
-                  <span class="menu-icon">👥</span><span>組員狀況</span>
-                </button>
-                <button class="options-dropdown-item" id="menu-plan-level" type="button">
-                  <span class="menu-icon">⚙️</span><span>調整進度設定</span>
-                </button>
-                <button class="options-dropdown-item danger-item" id="delete-plan-btn">
-                  <span class="menu-icon">⊖</span><span>退出此計畫</span>
-                </button>
-              </div>
-            </div>
-          </div>
+          <!-- YouVersion Style Header Bar Removed (Integrated into Top App Bar) -->
 
           <!-- Plan Thematic Cover Card -->
           <div class="plan-cover-card" id="plan-detail-cover">
@@ -1185,9 +1182,9 @@
       document.head.appendChild(mockScript);
     }
   </script>
-  <script src="js/state.js?v=app-shell-20260701-1"></script>
+  <script src="js/state.js?v=app-shell-20260702-2"></script>
   <script src="js/auth.js?v=nlc-edge-20260701-99"></script>
-  <script src="js/views/plan.js?v=nlc-edge-20260701-99"></script>
+  <script src="js/views/plan.js?v=nlc-edge-20260702-3"></script>
   <script src="js/db.js?v=nlc-edge-20260702-2"></script>
   <script src="js/utils.js?v=nlc-edge-20260701-99"></script>
   <script src="js/gamification.js?v=nlc-edge-20260701-99"></script>

@@ -759,6 +759,11 @@ async function renderPlanView() {
   if (state.activePlan && isPlanHidden(state.activePlan) && canManageHiddenPlans()) {
     showToast("這個計畫目前已隱藏，一般使用者不會看到。");
   }
+
+  // Synchronize dynamic title and options menu in the Top App Bar
+  if (typeof appRouter !== 'undefined' && typeof appRouter.updateNavigationChrome === 'function') {
+    appRouter.updateNavigationChrome();
+  }
 }
 
 

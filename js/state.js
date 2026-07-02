@@ -138,7 +138,23 @@ const appRouter = {
     const backBtn = document.getElementById("global-back-btn");
     const backLabel = document.getElementById("global-back-label");
     const titleEl = document.querySelector(".brand-text");
-    if (titleEl) titleEl.textContent = this.getTabLabel(this.currentTab);
+    
+    // Dynamic page title: show active plan name if viewing a plan
+    if (titleEl) {
+      if (this.currentTab === "plan-view" && state.activePlan && state.planDetailOpen) {
+        titleEl.textContent = state.activePlan.name;
+      } else {
+        titleEl.textContent = this.getTabLabel(this.currentTab);
+      }
+    }
+
+    // Toggle global plan options menu visibility
+    const optionsContainer = document.getElementById("global-plan-options-container");
+    if (optionsContainer) {
+      const showOptions = this.currentTab === "plan-view" && state.activePlan && state.planDetailOpen;
+      optionsContainer.classList.toggle("hidden", !showOptions);
+    }
+
     const isReaderPage = this.currentTab === "reader-view";
     document.body.classList.toggle("reader-page", isReaderPage);
     const appLayout = document.querySelector(".app-layout");
