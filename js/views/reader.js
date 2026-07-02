@@ -249,6 +249,7 @@ function initReaderControls() {
 
   if (settingsTrigger && settingsBackdrop) {
     settingsTrigger.addEventListener("click", (e) => {
+      console.log("➡️ [Debug] 點擊文字設定按鈕，嘗試開啟 typography-settings-backdrop");
       e.stopPropagation();
       openReaderLayer(settingsBackdrop);
       updateSheetActiveStates();
@@ -257,6 +258,7 @@ function initReaderControls() {
 
   if (settingsCloseBtn && settingsBackdrop) {
     settingsCloseBtn.addEventListener("click", () => {
+      console.log("🔒 [Debug] 關閉文字設定按鈕被點擊");
       closeReaderLayer(settingsBackdrop);
     });
   }
@@ -264,6 +266,7 @@ function initReaderControls() {
   if (settingsBackdrop) {
     settingsBackdrop.addEventListener("click", (e) => {
       if (e.target === settingsBackdrop) {
+        console.log("🔒 [Debug] 點擊文字設定外部遮罩關閉");
         closeReaderLayer(settingsBackdrop);
       }
     });
@@ -878,18 +881,6 @@ let navOverlayState = {
   autoAdvance: true
 };
 
-function updateVerseTabVisibility() {
-  console.log("➡️ [Debug] 更新「節」分頁可見度，連動自動跳轉開關狀態");
-  const autoAdvance = document.getElementById("bible-nav-auto-advance")?.checked !== false;
-  const verseTab = document.querySelector("#bible-nav-overlay .segmented-tab[data-tab='verse']");
-  if (verseTab) {
-    verseTab.style.display = autoAdvance ? "block" : "none";
-  }
-  if (!autoAdvance && navOverlayState.activeTab === 'verse') {
-    window.switchNavTab('chapter');
-  }
-}
-
 window.openBibleNavOverlay = function() {
   console.log("➡️ [Debug] 開啟聖經目錄選單");
   const overlay = document.getElementById("bible-nav-overlay");
@@ -901,16 +892,6 @@ window.openBibleNavOverlay = function() {
   navOverlayState.selectedVerse = 1;
   
   openReaderLayer(overlay);
-
-  // Bind auto-advance switch click to toggle verse tab visibility
-  const autoAdvanceSwitch = document.getElementById("bible-nav-auto-advance");
-  if (autoAdvanceSwitch && !autoAdvanceSwitch.dataset.bound) {
-    autoAdvanceSwitch.dataset.bound = "true";
-    autoAdvanceSwitch.addEventListener("change", updateVerseTabVisibility);
-  }
-
-  // Initial check on overlay open
-  updateVerseTabVisibility();
   
   // Initialize grid mode buttons in DOM
   const gridBtn = document.getElementById("view-mode-grid");
@@ -1100,36 +1081,6 @@ function renderBibleNavContent() {
       grid.appendChild(item);
     }
     container.appendChild(grid);
-  } else if (navOverlayState.activeTab === 'verse') {
-    document.querySelector("#bible-nav-overlay .mode-selector-bar").style.display = "none";
-    
-    const loader = document.createElement("div");
-    loader.className = "loader-inline";
-    loader.style.padding = "2.5rem";
-    loader.textContent = "讀取章節總節數中...";
-    container.appendChild(loader);
-    
-    if (book) {
-      fetchBibleChapter(book.eng, navOverlayState.selectedChapter)
-        .then(data => {
-          container.innerHTML = "";
-          const grid = document.createElement("div");
-          grid.className = "verse-nav-grid";
-          
-          const totalVerses = data.verses.length;
-          for (let v = 1; v <= totalVerses; v++) {
-            const item = document.createElement("div");
-            item.className = "grid-item-number";
-            item.textContent = v;
-            item.addEventListener("click", () => selectNavVerse(v));
-            grid.appendChild(item);
-          }
-          container.appendChild(grid);
-        })
-        .catch(err => {
-          container.innerHTML = `<div class="reader-error-state" style="margin:1rem;">無法加載節數資訊：${err.message}</div>`;
-        });
-    }
   }
 }
 
@@ -1137,26 +1088,13 @@ function selectNavBook(bookId) {
   console.log(`➡️ [Debug] 聖經目錄選擇書卷 ID: ${bookId}`);
   navOverlayState.selectedBookId = bookId;
   navOverlayState.selectedChapter = 1;
-  
-  const autoAdvance = document.getElementById("bible-nav-auto-advance")?.checked !== false;
-  if (autoAdvance) {
-    window.switchNavTab('chapter');
-  } else {
-    renderBibleNavContent();
-  }
+  window.switchNavTab('chapter');
 }
 
 function selectNavChapter(chNum) {
   console.log(`➡️ [Debug] 聖經目錄選擇章節數: ${chNum}`);
   navOverlayState.selectedChapter = chNum;
-  
-  const autoAdvance = document.getElementById("bible-nav-auto-advance")?.checked !== false;
-  if (autoAdvance) {
-    window.switchNavTab('verse');
-  } else {
-    // Auto-advance is off: immediately confirm chapter selection (verse 1) and exit menu
-    selectNavVerse(1);
-  }
+  selectNavVerse(1);
 }
 
 async function selectNavVerse(vNum) {

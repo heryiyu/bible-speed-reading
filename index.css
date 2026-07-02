@@ -4257,7 +4257,7 @@ input:checked + .slider:before {
 .bible-nav-list {
   display: flex;
   flex-direction: column;
-  background: var(--bg-card);
+  background: transparent;
 }
 
 .list-item-book {
@@ -4820,7 +4820,7 @@ body.reader-modal-open .main-content {
 }
 
 .bible-nav-list {
-  background: var(--reader-layer-card);
+  background: transparent;
 }
 
 .list-item-book {
@@ -4886,6 +4886,9 @@ body.reader-modal-open .main-content {
 .bottom-sheet-backdrop {
   z-index: 700;
   overscroll-behavior: contain;
+}
+.bottom-sheet-backdrop:not(.hidden) .bottom-sheet-container {
+  transform: translateY(0) !important;
 }
 
 .bottom-sheet-container {
