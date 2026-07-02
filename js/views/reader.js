@@ -879,6 +879,7 @@ let navOverlayState = {
 };
 
 function updateVerseTabVisibility() {
+  console.log("➡️ [Debug] 更新「節」分頁可見度，連動自動跳轉開關狀態");
   const autoAdvance = document.getElementById("bible-nav-auto-advance")?.checked !== false;
   const verseTab = document.querySelector("#bible-nav-overlay .segmented-tab[data-tab='verse']");
   if (verseTab) {
@@ -890,6 +891,7 @@ function updateVerseTabVisibility() {
 }
 
 window.openBibleNavOverlay = function() {
+  console.log("➡️ [Debug] 開啟聖經目錄選單");
   const overlay = document.getElementById("bible-nav-overlay");
   if (!overlay) return;
   
@@ -968,6 +970,7 @@ window.openBibleNavOverlay = function() {
 };
 
 window.switchNavTab = function(tabName) {
+  console.log(`➡️ [Debug] 切換聖經目錄分頁至: ${tabName}`);
   navOverlayState.activeTab = tabName;
   
   // Update segmented control tabs
@@ -1131,6 +1134,7 @@ function renderBibleNavContent() {
 }
 
 function selectNavBook(bookId) {
+  console.log(`➡️ [Debug] 聖經目錄選擇書卷 ID: ${bookId}`);
   navOverlayState.selectedBookId = bookId;
   navOverlayState.selectedChapter = 1;
   
@@ -1143,6 +1147,7 @@ function selectNavBook(bookId) {
 }
 
 function selectNavChapter(chNum) {
+  console.log(`➡️ [Debug] 聖經目錄選擇章節數: ${chNum}`);
   navOverlayState.selectedChapter = chNum;
   
   const autoAdvance = document.getElementById("bible-nav-auto-advance")?.checked !== false;
@@ -1155,6 +1160,7 @@ function selectNavChapter(chNum) {
 }
 
 async function selectNavVerse(vNum) {
+  console.log(`➡️ [Debug] 聖經目錄選擇節數: ${vNum}`);
   navOverlayState.selectedVerse = vNum;
   
   // Close overlay

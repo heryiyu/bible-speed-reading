@@ -529,6 +529,7 @@ function openAdminFilterBottomSheet(type) {
   allBtn.type = "button";
   allBtn.textContent = `全部${type === "region" ? "大區" : (type === "zone" ? "牧區" : "小組")}`;
   allBtn.onclick = () => {
+    console.log(`🔍 [Debug] Bottom Sheet 選擇清除篩選: 全部${type}`);
     state.adminFilters[type] = null;
     if (type === "region") {
       state.adminFilters.zone = null;
@@ -549,6 +550,7 @@ function openAdminFilterBottomSheet(type) {
     btn.type = "button";
     btn.textContent = opt;
     btn.onclick = () => {
+      console.log(`🔍 [Debug] Bottom Sheet 選擇篩選條件: ${type} = ${opt}`);
       state.adminFilters[type] = opt;
       if (type === "region") {
         state.adminFilters.zone = null;
@@ -568,6 +570,7 @@ function openAdminFilterBottomSheet(type) {
 }
 
 function closeAdminFilterBottomSheet() {
+  console.log("🔒 [Debug] 關閉管理篩選 Bottom Sheet");
   const overlay = document.getElementById("global-bottom-sheet");
   if (overlay) overlay.classList.remove("active");
 }
@@ -581,6 +584,7 @@ function initAdminFiltersUI() {
         e.preventDefault();
         const clearBtn = e.target.closest(".chip-clear");
         if (clearBtn) {
+          console.log(`❌ [Debug] 清除篩選標籤按鈕點擊: ${type}`);
           e.stopPropagation();
           state.adminFilters[type] = null;
           if (type === "region") {
@@ -592,6 +596,7 @@ function initAdminFiltersUI() {
           updateFilterChipsUI();
           renderAdminUserManagement();
         } else {
+          console.log(`🔍 [Debug] 篩選標籤膠囊點擊，開啟 Bottom Sheet: ${type}`);
           openAdminFilterBottomSheet(type);
         }
       };
@@ -602,6 +607,7 @@ function initAdminFiltersUI() {
   const closeBtn = document.getElementById("btn-close-bottom-sheet");
   if (closeBtn) {
     closeBtn.onclick = (e) => {
+      console.log("🔒 [Debug] 關閉 Bottom Sheet 按鈕點擊");
       e.preventDefault();
       closeAdminFilterBottomSheet();
     };
@@ -611,6 +617,7 @@ function initAdminFiltersUI() {
   if (overlay) {
     overlay.onclick = (e) => {
       if (e.target === overlay) {
+        console.log("🔒 [Debug] 點擊 Bottom Sheet 外部遮罩關閉");
         closeAdminFilterBottomSheet();
       }
     };
@@ -753,6 +760,7 @@ function openMemberEditBottomSheet(user) {
     scopeBtn.type = "button";
     scopeBtn.innerHTML = `<span>✏️ 修改管轄範圍 (${user.great_region}/${user.pastoral_zone}/${user.small_group})</span>`;
     scopeBtn.onclick = async () => {
+      console.log(`✏️ [Debug] 修改管轄範圍按鈕被點擊，成員：${user.name}`);
       closeAdminFilterBottomSheet();
       const resp = await showResponsibilityModal(user.role, user);
       if (!resp) return;
@@ -798,6 +806,7 @@ function openMemberEditBottomSheet(user) {
     btn.type = "button";
     btn.textContent = opt.label;
     btn.onclick = async () => {
+      console.log(`✏️ [Debug] 變更角色身分點擊: ${user.name} -> ${opt.label}`);
       closeAdminFilterBottomSheet();
       if (isSelected) return; // No change
 
