@@ -6056,12 +6056,13 @@ body.dark-theme .reader-bottom-action-bar.scenario-a .capsule-action-btn {
 
 /* Selected day */
 .calendar-day.active:not(.today) .day-number {
-  border: 1px solid var(--border-card) !important;
-  background: rgba(99, 102, 241, 0.05) !important;
-  box-shadow: var(--shadow-sm) !important;
+  border: none !important;
+  background-color: #1e293b !important; /* bg-slate-800 */
+  color: #ffffff !important;
+  box-shadow: none !important;
   border-radius: 50% !important;
-  width: 32px !important;
-  height: 32px !important;
+  width: 36px !important;
+  height: 36px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -6146,20 +6147,20 @@ body.dark-theme .calendar-day .micro-progress-bar {
 
 /* Bottom status dot indicators */
 .calendar-day .day-status-dot {
-  width: 4.5px;
-  height: 4.5px;
+  width: 4px !important;
+  height: 4px !important;
   border-radius: 50% !important;
-  margin-top: 4px;
+  margin-top: 4px !important;
   display: block;
 }
 .calendar-day .day-status-dot.dot-completed {
-  background-color: #10b981 !important; /* Emerald green */
+  background-color: #22c55e !important; /* bg-green-500 */
 }
 .calendar-day .day-status-dot.dot-behind {
-  background-color: #ef4444 !important; /* Red */
+  background-color: #ef4444 !important; /* bg-red-500 */
 }
 .calendar-day .day-status-dot.dot-grey {
-  background-color: #94a3b8 !important; /* Gray */
+  background-color: #374151 !important; /* bg-gray-700 */
 }
 
 /* Micro pulse animation for completed cells */
