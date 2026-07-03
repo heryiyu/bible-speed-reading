@@ -1303,67 +1303,6 @@ function renderHorizontalDateStrip() {
   });
 
   calendarWrapper.appendChild(gridDiv);
-
-  // 6. Floating Today Button (📅 今日)
-  // Check if selected date is today
-  let isTodaySelected = false;
-  if (state.selectedPlanDay) {
-    const activeDay = state.activePlan.days.find(d => d.dayNum === state.selectedPlanDay);
-    if (activeDay) {
-      const parts = activeDay.date.split('/');
-      isTodaySelected = Number(activeDay.year) === todayYear && 
-                        Number(activeDay.month) === todayMonth && 
-                        parts.length === 2 && Number(parts[1]) === todayDay;
-    }
-  }
-
-  const todayBtn = document.createElement("button");
-  todayBtn.className = "calendar-today-btn";
-  todayBtn.innerHTML = `📅 今日`;
-  if (isTodaySelected) {
-    todayBtn.classList.add("hidden");
-  }
-
-  // Snap back to today when clicked
-  todayBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-
-    // Find today's day number in the plan
-    const todayPlanDay = state.activePlan.days.find(d => {
-      if (Number(d.year) !== todayYear || Number(d.month) !== todayMonth) return false;
-      const parts = d.date.split('/');
-      return parts.length === 2 && Number(parts[1]) === todayDay;
-    });
-
-    if (todayPlanDay) {
-      state.selectedPlanDay = todayPlanDay.dayNum;
-      state.calendarViewYear = todayYear;
-      state.calendarViewMonth = todayMonth;
-
-      console.log('📅 [日曆切換防護] 今日快速返回鈕觸發，歸位日期：', `${todayYear}/${String(todayMonth).padStart(2, '0')}/${String(todayDay).padStart(2, '0')}`);
-      
-      if (window._dateSwitchAbortController) {
-        window._dateSwitchAbortController.abort();
-      }
-      window._dateSwitchAbortController = new AbortController();
-      const signal = window._dateSwitchAbortController.signal;
-
-      renderHorizontalDateStrip();
-      renderPlanScheduleTracker(true, signal);
-    } else {
-      // If today is not in plan (e.g. plan ended or hasn't started yet), snap to first day
-      state.selectedPlanDay = 1;
-      const firstDay = state.activePlan.days[0];
-      if (firstDay) {
-        state.calendarViewYear = Number(firstDay.year);
-        state.calendarViewMonth = Number(firstDay.month);
-      }
-      renderHorizontalDateStrip();
-      renderPlanScheduleTracker();
-    }
-  });
-
-  calendarWrapper.appendChild(todayBtn);
   container.appendChild(calendarWrapper);
 }
 
