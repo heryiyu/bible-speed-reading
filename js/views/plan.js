@@ -1039,21 +1039,15 @@ function renderHorizontalDateStrip() {
   calendarWrapper.className = "calendar-component";
   calendarWrapper.style.cssText = "background: transparent !important; border: none !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; width: 100% !important; margin: 0 !important;";
 
-  // 3. Create the Header (Month Selector & Close Button)
+  // 3. Create the Header (Centred Year-Month & Chevrons around it)
   const headerDiv = document.createElement("div");
   headerDiv.className = "calendar-header";
-
-  const titleDiv = document.createElement("div");
-  titleDiv.className = "calendar-month-title";
-  titleDiv.textContent = `${viewYear} 年 ${viewMonth} 月`;
-
-  const actionsDiv = document.createElement("div");
-  actionsDiv.className = "calendar-header-actions";
+  headerDiv.style.cssText = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; padding: 0 0.5rem; width: 100%;";
 
   // Prev Month Button
   const prevBtn = document.createElement("button");
   prevBtn.className = "calendar-nav-btn";
-  prevBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
+  prevBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg>`;
   prevBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     state.calendarViewMonth--;
@@ -1064,10 +1058,15 @@ function renderHorizontalDateStrip() {
     renderHorizontalDateStrip();
   });
 
+  const titleDiv = document.createElement("div");
+  titleDiv.className = "calendar-month-title";
+  titleDiv.style.cssText = "font-size: 0.88rem; font-weight: 700; color: #94a3b8; letter-spacing: 0.5px; text-align: center; flex-grow: 1;";
+  titleDiv.textContent = `${viewYear}-${String(viewMonth).padStart(2, '0')}`;
+
   // Next Month Button
   const nextBtn = document.createElement("button");
   nextBtn.className = "calendar-nav-btn";
-  nextBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+  nextBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
   nextBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     state.calendarViewMonth++;
@@ -1078,11 +1077,9 @@ function renderHorizontalDateStrip() {
     renderHorizontalDateStrip();
   });
 
-  actionsDiv.appendChild(prevBtn);
-  actionsDiv.appendChild(nextBtn);
-
+  headerDiv.appendChild(prevBtn);
   headerDiv.appendChild(titleDiv);
-  headerDiv.appendChild(actionsDiv);
+  headerDiv.appendChild(nextBtn);
   calendarWrapper.appendChild(headerDiv);
 
   // 4. Create Weekday Header

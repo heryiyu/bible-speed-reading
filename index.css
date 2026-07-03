@@ -6016,7 +6016,8 @@ body.dark-theme .reader-bottom-action-bar.scenario-a .capsule-action-btn {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px 4px;
+  gap: 24px 4px !important; /* Increased vertical spacing for thumb-friendly hot zone */
+  padding: 16px 0 !important; /* py-4 equivalent */
   transition: all 0.3s ease;
 }
 
