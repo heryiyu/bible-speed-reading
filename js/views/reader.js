@@ -1241,7 +1241,7 @@ async function selectNavVerse(vNum) {
             
             // Visual physical flash feedback
             const oldBg = v.style.backgroundColor;
-            v.style.backgroundColor = 'rgba(99, 102, 241, 0.22)';
+            v.style.backgroundColor = 'var(--color-brand-subtle, rgba(4,169,210,0.22))';
             setTimeout(() => {
               v.style.backgroundColor = oldBg;
             }, 1500);

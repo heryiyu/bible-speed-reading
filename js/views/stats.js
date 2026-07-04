@@ -196,7 +196,7 @@ function renderRosterTable(users) {
         <div style="display:flex; align-items:center; gap:0.5rem;">
           <span style="font-size:0.8rem; font-weight:700;">${user.plan_progress}%</span>
           <div style="flex:1; width:50px; height:6px; background:#e2e8f0; border-radius:5px; overflow:hidden;">
-            <div style="width:${user.plan_progress}%; height:100%; background: var(--accent-gradient);"></div>
+            <div style="width:${user.plan_progress}%; height:100%; background: var(--color-success);"></div>
           </div>
         </div>
       </td>
@@ -253,7 +253,7 @@ function renderCharts(zoneStats) {
         label: '累計速讀章數',
         data: chaptersData,
         backgroundColor: [
-          'rgba(99, 102, 241, 0.85)',
+          'rgba(4, 169, 210, 0.85)',
           'rgba(16, 185, 129, 0.85)',
           'rgba(245, 158, 11, 0.85)',
           'rgba(239, 68, 68, 0.85)'
@@ -283,10 +283,10 @@ function renderCharts(zoneStats) {
       datasets: [{
         label: '平均進度 (%)',
         data: progressData,
-        backgroundColor: 'rgba(99, 102, 241, 0.2)',
-        borderColor: 'rgba(99, 102, 241, 0.9)',
+        backgroundColor: 'rgba(4, 169, 210, 0.2)',
+        borderColor: 'rgba(4, 169, 210, 0.9)',
         borderWidth: 2,
-        pointBackgroundColor: 'rgba(99, 102, 241, 1)'
+        pointBackgroundColor: '#04A9D2'
       }]
     },
     options: {
@@ -689,12 +689,12 @@ function renderTeamStatsAnalysisDashboard(unfilteredAllUsers, mockUser) {
       datasets: [{
         label: '參與人數',
         data: trendData,
-        borderColor: 'rgba(99, 102, 241, 1)',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderColor: '#04A9D2',
+        backgroundColor: 'var(--color-brand-subtle, rgba(4,169,210,0.12))',
         borderWidth: 2,
         fill: true,
         tension: 0.3,
-        pointBackgroundColor: 'rgba(99, 102, 241, 1)'
+        pointBackgroundColor: '#04A9D2'
       }]
     },
     options: {
@@ -925,7 +925,7 @@ function renderProfileReadingStats() {
       <!-- Today's Day -->
       <div class="stat-item-card" style="background: var(--bg-card); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 0.8rem;">
-          <div class="stat-icon-wrapper" style="background: rgba(99, 102, 241, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary-color);">
+          <div class="stat-icon-wrapper" style="background: var(--color-brand-subtle, rgba(4,169,210,0.12)); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary-color);">
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
           </div>
           <div>

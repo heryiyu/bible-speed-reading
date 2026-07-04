@@ -6,7 +6,7 @@ const ACHIEVEMENTS = [
     title: "開啟新旅程",
     description: "開啟新旅程：解鎖條件為成功訂閱一個讀經計畫",
     iconClass: "bi bi-calendar-plus",
-    color: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
+    color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   },
   {
@@ -14,7 +14,7 @@ const ACHIEVEMENTS = [
     title: "持之以恆",
     description: "持之以恆：解鎖條件為連續打卡 30 天",
     iconClass: "bi bi-calendar-check",
-    color: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
+    color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   },
   {
@@ -22,7 +22,7 @@ const ACHIEVEMENTS = [
     title: "榮譽桂冠",
     description: "榮譽桂冠：解鎖條件為 100% 完成任意一個讀經計畫",
     iconClass: "bi bi-award",
-    color: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
+    color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   },
   {
@@ -30,7 +30,7 @@ const ACHIEVEMENTS = [
     title: "傳遞愛光芒",
     description: "傳遞愛光芒：解鎖條件為成功分享每日金句或讀經內容",
     iconClass: "bi bi-share",
-    color: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
+    color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   },
   {
@@ -38,7 +38,7 @@ const ACHIEVEMENTS = [
     title: "展開厚聖經",
     description: "展開厚聖經：解鎖條件為讀完全本聖經所有卷書與章節",
     iconClass: "bi bi-book-half",
-    color: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
+    color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   }
 ];
