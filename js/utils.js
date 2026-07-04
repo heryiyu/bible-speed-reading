@@ -267,11 +267,11 @@ function renderBadgeWall(containerId) {
     if (isUnlocked) {
       // Unlocked State Styling
       if (isDark) {
-        stateStyle = "background: linear-gradient(to tr, rgba(69, 26, 3, 0.4) 0%, rgba(124, 45, 18, 0.4) 100%); border: 1px solid rgba(245, 158, 11, 0.2);";
+        stateStyle = "background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35);";
         iconColor = "color: #fbbf24;"; // dark:text-amber-400
         textColor = "color: #ffffff; font-weight: 500;"; // dark:text-white
       } else {
-        stateStyle = "background: linear-gradient(to tr, rgba(254, 243, 199, 0.8) 0%, rgba(255, 237, 213, 0.8) 100%); border: 1px solid rgba(251, 191, 36, 0.5);";
+        stateStyle = "background: rgba(254, 243, 199, 0.9); border: 1px solid rgba(251, 191, 36, 0.5);";
         iconColor = "color: #d97706;"; // text-amber-600
         textColor = "color: #1e293b; font-weight: 500;"; // text-slate-800 font-medium
       }
@@ -390,13 +390,13 @@ window.openBadgeDetailPage = function(badge, isUnlocked, isDark) {
   // Apply Shield styles based on unlock state & theme
   if (isUnlocked) {
     if (isDark) {
-      shield.style.background = "linear-gradient(to tr, rgba(69, 26, 3, 0.5) 0%, rgba(124, 45, 18, 0.5) 100%)";
+      shield.style.background = "rgba(69, 26, 3, 0.35)";
       shield.style.borderColor = "rgba(245, 158, 11, 0.25)";
       shield.style.borderStyle = "solid";
       shield.style.borderWidth = "1px";
       shield.style.color = "#fbbf24"; // golden icon
     } else {
-      shield.style.background = "linear-gradient(to tr, rgba(254, 243, 199, 0.9) 0%, rgba(255, 237, 213, 0.9) 100%)";
+      shield.style.background = "rgba(254, 243, 199, 0.95)";
       shield.style.borderColor = "rgba(251, 191, 36, 0.6)";
       shield.style.borderStyle = "solid";
       shield.style.borderWidth = "1px";

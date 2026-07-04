@@ -780,23 +780,21 @@ async function renderPlanView() {
 
 
 
+function getPlanCoverColor(plan) {
+  const covers = window.NLC_PLAN_COVERS || ["#B8E8F5", "#C8F5D8", "#FFE4CC", "#D4E4F7", "#E8E0F5"];
+  const presetMap = { q1: 1, q2: 2, q3: 3, q4: 4 };
+  const idx = presetMap[plan.presetKey] ?? 0;
+  return covers[idx] || covers[0];
+}
+
 function getPlanCoverHtml(plan) {
-  let gradient = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+  const bg = getPlanCoverColor(plan);
   let text = "速讀";
-  if (plan.presetKey === "q1") {
-    gradient = "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)";
-    text = "第一季";
-  } else if (plan.presetKey === "q2") {
-    gradient = "linear-gradient(135deg, #5ee7df 0%, #b490ca 100%)";
-    text = "第二季";
-  } else if (plan.presetKey === "q3") {
-    gradient = "linear-gradient(135deg, #f6d365 0%, #fda085 100%)";
-    text = "第三季";
-  } else if (plan.presetKey === "q4") {
-    gradient = "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)";
-    text = "第四季";
-  }
-  return `<div class="plan-cover-thumbnail" style="width: 72px; height: 72px; border-radius: 12px; background: ${gradient}; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 0.95rem; flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">${text}</div>`;
+  if (plan.presetKey === "q1") text = "第一季";
+  else if (plan.presetKey === "q2") text = "第二季";
+  else if (plan.presetKey === "q3") text = "第三季";
+  else if (plan.presetKey === "q4") text = "第四季";
+  return `<div class="plan-cover-thumbnail" style="width: 72px; height: 72px; border-radius: 12px; background: ${bg}; display: flex; align-items: center; justify-content: center; color: #0F0F0F; font-weight: 800; font-size: 0.95rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">${text}</div>`;
 }
 
 function renderJoinedPlansList() {
@@ -947,17 +945,7 @@ async function renderPlanDetailView() {
   if (coverDates) coverDates.textContent = `${state.activePlan.startDate} ~ ${state.activePlan.endDate}`;
 
   if (coverCard) {
-    let gradient = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
-    if (state.activePlan.presetKey === "q1") {
-      gradient = "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)";
-    } else if (state.activePlan.presetKey === "q2") {
-      gradient = "linear-gradient(135deg, #5ee7df 0%, #b490ca 100%)";
-    } else if (state.activePlan.presetKey === "q3") {
-      gradient = "linear-gradient(135deg, #f6d365 0%, #fda085 100%)";
-    } else if (state.activePlan.presetKey === "q4") {
-      gradient = "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)";
-    }
-    coverCard.style.background = gradient;
+    coverCard.style.background = getPlanCoverColor(state.activePlan);
   }
 
   // Render current selected tab content
@@ -1045,15 +1033,15 @@ function getExpectedPlanDayCount(plan = state.activePlan, now = new Date()) {
 
 function getPlanProgressStatus(plan = state.activePlan) {
   if (!plan || !plan.days || plan.days.length === 0) {
-    return { label: "進度一致", color: "var(--text-primary)", bg: "rgba(59, 130, 246, 0.15)", diff: 0 };
+    return { label: "進度一致", color: "var(--text-primary)", bg: "var(--color-brand-muted, rgba(4,169,210,0.08))", diff: 0 };
   }
 
   const currentRound = plan.currentRound || 1;
   if (currentRound > 1 || plan.isPlanCompleted) {
     return {
       label: "第" + currentRound + "遍",
-      color: currentRound === 2 ? "#6366f1" : "#f59e0b",
-      bg: currentRound === 2 ? "rgba(99, 102, 241, 0.15)" : "rgba(245, 158, 11, 0.15)",
+      color: currentRound === 2 ? "#04A9D2" : "#FE7615",
+      bg: currentRound === 2 ? "rgba(4, 169, 210, 0.15)" : "rgba(254, 118, 21, 0.15)",
       diff: 0
     };
   }
@@ -1070,7 +1058,7 @@ function getPlanProgressStatus(plan = state.activePlan) {
   if (diff < 0) {
     return { label: "落後 " + Math.abs(diff) + "天", color: "#ef4444", bg: "rgba(239, 68, 68, 0.15)", diff };
   }
-  return { label: "進度一致", color: "var(--text-primary)", bg: "rgba(59, 130, 246, 0.15)", diff: 0 };
+  return { label: "進度一致", color: "var(--text-primary)", bg: "var(--color-brand-muted, rgba(4,169,210,0.08))", diff: 0 };
 }
 
 function renderHorizontalDateStrip() {
@@ -1400,7 +1388,7 @@ async function renderPlanScheduleTracker(skipCarouselUpdate = false, signal = nu
   if (statusPill) {
     if (!selectedDay.chapters || selectedDay.chapters.length === 0) {
       statusPill.textContent = "🧘 補讀/休息日";
-      statusPill.style.background = "rgba(99, 102, 241, 0.1)";
+      statusPill.style.background = "var(--color-brand-subtle, rgba(4,169,210,0.12))";
       statusPill.style.color = "var(--primary-color)";
     } else {
       const allDone = selectedDay.chapters.every(ch => {
@@ -3327,8 +3315,8 @@ function renderPersonalTrendChart() {
 
   const ctx = canvas.getContext('2d');
   const gradient = ctx.createLinearGradient(0, 0, 0, 160);
-  gradient.addColorStop(0, 'rgba(139, 92, 246, 0.22)');
-  gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+  gradient.addColorStop(0, 'rgba(4, 169, 210, 0.22)');
+  gradient.addColorStop(1, 'rgba(4, 169, 210, 0)');
 
   window._personalTrendChart = new Chart(ctx, {
     type: 'line',
@@ -3337,12 +3325,12 @@ function renderPersonalTrendChart() {
       datasets: [{
         label: '每日讀經章數',
         data: chartData,
-        borderColor: '#8b5cf6',
+        borderColor: '#04A9D2',
         backgroundColor: gradient,
         fill: true,
         tension: 0.35,
         borderWidth: 2,
-        pointBackgroundColor: '#8b5cf6',
+        pointBackgroundColor: '#04A9D2',
         pointBorderColor: '#ffffff',
         pointBorderWidth: 1,
         pointHoverRadius: 6
@@ -3816,7 +3804,7 @@ window.displayParticipantsList = function (limit = 100) {
       text-align: center;
     `;
     if (m.isMe) {
-      itemRow.style.background = "rgba(99, 102, 241, 0.08)";
+      itemRow.style.background = "var(--color-brand-muted, rgba(4,169,210,0.08))";
       itemRow.style.borderRadius = "8px";
     }
 
@@ -4155,7 +4143,7 @@ window.showPlanStatsModal = function () {
     `${catchUpDays} 天`,
     `過去落後但已成功補讀完畢的天數。`,
     `#ea580c`,
-    `background: linear-gradient(135deg, rgba(249, 115, 22, 0.04) 0%, rgba(249, 115, 22, 0.01) 100%);`
+    `background: rgba(254, 118, 21, 0.06);`
   );
 
   // Card B: 累計閱讀

@@ -752,8 +752,8 @@ function openMemberEditBottomSheet(user) {
   if (isLeader) {
     const scopeBtn = document.createElement("button");
     scopeBtn.className = "bottom-sheet-item";
-    scopeBtn.style.background = "rgba(99, 102, 241, 0.1)";
-    scopeBtn.style.borderColor = "rgba(99, 102, 241, 0.2)";
+    scopeBtn.style.background = "var(--color-brand-subtle, rgba(4,169,210,0.12))";
+    scopeBtn.style.borderColor = "var(--color-brand-border, rgba(4,169,210,0.24))";
     scopeBtn.style.color = "#a5b4fc";
     scopeBtn.style.marginBottom = "0.8rem";
     scopeBtn.type = "button";
