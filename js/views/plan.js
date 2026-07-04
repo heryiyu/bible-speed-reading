@@ -146,7 +146,7 @@ function initPlanControls() {
     if (activeSubview) activeSubview.classList.remove("hidden");
   }
 
-  // Segmented Control (今日讀經 / 小組戰報) switcher
+  // Segmented Control (今日讀經 / 小組進度) switcher
   const tabTodayTask = document.getElementById("tab-today-task");
   const tabGroupReport = document.getElementById("tab-group-report");
   const planDetailTabs = document.querySelector("#plan-detail-subview .plan-detail-tabs");
@@ -323,7 +323,7 @@ function initPlanControls() {
           joinedList.innerHTML = `
             <div class="empty-state" style="text-align: center; padding: 3rem 0; width: 100%;">
               <p style="color: var(--text-secondary); margin-bottom: 1rem; font-weight: 500;">目前沒有已完成的計畫</p>
-              <p style="font-size: 0.82rem; color: var(--text-muted);">前往「尋找計畫」加入新挑戰吧！</p>
+              <p style="font-size: 0.82rem; color: var(--text-muted);">${(window.APP_COPY && window.APP_COPY.plan.goFindPlans) || "前往「找計畫」加入新挑戰吧！"}</p>
             </div>
           `;
         }
@@ -894,7 +894,7 @@ function renderJoinedPlansList() {
     container.innerHTML = `
       <div class="empty-state" style="text-align: center; padding: 3rem 0;">
         <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-weight: 500;">您目前沒有加入任何讀經計畫。</p>
-        <p style="font-size: 0.88rem; color: var(--text-muted);">請點擊頂部「<strong>尋找計畫</strong>」瀏覽並加入！</p>
+        <p style="font-size: 0.88rem; color: var(--text-muted);">${(window.APP_COPY && window.APP_COPY.plan.clickFindPlans) || "請點擊頂部「找計畫」瀏覽並加入！"}</p>
       </div>
     `;
     return;
@@ -928,7 +928,7 @@ function renderJoinedPlansList() {
       <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 0.25rem; min-width: 0;">
         <h4 style="margin: 0; font-size: 1.05rem; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${plan.name}</h4>
         <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem;">
-          <span>📅</span> <span>${plan.startDate} ~ ${plan.endDate}</span>
+          <i class="bi bi-calendar3" aria-hidden="true"></i> <span>${plan.startDate} ~ ${plan.endDate}</span>
         </div>
         <div class="plan-progress-wrapper" style="margin-top: 0.4rem; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; position: relative;">
           <div class="plan-progress-bar" style="width: ${progress}%; height: 100%; background: #ff4757 !important; border-radius: 2px;"></div>
@@ -1000,7 +1000,7 @@ function renderPresetPlansList() {
       <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 0.25rem; min-width: 0;">
         <h4 style="margin: 0; font-size: 1.05rem; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${plan.name}</h4>
         <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem;">
-          <span>📅</span> <span>${plan.startDate} ~ ${plan.endDate}</span>
+          <i class="bi bi-calendar3" aria-hidden="true"></i> <span>${plan.startDate} ~ ${plan.endDate}</span>
         </div>
         <div style="font-size: 0.76rem; font-weight: 500; color: ${isJoined ? '#10b981' : 'var(--primary-color)'}; margin-top: 0.2rem; display: flex; align-items: center; gap: 0.25rem;">
           ${isJoined ? '✓ 已加入挑戰' : '+ 點擊加入計畫挑戰'}
@@ -1439,7 +1439,9 @@ async function renderPlanScheduleTracker(skipCarouselUpdate = false, signal = nu
 
   const currentRequestId = ++lastTrackerRequestId;
 
-  container.innerHTML = "";
+  container.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
+    ? ComponentSkeletonLoader.getHtml("task-list", { count: 3 })
+    : "";
 
   // Set default selected day if not set
   if (!state.selectedPlanDay) {
@@ -1500,7 +1502,7 @@ async function renderPlanScheduleTracker(skipCarouselUpdate = false, signal = nu
   const statusPill = document.getElementById("plan-day-status-pill");
   if (statusPill) {
     if (!selectedDay.chapters || selectedDay.chapters.length === 0) {
-      statusPill.textContent = "🧘 補讀/休息日";
+      statusPill.textContent = (window.APP_COPY && window.APP_COPY.plan.restDayPill) || "休息日";
       statusPill.style.background = "var(--color-brand-subtle, rgba(4,169,210,0.12))";
       statusPill.style.color = "var(--primary-color)";
     } else {
@@ -1576,7 +1578,7 @@ async function renderPlanScheduleTracker(skipCarouselUpdate = false, signal = nu
   if (!selectedDay.chapters || selectedDay.chapters.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 2rem; background: var(--bg-card); border: 1px dashed var(--border-card); border-radius: 14px; color: var(--text-secondary); font-weight: 500; width: 100%;">
-        🧘 今天是補讀或靈修休息日，好好親近神吧！
+        ${(window.APP_COPY && window.APP_COPY.plan.restDayBanner) || "今天是補讀或靈修休息日，好好親近神吧"}
       </div>
     `;
     return;
@@ -1736,7 +1738,7 @@ window.toggleYouVersionChapter = function (checkboxEl, book, chapter, taskRound 
       if (typeof updateDashboardView === "function") {
         updateDashboardView();
       }
-      showToast("讀經進度同步失敗，請稍後再試");
+      showToast((window.APP_COPY && window.APP_COPY.plan.syncFail) || "進度沒同步成功，等一下再試試");
     });
 };
 
@@ -2148,7 +2150,9 @@ async function renderAdminPlanManagement() {
   const tableBody = document.getElementById("admin-plans-table-body");
   if (!tableBody) return;
 
-  tableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">載入計畫列表中...</td></tr>`;
+  tableBody.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
+    ? `<tr><td colspan="3">${ComponentSkeletonLoader.getHtml("table-rows", { count: 3, cols: 3 })}</td></tr>`
+    : `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">載入計畫列表中...</td></tr>`;
 
   try {
     const plans = state.globalPlans || [];
@@ -2174,7 +2178,7 @@ async function renderAdminPlanManagement() {
           </span>
         </td>
         <td>
-          <span style="font-size: 0.72rem; font-weight: 500; display: block; white-space: nowrap;">📅 ${plan.startDate}</span>
+          <span style="font-size: 0.72rem; font-weight: 500; display: block; white-space: nowrap;"><i class="bi bi-calendar3" aria-hidden="true"></i> ${plan.startDate}</span>
           <span style="font-size: 0.72rem; font-weight: 500; display: block; white-space: nowrap; margin-left: 0.6rem; color: var(--text-muted);">~ ${plan.endDate}</span>
         </td>
         <td style="text-align: center; vertical-align: middle;">
@@ -2355,7 +2359,9 @@ async function renderInlineScriptureText() {
   // Load verses
   const container = document.getElementById("plan-inline-bible-content");
   if (container) {
-    container.innerHTML = `<div class="loader-inline" style="text-align: center; padding: 2rem; color: var(--text-muted);">讀取經文中...</div>`;
+    container.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
+      ? ComponentSkeletonLoader.getHtml("reader")
+      : `<div class="loader-inline" style="text-align: center; padding: 2rem; color: var(--text-muted);">讀取經文中...</div>`;
 
     const book = BIBLE_BOOKS.find(b => b.name === currentCh.book);
     if (book) {
@@ -3256,8 +3262,8 @@ function renderGroupTeamHeatmap() {
   const titleEl = document.getElementById('grp-heatmap-title');
   if (titleEl) {
     titleEl.textContent = scopeLabel === "全教會"
-      ? '全教會讀經熱點地圖 (計畫期間打卡活躍度)'
-      : `${scopeLabel} 讀經熱點地圖 (計畫期間打卡活躍度)`;
+      ? '全教會讀經活躍度 (計畫期間打卡活躍度)'
+      : `${scopeLabel} 讀經活躍度 (計畫期間打卡活躍度)`;
   }
 
   const userIds = new Set(scopedUsers.map(u => u.id).filter(Boolean));
@@ -3569,7 +3575,9 @@ async function renderPlanRankingView() {
   if (header) header.style.display = "none";
   container.className = "bar-race-list";
   container.style.cssText = "";
-  container.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.82rem;">載入牧區排行中...</div>`;
+  container.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
+    ? ComponentSkeletonLoader.getHtml("bar-race", { count: 4 })
+    : "";
 
   let pastoralStats = [];
   try {
@@ -3677,7 +3685,9 @@ async function renderGroupParticipantsRankingTable() {
 
   const listContainer = document.getElementById("ranking-participants-list");
   if (listContainer) {
-    listContainer.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.82rem;">載入成員數據中...</div>`;
+    listContainer.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
+      ? ComponentSkeletonLoader.getHtml("member-progress", { count: 5 })
+      : "";
 
     let allUsers = [];
     try {
@@ -3992,7 +4002,7 @@ async function renderPlanMembersView() {
 
 window.showPlanStatsModal = function () {
   if (!state.activePlan) {
-    showToast("尚未加入任何計畫");
+    showToast((window.APP_COPY && window.APP_COPY.plan.noPlanJoined) || "還沒加入任何計畫");
     return;
   }
 
@@ -4215,9 +4225,9 @@ window.showPlanStatsModal = function () {
   `;
   headerDiv.innerHTML = `
     <h3 style="font-size: 1.15rem; font-weight: 500; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-      <span>📊</span> 詳細數據統計
+      <i class="bi bi-bar-chart" aria-hidden="true"></i> 詳細數據統計
     </h3>
-    <button class="circular-action-btn" style="width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border-card); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: var(--text-secondary);" onclick="this.closest('.modal-overlay').remove()">✕</button>
+    <button class="circular-action-btn" style="width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border-card); background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: var(--text-secondary);" onclick="this.closest('.modal-overlay').remove()" aria-label="關閉"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
   `;
 
   headerDiv.querySelector("button").onclick = (e) => {
@@ -4252,7 +4262,7 @@ window.showPlanStatsModal = function () {
 
   // Card A: 進度救援
   const cardA = makeCardHtml(
-    `🛡️ 進度救援`,
+    iconLabel("bi-shield-check", "進度救援"),
     `${catchUpDays} 天`,
     `過去落後但已成功補讀完畢的天數。`,
     `#ea580c`,
@@ -4261,7 +4271,7 @@ window.showPlanStatsModal = function () {
 
   // Card B: 累計閱讀
   const cardB = makeCardHtml(
-    `🏆 累計閱讀`,
+    iconLabel("bi-trophy", "累計閱讀"),
     `${totalReadChapters} 章`,
     `在此計畫中讀完的經文章節總數。`,
     `var(--primary-color)`
@@ -4269,7 +4279,7 @@ window.showPlanStatsModal = function () {
 
   // Card C: 達標天數
   const cardC = makeCardHtml(
-    `📅 達標天數`,
+    iconLabel("bi-calendar3", "達標天數"),
     `${totalCompletedDays} 天`,
     `計畫中所有章節皆 100% 讀完的累積總天數。`,
     `#10b981`
@@ -4282,7 +4292,7 @@ window.showPlanStatsModal = function () {
     </span>
   `;
   const cardD = makeCardHtml(
-    `🚦 計畫狀態`,
+    iconLabel("bi-signpost-split", "計畫狀態"),
     badgeHtml,
     `目前讀經進度與計畫預期進度的比對結果。`,
     `var(--text-primary)`
@@ -4374,7 +4384,7 @@ function renderPlanScheduleView() {
     coverCard.innerHTML = `
       <div class="cover-title" id="plan-cover-title">${state.activePlan.name}</div>
       <div class="cover-subtitle" id="plan-cover-subtitle">
-        <span>📅</span> <span id="plan-cover-dates">${state.activePlan.startDate || ''} ~ ${state.activePlan.endDate || ''}</span>
+        <i class="bi bi-calendar3" aria-hidden="true"></i> <span id="plan-cover-dates">${state.activePlan.startDate || ''} ~ ${state.activePlan.endDate || ''}</span>
       </div>
     `;
 
@@ -4407,7 +4417,7 @@ function renderPlanScheduleView() {
     const btnStats = document.createElement("button");
     btnStats.className = !isTodayActive ? "secondary-btn active-focus active:scale-95" : "secondary-btn inactive-focus active:scale-95";
     btnStats.style.cssText = !isTodayActive ? activeStyleStr : inactiveStyleStr;
-    btnStats.innerHTML = `📊 我的進度`;
+    btnStats.innerHTML = iconLabel("bi-bar-chart", "我的進度");
     btnStats.addEventListener("click", (e) => {
       e.stopPropagation();
       const nextReadingDay = getNextReadingPlanDay(state.activePlan);
@@ -4419,7 +4429,7 @@ function renderPlanScheduleView() {
     const btnToday = document.createElement("button");
     btnToday.className = isTodayActive ? "secondary-btn active-focus active:scale-95" : "secondary-btn inactive-focus active:scale-95";
     btnToday.style.cssText = isTodayActive ? activeStyleStr : inactiveStyleStr;
-    btnToday.innerHTML = `📅 今天進度`;
+    btnToday.innerHTML = iconLabel("bi-calendar3", "今天進度");
     btnToday.addEventListener("click", (e) => {
       e.stopPropagation();
       snapCalendarToToday();
@@ -4428,7 +4438,7 @@ function renderPlanScheduleView() {
     const btnCal = document.createElement("button");
     btnCal.className = (viewMode === 'calendar') ? "primary-btn active-focus active:scale-95" : "primary-btn inactive-focus active:scale-95";
     btnCal.style.cssText = (viewMode === 'calendar') ? calActiveStyleStr : calInactiveStyleStr;
-    btnCal.innerHTML = `📅 查看日曆`;
+    btnCal.innerHTML = iconLabel("bi-calendar3", "查看日曆");
     btnCal.addEventListener("click", (e) => {
       e.stopPropagation();
       setViewMode('calendar');

@@ -415,7 +415,7 @@ function initProfileControls() {
         btnToggleForm.innerHTML = "收起個人檔案編輯";
       } else {
         formWrapper.classList.add("hidden");
-        btnToggleForm.innerHTML = "✏️ 編輯個人檔案";
+        btnToggleForm.innerHTML = iconLabel("bi-pencil", "編輯個人檔案");
       }
     };
   }
@@ -757,7 +757,7 @@ function openMemberEditBottomSheet(user) {
     scopeBtn.style.color = "#a5b4fc";
     scopeBtn.style.marginBottom = "0.8rem";
     scopeBtn.type = "button";
-    scopeBtn.innerHTML = `<span>✏️ 修改管轄範圍 (${user.great_region}/${user.pastoral_zone}/${user.small_group})</span>`;
+    scopeBtn.innerHTML = `<span class="btn-with-icon"><i class="bi bi-pencil" aria-hidden="true"></i><span>修改管轄範圍 (${user.great_region}/${user.pastoral_zone}/${user.small_group})</span></span>`;
     scopeBtn.onclick = async () => {
       console.log(`✏️ [Debug] 修改管轄範圍按鈕被點擊，成員：${user.name}`);
       closeAdminFilterBottomSheet();
@@ -1323,16 +1323,16 @@ function updateHeaderAvatar() {
           setInitialAvatar();
         }
       } else {
-        if (emailEl) emailEl.textContent = "Demo \u96e2\u7dda\u6a21\u5f0f";
+        if (emailEl) emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
         setInitialAvatar();
       }
     }).catch(err => {
       console.error("Error in updateHeaderAvatar:", err);
-      if (emailEl) emailEl.textContent = "Demo \u96e2\u7dda\u6a21\u5f0f";
+      if (emailEl) emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
       setInitialAvatar();
     });
   } else {
-    if (emailEl) emailEl.textContent = "Demo \u96e2\u7dda\u6a21\u5f0f";
+    if (emailEl) emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
     setInitialAvatar();
   }
 }

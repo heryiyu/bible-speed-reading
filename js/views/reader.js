@@ -423,7 +423,7 @@ function initReaderControls() {
               updateDashboardView();
             }
           }
-          showToast("讀經進度同步失敗，請稍後再試");
+      showToast((window.APP_COPY && window.APP_COPY.plan.syncFail) || "進度沒同步成功，等一下再試試");
         });
     });
   }
@@ -1257,7 +1257,7 @@ async function selectNavVerse(vNum) {
   }
 }
 
-// Helper to show/hide loading spinner overlay
+// Helper to show/hide loading skeleton overlay
 function showLoader(text) {
   const overlay = document.getElementById("loader-overlay");
   if (overlay) {
@@ -1402,7 +1402,7 @@ function updateReaderBottomActionBar() {
       if (isLastChapterOfDay) {
         btn.innerHTML = `<span>🎉 大功告成</span>`;
       } else {
-        btn.innerHTML = `<span>✅ 下一章</span>`;
+        btn.innerHTML = iconLabel("bi-chevron-right", (window.APP_COPY && window.APP_COPY.reader.nextChapter) || "下一章");
       }
 
       btn.onclick = () => {
@@ -1436,7 +1436,7 @@ function updateReaderBottomActionBar() {
       // 情境 C：【落後補讀模式】
       bar.classList.add("scenario-c");
       if (indicator) indicator.classList.add("hidden"); // 強制隱藏提示字
-      btn.innerHTML = `<span>➡️ 補讀下一天</span>`;
+      btn.innerHTML = iconLabel("bi-skip-forward", (window.APP_COPY && window.APP_COPY.reader.catchUpNextDay) || "補讀下一天");
 
       btn.onclick = () => {
         logClick();

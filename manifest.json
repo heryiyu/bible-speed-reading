@@ -1,7 +1,7 @@
 {
   "name": "新生命聖經速讀計畫",
   "short_name": "新生命聖經速讀計畫",
-  "description": "新生命教會聖經速讀計畫與分級統計系統。",
+  "description": "新生命教會聖經速讀計畫，進度雲端同步。",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

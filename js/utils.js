@@ -2,6 +2,17 @@
 // utils.js — Shared utilities used across all view controllers
 // ============================================================
 
+/**
+ * Inline icon + label markup for buttons (Bootstrap Icons).
+ * @param {string} biClass - e.g. "bi-pencil" (without "bi " prefix)
+ * @param {string} text
+ * @returns {string}
+ */
+function iconLabel(biClass, text) {
+  const cls = biClass.startsWith("bi-") ? biClass : `bi-${biClass}`;
+  return `<span class="btn-with-icon"><i class="bi ${cls}" aria-hidden="true"></i><span>${text}</span></span>`;
+}
+
 // ── Toast Notification ──────────────────────────────────────
 /**
  * Show a brief toast notification at the bottom of the screen.
@@ -558,81 +569,227 @@ window.showBadgeDetail = function(title, description, isUnlocked) {
 
 // ── Global Premium Skeleton UI Loader ──────────────────────
 const ComponentSkeletonLoader = {
+  _bar(width, height = "16px", radius = "6px", extra = "") {
+    return `<div class="skeleton-shimmer" style="height:${height};width:${width};border-radius:${radius};${extra}"></div>`;
+  },
+
+  _memberRow() {
+    return `
+      <div style="height:64px;width:100%;border-radius:12px;display:flex;align-items:center;gap:1rem;padding:0.75rem;background:var(--bg-card);border:1px solid var(--border-card);">
+        ${this._bar("40px", "40px", "50%")}
+        <div style="flex:1;display:flex;flex-direction:column;gap:0.4rem;min-width:0;">
+          ${this._bar("35%", "16px", "4px")}
+          ${this._bar("55%", "12px", "4px")}
+        </div>
+      </div>
+    `;
+  },
+
+  /**
+   * Returns skeleton HTML for a given layout type.
+   * @param {string} type
+   * @param {{ count?: number, cols?: number }} options
+   */
+  getHtml(type, options = {}) {
+    const count = options.count || 1;
+
+    if (type === "reader") {
+      return `
+        <div class="skeleton-wrapper" style="padding:1.5rem 0.2rem;display:flex;flex-direction:column;gap:1.2rem;">
+          ${this._bar("75%", "32px", "8px", "margin-bottom:0.5rem;")}
+          ${this._bar("100%", "24px", "6px")}
+          ${this._bar("91%", "24px", "6px")}
+          ${this._bar("100%", "24px", "6px")}
+          ${this._bar("83%", "24px", "6px")}
+          ${this._bar("60%", "24px", "6px")}
+        </div>
+      `;
+    }
+
+    if (type === "plan") {
+      return `
+        <div class="skeleton-wrapper" style="padding:1rem 0.5rem;display:flex;flex-direction:column;gap:1.5rem;">
+          ${this._bar("100%", "120px", "16px")}
+          <div style="display:flex;gap:0.75rem;overflow:hidden;padding:0.25rem 0;">
+            ${Array.from({ length: 7 }, () => this._bar("48px", "48px", "12px", "flex-shrink:0;")).join("")}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.75rem;">
+            ${this._bar("100%", "56px", "12px")}
+            ${this._bar("100%", "56px", "12px")}
+          </div>
+        </div>
+      `;
+    }
+
+    if (type === "members" || type === "member-progress") {
+      const rows = type === "members" ? 5 : (count || 4);
+      return `
+        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:1rem;padding:1rem 0;">
+          ${Array.from({ length: rows }, () => this._memberRow()).join("")}
+        </div>
+      `;
+    }
+
+    if (type === "announcement") {
+      return `
+        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.8rem;">
+          ${Array.from({ length: count || 2 }, () => `
+            <div style="padding:0.8rem 1rem;border-radius:12px;border:1px solid var(--border-card);display:flex;flex-direction:column;gap:0.5rem;">
+              ${this._bar("38%", "14px", "4px")}
+              ${this._bar("92%", "12px", "4px")}
+              ${this._bar("72%", "12px", "4px")}
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    if (type === "ranking") {
+      return `
+        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.65rem;">
+          ${Array.from({ length: count || 5 }, (_, index) => `
+            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
+              ${this._bar("28px", "28px", "50%", "flex-shrink:0;")}
+              ${this._bar(index % 2 === 0 ? "58%" : "46%", "14px", "4px")}
+              <div style="margin-left:auto;">${this._bar("52px", "14px", "4px")}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    if (type === "plan-list") {
+      return `
+        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:1rem;padding:1rem 0;">
+          ${Array.from({ length: count || 2 }, () => `
+            <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem;border-radius:14px;border:1px solid var(--border-card);background:var(--bg-card);">
+              ${this._bar("72px", "72px", "12px", "flex-shrink:0;")}
+              <div style="flex:1;display:flex;flex-direction:column;gap:0.45rem;min-width:0;">
+                ${this._bar("55%", "16px", "4px")}
+                ${this._bar("78%", "12px", "4px")}
+                ${this._bar("42%", "10px", "4px")}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    if (type === "table-rows") {
+      const cols = options.cols || 3;
+      return `
+        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.55rem;padding:0.35rem 0;">
+          ${Array.from({ length: count || 3 }, () => `
+            <div style="display:grid;grid-template-columns:repeat(${cols}, minmax(0, 1fr));gap:0.75rem;align-items:center;padding:0.45rem 0.25rem;">
+              ${Array.from({ length: cols }, (_, colIndex) => this._bar(colIndex === 0 ? "72%" : "58%", "14px", "4px")).join("")}
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    if (type === "bar-race") {
+      return `
+        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.75rem;padding:0.5rem 0;">
+          ${Array.from({ length: count || 4 }, (_, index) => `
+            <div style="display:flex;align-items:center;gap:0.65rem;">
+              ${this._bar("24px", "24px", "6px", "flex-shrink:0;")}
+              <div style="flex:1;display:flex;flex-direction:column;gap:0.35rem;">
+                ${this._bar(index % 2 === 0 ? "42%" : "36%", "12px", "4px")}
+                ${this._bar(`${Math.max(35, 88 - index * 12)}%`, "10px", "999px")}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    if (type === "stats") {
+      return `
+        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:1rem;padding:0.5rem 0;">
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.75rem;">
+            ${this._bar("100%", "88px", "14px", "grid-column:span 2;")}
+            ${this._bar("100%", "72px", "14px")}
+            ${this._bar("100%", "72px", "14px")}
+            ${this._bar("100%", "72px", "14px")}
+            ${this._bar("100%", "72px", "14px")}
+          </div>
+          ${this._bar("100%", "140px", "14px")}
+          ${this._bar("100%", "180px", "14px")}
+          ${this._bar("100%", "220px", "12px")}
+        </div>
+      `;
+    }
+
+    if (type === "verse-card") {
+      return `
+        <div class="skeleton-wrapper verse-card-skeleton" style="display:flex;flex-direction:column;gap:1rem;padding:0.5rem 0;min-height:180px;justify-content:center;">
+          ${this._bar("28%", "12px", "4px")}
+          ${this._bar("92%", "22px", "6px")}
+          ${this._bar("84%", "22px", "6px")}
+          ${this._bar("62%", "22px", "6px")}
+        </div>
+      `;
+    }
+
+    if (type === "inline") {
+      return `<span class="skeleton-shimmer skeleton-inline" style="display:inline-block;width:${options.width || "4.5rem"};height:${options.height || "0.85em"};border-radius:4px;vertical-align:middle;"></span>`;
+    }
+
+    if (type === "task-list") {
+      return `
+        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.75rem;padding:0.25rem 0;">
+          ${Array.from({ length: count || 3 }, () => this._bar("100%", "56px", "12px")).join("")}
+        </div>
+      `;
+    }
+
+    if (type === "overlay") {
+      return `
+        <div class="loader-skeleton-panel">
+          ${this._bar("220px", "16px", "8px")}
+          ${this._bar("180px", "16px", "8px")}
+          ${this._bar("140px", "16px", "8px")}
+        </div>
+      `;
+    }
+
+    if (type === "profile-org") {
+      return `
+        <span style="display:inline-flex;flex-direction:column;gap:0.35rem;min-width:8rem;">
+          ${this._bar("9rem", "12px", "4px")}
+          ${this._bar("6.5rem", "10px", "4px")}
+        </span>
+      `;
+    }
+
+    return "";
+  },
+
+  /**
+   * Sets skeleton HTML without caching the original content.
+   */
+  fill(type, container, options = {}) {
+    const parent = typeof container === "string" ? document.querySelector(container) : container;
+    if (!parent) return;
+    parent.innerHTML = this.getHtml(type, options);
+  },
+
   /**
    * Renders a shimmer skeleton layout inside the specified container.
-   * @param {string} type - 'reader', 'plan', or 'members'
-   * @param {HTMLElement|string} container - Element object or CSS selector
+   * @param {string} type
+   * @param {HTMLElement|string} container
+   * @param {{ count?: number, cols?: number }} options
    */
-  show(type, container) {
+  show(type, container, options = {}) {
     const parent = typeof container === "string" ? document.querySelector(container) : container;
     if (!parent) return;
 
-    // Cache original content to restore on hide
     if (!parent.dataset.originalHtml) {
       parent.dataset.originalHtml = parent.innerHTML;
     }
 
-    let skeletonHtml = "";
-
-    if (type === "reader") {
-      // 狀況 A：當處於【讀經頁面】載入時 (4~5 條長短不一、大字體行高的橫向圓角條狀骨架)
-      skeletonHtml = `
-        <div class="skeleton-wrapper space-y-6" style="padding: 1.5rem 0.2rem;">
-          <div class="h-8 w-3/4 rounded-md skeleton-shimmer mb-8" style="height: 32px; width: 75%; margin-bottom: 2rem;"></div>
-          <div class="space-y-4" style="display: flex; flex-direction: column; gap: 1.2rem;">
-            <div class="h-6 w-full rounded-md skeleton-shimmer" style="height: 24px; width: 100%;"></div>
-            <div class="h-6 w-11/12 rounded-md skeleton-shimmer" style="height: 24px; width: 91%;"></div>
-            <div class="h-6 w-full rounded-md skeleton-shimmer" style="height: 24px; width: 100%;"></div>
-            <div class="h-6 w-10/12 rounded-md skeleton-shimmer" style="height: 24px; width: 83%;"></div>
-            <div class="h-6 w-3/5 rounded-md skeleton-shimmer" style="height: 24px; width: 60%;"></div>
-          </div>
-        </div>
-      `;
-    } else if (type === "plan") {
-      // 狀況 B：當處於【計畫頁面】載入時 (頂部大圓角矩形 + 7個小正方形 + 滿版長條)
-      skeletonHtml = `
-        <div class="skeleton-wrapper space-y-6" style="padding: 1rem 0.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
-          <!-- Big rounded progress card -->
-          <div class="h-32 w-full rounded-2xl skeleton-shimmer" style="height: 120px; width: 100%; border-radius: 16px;"></div>
-          
-          <!-- Horizontal 7 days calendar calendar slider -->
-          <div class="flex space-x-3 overflow-hidden py-1" style="display: flex; gap: 0.75rem; overflow: hidden; padding: 0.25rem 0;">
-            <div class="h-12 w-12 rounded-xl skeleton-shimmer flex-shrink-0" style="height: 48px; width: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div class="h-12 w-12 rounded-xl skeleton-shimmer flex-shrink-0" style="height: 48px; width: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div class="h-12 w-12 rounded-xl skeleton-shimmer flex-shrink-0" style="height: 48px; width: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div class="h-12 w-12 rounded-xl skeleton-shimmer flex-shrink-0" style="height: 48px; width: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div class="h-12 w-12 rounded-xl skeleton-shimmer flex-shrink-0" style="height: 48px; width: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div class="h-12 w-12 rounded-xl skeleton-shimmer flex-shrink-0" style="height: 48px; width: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-            <div class="h-12 w-12 rounded-xl skeleton-shimmer flex-shrink-0" style="height: 48px; width: 48px; border-radius: 12px; flex-shrink: 0;"></div>
-          </div>
-          
-          <!-- Full-width list task item -->
-          <div class="space-y-3" style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <div class="h-14 w-full rounded-xl skeleton-shimmer" style="height: 56px; width: 100%; border-radius: 12px;"></div>
-            <div class="h-14 w-full rounded-xl skeleton-shimmer" style="height: 56px; width: 100%; border-radius: 12px;"></div>
-          </div>
-        </div>
-      `;
-    } else if (type === "members") {
-      // 狀況 C：當處於【成員管理頁面】載入時 (搜尋框下方 5 條高度 64px 橫向長條，左圓右兩行)
-      skeletonHtml = `
-        <div class="skeleton-wrapper space-y-4" style="display: flex; flex-direction: column; gap: 1rem; padding: 1rem 0;">
-          ${[1, 2, 3, 4, 5].map(() => `
-            <div class="h-16 w-full rounded-xl p-3 flex items-center" style="height: 64px; width: 100%; border-radius: 12px; display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-card);">
-              <!-- Left circle avatar -->
-              <div class="h-10 w-10 rounded-full skeleton-shimmer" style="height: 40px; width: 40px; border-radius: 50%; flex-shrink: 0;"></div>
-              <!-- Right two lines of text -->
-              <div class="flex-1" style="flex: 1; display: flex; flex-direction: column; gap: 0.4rem; min-width: 0;">
-                <div class="h-4 w-1/3 rounded skeleton-shimmer" style="height: 16px; width: 35%; border-radius: 4px;"></div>
-                <div class="h-3 w-1/2 rounded skeleton-shimmer" style="height: 12px; width: 55%; border-radius: 4px;"></div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-
-    parent.innerHTML = skeletonHtml;
+    parent.innerHTML = this.getHtml(type, options);
   },
 
   /**

@@ -2017,7 +2017,7 @@ const db = {
       return local ? JSON.parse(local) : [
         { 
           id: 'default-welcome', 
-          title: '📢 歡迎使用速讀挑戰系統！', 
+          title: '歡迎使用速讀挑戰系統！', 
           content: '親愛的弟兄姊妹平安，歡迎加入教會季度速讀挑戰。讓我們一起藉著每日讀經，更加認識神、親近神！如有任何問題，請洽詢教會管理員。', 
           created_at: new Date().toISOString() 
         }

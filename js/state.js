@@ -295,11 +295,20 @@ const appRouter = {
 const loader = {
   show(text = "載入中...") {
     const el = document.getElementById("loader-overlay");
-    el.querySelector(".loader-text").textContent = text;
+    if (!el) return;
+
+    const skeletonPanel = el.querySelector(".loader-skeleton-panel");
+    if (skeletonPanel && typeof ComponentSkeletonLoader !== "undefined") {
+      skeletonPanel.innerHTML = ComponentSkeletonLoader.getHtml("overlay");
+    }
+
+    const textEl = el.querySelector(".loader-text");
+    if (textEl) textEl.textContent = text;
     el.classList.remove("hidden");
   },
   hide() {
-    document.getElementById("loader-overlay").classList.add("hidden");
+    const el = document.getElementById("loader-overlay");
+    if (el) el.classList.add("hidden");
   }
 };
 

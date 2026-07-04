@@ -135,8 +135,8 @@ function updateDashboardView() {
     planSummaryDiv.onkeydown = null;
     planSummaryDiv.innerHTML = `
       <div class="empty-state" style="text-align: center; padding: 2rem 0;">
-        <p style="color: var(--text-secondary); margin-bottom: 1rem;">目前沒有進行中的讀經計畫。</p>
-        <button class="primary-btn" onclick="appRouter.switchTab('plan-view')">選擇計畫加入</button>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">${(window.APP_COPY && window.APP_COPY.plan.emptyBody) || "還沒加入讀經計畫"}</p>
+        <button class="primary-btn" onclick="appRouter.switchTab('plan-view')">${(window.APP_COPY && window.APP_COPY.plan.emptyCta) || "去找計畫"}</button>
       </div>
     `;
   }
@@ -177,6 +177,14 @@ async function calculateAndRenderPersonalRankings() {
   }
 
   try {
+    const rankSkeleton = typeof ComponentSkeletonLoader !== "undefined"
+      ? ComponentSkeletonLoader.getHtml("inline", { width: "5.5rem", height: "1.4rem" })
+      : "—";
+    rankGroupEl.innerHTML = rankSkeleton;
+    rankZoneEl.innerHTML = rankSkeleton;
+    rankRegionEl.innerHTML = rankSkeleton;
+    rankChurchEl.innerHTML = rankSkeleton;
+
     const rankings = await db.getUserRankings();
     if (rankings) {
       rankGroupEl.textContent = rankings.groupRank > 0 ? `第 ${rankings.groupRank} 名 / 共 ${rankings.groupTotal} 人` : "尚無資料";
@@ -208,7 +216,9 @@ async function renderPastoralZoneRankingList() {
     return;
   }
 
-  rankingContainer.innerHTML = `<div class="empty-state">載入排行中...</div>`;
+  rankingContainer.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
+    ? ComponentSkeletonLoader.getHtml("ranking", { count: 5 })
+    : "";
 
   let pastoralStats = [];
   if (state.isSupabaseMode && state.supabase) {
@@ -371,11 +381,13 @@ async function renderTodayGroupProgress() {
   
   const hasPlan = state.activePlans && state.activePlans.length > 0;
   if (!hasPlan) {
-    listEl.innerHTML = '<div style="font-size: 0.88rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">請先至 讀經計畫 加入計畫，以查看今日進度！</div>';
+    listEl.innerHTML = `<div style="font-size: 0.88rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">${(window.APP_COPY && window.APP_COPY.plan.joinProgressHint) || "請先至「計畫」加入計畫，以查看今日進度"}</div>`;
     return;
   }
   
-  listEl.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 1rem;">載入中...</div>';
+  listEl.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
+    ? ComponentSkeletonLoader.getHtml("member-progress", { count: 4 })
+    : "";
   
   // Adapt header and search box visibility based on role
   const cardEl = listEl.closest('.glass-card');
@@ -900,6 +912,10 @@ window.deleteAnnouncement = async function(id) {
 async function updateAnnouncementsList() {
   const listContainer = document.getElementById("church-announcements-list");
   if (!listContainer) return;
+
+  if (typeof ComponentSkeletonLoader !== "undefined") {
+    ComponentSkeletonLoader.fill("announcement", listContainer, { count: 2 });
+  }
   
   const isAdmin = state.currentUser && (state.currentUser.role === 'admin' || state.currentUser.role === 'senior_pastor');
   const publishBtn = document.getElementById("btn-show-announcement-form");
@@ -938,7 +954,7 @@ async function updateAnnouncementsList() {
         <h4 style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary); margin: 0; line-height: 1.4;">${escapeHTML(ann.title)}</h4>
         <div style="display: flex; align-items: center; gap: 0.4rem;">
           <span style="font-size: 0.7rem; color: var(--text-muted); white-space: nowrap;">${formattedTime}</span>
-          ${isAdmin ? `<button class="circular-action-btn" style="width: 22px; height: 22px; padding: 0; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); display: flex; align-items: center; justify-content: center; font-size: 0.65rem;" onclick="window.deleteAnnouncement('${ann.id}')" title="刪除公告">🗑️</button>` : ''}
+          ${isAdmin ? `<button class="circular-action-btn" style="width: 22px; height: 22px; padding: 0; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); display: flex; align-items: center; justify-content: center; font-size: 0.75rem;" onclick="window.deleteAnnouncement('${ann.id}')" title="刪除公告" aria-label="刪除公告"><i class="bi bi-trash" aria-hidden="true"></i></button>` : ''}
         </div>
       </div>
       <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 0; line-height: 1.5; white-space: pre-wrap;">${escapeHTML(ann.content)}</p>
@@ -1006,10 +1022,13 @@ async function fetchRandomVerse(event) {
   }
   
   // Enter loading state
-  card.classList.add("animate-pulse", "opacity-70");
-  if (content) {
+  if (content && typeof ComponentSkeletonLoader !== "undefined") {
+    content.dataset.verseOriginalHtml = content.innerHTML;
+    content.innerHTML = ComponentSkeletonLoader.getHtml("verse-card");
+  } else if (content) {
     content.classList.add("opacity-40");
   }
+  card.classList.add("opacity-90");
   
   // Pick a random local verse
   const randomLocal = DAILY_VERSES[Math.floor(Math.random() * DAILY_VERSES.length)];
@@ -1067,6 +1086,11 @@ async function fetchRandomVerse(event) {
   img.src = randomImgUrl;
   
   function applyVerseContent(verseData, imageUrl) {
+    if (content && content.dataset.verseOriginalHtml !== undefined) {
+      content.innerHTML = content.dataset.verseOriginalHtml;
+      delete content.dataset.verseOriginalHtml;
+    }
+
     const textEl = document.getElementById("daily-verse-text");
     const sourceEl = document.getElementById("daily-verse-source");
     const bgImgEl = document.getElementById("card-bg");
@@ -1084,15 +1108,14 @@ async function fetchRandomVerse(event) {
       syncVerseLikes(verseData.source);
     }
     
-    // Release loading states
     isVerseLoading = false;
     isImgLoading = false;
     
-    card.classList.remove("animate-pulse", "opacity-70");
+    card.classList.remove("opacity-90");
     if (content) {
       content.classList.remove("opacity-40");
       content.style.opacity = "0";
-      void content.offsetWidth; // Force reflow
+      void content.offsetWidth;
       content.style.opacity = "1";
     }
   }
@@ -1130,8 +1153,8 @@ async function shareAsImage(e) {
         try {
           await navigator.share({
             files: [file],
-            title: '每日金句分享',
-            text: '與你分享這句充滿力量的話語。'
+            title: (window.APP_COPY && window.APP_COPY.verse.shareTitle) || "今日經文",
+            text: (window.APP_COPY && window.APP_COPY.verse.shareText) || "分享今日經文給你"
           });
           
           localStorage.setItem("has_shared_verse", "true");
@@ -1155,12 +1178,12 @@ async function shareAsImage(e) {
 
   } catch (error) {
     console.error('產生分享圖片時發生錯誤:', error);
-    alert('分享失敗，請稍後再試');
+    alert((window.APP_COPY && window.APP_COPY.verse.shareFail) || '分享失敗，等一下再試試');
   } finally {
     if (shareBtn) {
       setTimeout(() => {
         shareBtn.disabled = false;
-        shareBtn.innerHTML = `<i class="bi bi-share text-lg mb-1"></i><span>分享</span>`;
+        shareBtn.innerHTML = `<i class="bi bi-share text-lg mb-1"></i><span>${(window.APP_COPY && window.APP_COPY.verse.share) || "分享"}</span>`;
       }, 1000);
     }
   }

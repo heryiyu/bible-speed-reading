@@ -8,7 +8,20 @@ async function updateStatsView(filterPresetKey = null) {
   }
   window.currentStatsFilterPresetKey = filterPresetKey;
 
-  loader.show("載入統計數據中...");
+  const statsTableBody = document.getElementById("stats-members-table-body");
+  const statsValueIds = ["stats-total-read", "stats-total-members", "stats-active-members"];
+  if (typeof ComponentSkeletonLoader !== "undefined") {
+    if (statsTableBody) ComponentSkeletonLoader.fill("table-rows", statsTableBody, { count: 5, cols: 6 });
+    statsValueIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.dataset.statsOriginalHtml = el.innerHTML;
+        el.innerHTML = ComponentSkeletonLoader.getHtml("inline", { width: "3.5rem", height: "1.1rem" });
+      }
+    });
+  } else {
+    loader.show("載入統計數據中...");
+  }
   
   let pastoralStats = [];
   let rawAllUsers = [];
@@ -171,7 +184,16 @@ async function updateStatsView(filterPresetKey = null) {
   // Render Team Progress Status & Growth Trend Dashboard
   renderTeamStatsAnalysisDashboard(unfilteredAllUsers, mockUser);
 
-  loader.hide();
+  if (typeof ComponentSkeletonLoader !== "undefined") {
+    statsValueIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.dataset.statsOriginalHtml !== undefined) {
+        delete el.dataset.statsOriginalHtml;
+      }
+    });
+  } else {
+    loader.hide();
+  }
 }
 
 function renderRosterTable(users) {
@@ -542,14 +564,14 @@ function renderHeatmap(teamUsers = []) {
       const zoneSelectGroup = document.getElementById("stats-zone-selector");
       const selectedZone = zoneSelectGroup ? zoneSelectGroup.value : "";
       titleEl.textContent = selectedZone 
-        ? `${selectedZone} 團隊讀經熱點地圖 (近4個月打卡活躍度)`
-        : "全教會團隊讀經熱點地圖 (近4個月打卡活躍度)";
+        ? `${selectedZone} 團隊讀經活躍度 (近4個月打卡活躍度)`
+        : "全教會團隊讀經活躍度 (近4個月打卡活躍度)";
     } else if (role === "great_zone_leader") {
-      titleEl.textContent = `${state.currentUser.great_region} 團隊讀經熱點地圖 (近4個月打卡活躍度)`;
+      titleEl.textContent = `${state.currentUser.great_region} 團隊讀經活躍度 (近4個月打卡活躍度)`;
     } else if (role === "zone_leader") {
-      titleEl.textContent = `${state.currentUser.pastoral_zone} 團隊讀經熱點地圖 (近4個月打卡活躍度)`;
+      titleEl.textContent = `${state.currentUser.pastoral_zone} 團隊讀經活躍度 (近4個月打卡活躍度)`;
     } else {
-      titleEl.textContent = `${state.currentUser.small_group} 小組讀經熱點地圖 (近4個月打卡活躍度)`;
+      titleEl.textContent = `${state.currentUser.small_group} 小組讀經活躍度 (近4個月打卡活躍度)`;
     }
   }
 
@@ -867,9 +889,9 @@ function renderProfileReadingStats() {
           <line x1="9" y1="19" x2="15" y2="19"></line>
           <line x1="9" y1="11" x2="10" y2="11"></line>
         </svg>
-        <p style="font-size: 0.9rem; font-weight: 500; margin-bottom: 0.5rem; color: var(--text-primary);">尚未加入讀經計畫</p>
+        <p style="font-size: 0.9rem; font-weight: 500; margin-bottom: 0.5rem; color: var(--text-primary);">${(window.APP_COPY && window.APP_COPY.stats.noPlan) || "還沒加入讀經計畫"}</p>
         <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1.5rem;">
-          請至「讀經計畫」頁面選擇並加入任一計畫，即可在此查看詳細的進度統計。
+          請至「計畫」頁面選擇並加入，即可在此查看進度統計。
         </p>
         
         <div class="stat-item-card" style="background: var(--bg-card); border: 1px solid var(--border-card); padding: 0.8rem 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; text-align: left;">
