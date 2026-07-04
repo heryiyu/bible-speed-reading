@@ -150,10 +150,19 @@
             <div class="glass-card" style="height: auto; margin-bottom: 1.5rem;">
               <h3 class="card-title">進行中的計畫</h3>
               <div id="active-plan-summary">
-                <!-- Dynamic active plan summary -->
-                <div class="empty-state">
-                  <p>還沒加入讀經計畫</p>
-                  <button class="primary-btn" onclick="appRouter.switchTab('plan-view')">去找計畫</button>
+                <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:1rem;padding:0.25rem 0;">
+                  <div class="skeleton-shimmer" style="height:18px;width:62%;border-radius:6px;"></div>
+                  <div class="skeleton-shimmer" style="height:12px;width:88%;border-radius:4px;"></div>
+                  <div class="skeleton-shimmer" style="height:10px;width:100%;border-radius:999px;"></div>
+                  <div style="display:flex;justify-content:space-around;gap:0.75rem;padding:0.85rem 0.5rem;border-radius:12px;border:1px solid var(--border-card);background:var(--color-brand-muted);">
+                    <div class="skeleton-shimmer" style="height:16px;width:3.5rem;border-radius:4px;"></div>
+                    <div class="skeleton-shimmer" style="height:16px;width:3.5rem;border-radius:4px;"></div>
+                    <div class="skeleton-shimmer" style="height:16px;width:3.5rem;border-radius:4px;"></div>
+                  </div>
+                  <div style="display:flex;gap:0.75rem;">
+                    <div class="skeleton-shimmer" style="height:40px;flex:1;border-radius:10px;"></div>
+                    <div class="skeleton-shimmer" style="height:40px;flex:1;border-radius:10px;"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -231,14 +240,13 @@
               </div>
 
               <div id="church-announcements-list" style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 280px; overflow-y: auto; padding-right: 0.2rem;">
-                <!-- Dynamically populated announcements -->
                 <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.8rem;">
-                  <div style="padding:0.8rem 1rem;border-radius:12px;border:1px solid var(--border-card);display:flex;flex-direction:column;gap:0.5rem;">
+                  <div class="skeleton-card" style="padding:0.8rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
                     <div class="skeleton-shimmer" style="height:14px;width:38%;border-radius:4px;"></div>
                     <div class="skeleton-shimmer" style="height:12px;width:92%;border-radius:4px;"></div>
                     <div class="skeleton-shimmer" style="height:12px;width:72%;border-radius:4px;"></div>
                   </div>
-                  <div style="padding:0.8rem 1rem;border-radius:12px;border:1px solid var(--border-card);display:flex;flex-direction:column;gap:0.5rem;">
+                  <div class="skeleton-card" style="padding:0.8rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
                     <div class="skeleton-shimmer" style="height:14px;width:34%;border-radius:4px;"></div>
                     <div class="skeleton-shimmer" style="height:12px;width:88%;border-radius:4px;"></div>
                     <div class="skeleton-shimmer" style="height:12px;width:64%;border-radius:4px;"></div>
@@ -390,7 +398,7 @@
               <div id="joined-plans-list" style="flex: 1; display: flex; flex-direction: column; gap: 1rem;">
                 <!-- Generated dynamically by JS -->
                 <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:1rem;padding:1rem 0;">
-                  <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem;border-radius:14px;border:1px solid var(--border-card);background:var(--bg-card);">
+                  <div class="skeleton-row">
                     <div class="skeleton-shimmer" style="width:72px;height:72px;border-radius:12px;flex-shrink:0;"></div>
                     <div style="flex:1;display:flex;flex-direction:column;gap:0.45rem;min-width:0;">
                       <div class="skeleton-shimmer" style="height:16px;width:55%;border-radius:4px;"></div>
@@ -398,7 +406,7 @@
                       <div class="skeleton-shimmer" style="height:10px;width:42%;border-radius:4px;"></div>
                     </div>
                   </div>
-                  <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem;border-radius:14px;border:1px solid var(--border-card);background:var(--bg-card);">
+                  <div class="skeleton-row">
                     <div class="skeleton-shimmer" style="width:72px;height:72px;border-radius:12px;flex-shrink:0;"></div>
                     <div style="flex:1;display:flex;flex-direction:column;gap:0.45rem;min-width:0;">
                       <div class="skeleton-shimmer" style="height:16px;width:48%;border-radius:4px;"></div>
@@ -891,7 +899,23 @@
 
               <!-- Pastoral Rank List Container -->
               <div id="pastoral-ranking-list-container" style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 400px; overflow-y: auto; padding-right: 0.2rem;">
-                <!-- Populated dynamically -->
+                <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.65rem;">
+                  <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
+                    <div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:58%;border-radius:4px;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:52px;border-radius:4px;margin-left:auto;"></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
+                    <div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:46%;border-radius:4px;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:52px;border-radius:4px;margin-left:auto;"></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
+                    <div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:52%;border-radius:4px;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:52px;border-radius:4px;margin-left:auto;"></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -967,7 +991,7 @@
                 <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0;">
                   <h2 id="profile-summary-name" style="font-size: 1.4rem; font-weight: 500; color: var(--text-primary); margin: 0;">新使用者</h2>
                   <p id="profile-summary-org" style="font-size: 0.85rem; color: var(--text-secondary); margin: 0;">
-                    <span style="display:inline-flex;flex-direction:column;gap:0.35rem;min-width:8rem;">
+                    <span class="skeleton-wrapper" style="display:inline-flex;flex-direction:column;gap:0.35rem;min-width:8rem;">
                       <span class="skeleton-shimmer" style="display:block;height:12px;width:9rem;border-radius:4px;"></span>
                       <span class="skeleton-shimmer" style="display:block;height:10px;width:6.5rem;border-radius:4px;"></span>
                     </span>
@@ -1297,16 +1321,6 @@
         </div>
       </div>
     </div>
-  </div>
-
-  <!-- Loading Overlay -->
-  <div class="loader-overlay hidden" id="loader-overlay">
-    <div class="loader-skeleton-panel">
-      <div class="skeleton-shimmer" style="width:220px;height:16px;border-radius:8px;"></div>
-      <div class="skeleton-shimmer" style="width:180px;height:16px;border-radius:8px;"></div>
-      <div class="skeleton-shimmer" style="width:140px;height:16px;border-radius:8px;"></div>
-    </div>
-    <p class="loader-text">載入中...</p>
   </div>
 
   <!-- Import application modules -->

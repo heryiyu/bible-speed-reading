@@ -19,8 +19,6 @@ async function updateStatsView(filterPresetKey = null) {
         el.innerHTML = ComponentSkeletonLoader.getHtml("inline", { width: "3.5rem", height: "1.1rem" });
       }
     });
-  } else {
-    loader.show("載入統計數據中...");
   }
   
   let pastoralStats = [];
@@ -191,8 +189,6 @@ async function updateStatsView(filterPresetKey = null) {
         delete el.dataset.statsOriginalHtml;
       }
     });
-  } else {
-    loader.hide();
   }
 }
 

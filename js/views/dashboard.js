@@ -881,9 +881,7 @@ window.saveAnnouncement = async function() {
     return;
   }
   
-  loader.show("發布公告中...");
   const success = await db.saveAnnouncement(title, content);
-  loader.hide();
   
   if (success) {
     if (typeof showToast === "function") {
@@ -897,9 +895,7 @@ window.saveAnnouncement = async function() {
 window.deleteAnnouncement = async function(id) {
   if (!confirm("確定要刪除此公告嗎？此動作將無法復原。")) return;
   
-  loader.show("刪除公告中...");
   const success = await db.deleteAnnouncement(id);
-  loader.hide();
   
   if (success) {
     if (typeof showToast === "function") {

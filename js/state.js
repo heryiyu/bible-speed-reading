@@ -291,25 +291,10 @@ const appRouter = {
   }
 };
 
-// Loader Overlay Helpers
+// Loader helpers — full-screen overlay removed; use in-place skeletons instead.
 const loader = {
-  show(text = "載入中...") {
-    const el = document.getElementById("loader-overlay");
-    if (!el) return;
-
-    const skeletonPanel = el.querySelector(".loader-skeleton-panel");
-    if (skeletonPanel && typeof ComponentSkeletonLoader !== "undefined") {
-      skeletonPanel.innerHTML = ComponentSkeletonLoader.getHtml("overlay");
-    }
-
-    const textEl = el.querySelector(".loader-text");
-    if (textEl) textEl.textContent = text;
-    el.classList.remove("hidden");
-  },
-  hide() {
-    const el = document.getElementById("loader-overlay");
-    if (el) el.classList.add("hidden");
-  }
+  show() {},
+  hide() {}
 };
 
 // Theme Management

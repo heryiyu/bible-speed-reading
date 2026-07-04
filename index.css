@@ -58,6 +58,11 @@
   /* Typography weights — Member Hub: medium (500) emphasis, normal (400) body */
   --type-weight-strong: 500;
   --type-weight-regular: 400;
+
+  --skeleton-base: color-mix(in srgb, var(--text-primary) 6%, var(--bg-card));
+  --skeleton-highlight: color-mix(in srgb, var(--text-primary) 2%, var(--bg-card));
+  --skeleton-on-dark-base: rgba(255, 255, 255, 0.14);
+  --skeleton-on-dark-highlight: rgba(255, 255, 255, 0.32);
 }
 
 /* Dark Theme overrides */
@@ -88,6 +93,11 @@ body.dark-theme {
   --color-brand-ring: color-mix(in srgb, #04A9D2 20%, transparent);
 
   --primary-color: var(--color-brand);
+
+  --skeleton-base: rgba(255, 255, 255, 0.06);
+  --skeleton-highlight: rgba(255, 255, 255, 0.14);
+  --skeleton-on-dark-base: rgba(255, 255, 255, 0.12);
+  --skeleton-on-dark-highlight: rgba(255, 255, 255, 0.28);
 }
 
 
@@ -1402,44 +1412,6 @@ vercel-live-feedback,
 .badge.success {
   background-color: var(--accent-color);
   color: white;
-}
-
-/* Loader Overlay */
-.loader-overlay {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(9, 13, 22, 0.6);
-  backdrop-filter: blur(5px);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1.25rem;
-  color: white;
-  transition: opacity 0.3s ease;
-}
-
-.loader-skeleton-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1.25rem 1.5rem;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.loader-skeleton-panel .skeleton-shimmer {
-  opacity: 0.95;
-}
-
-.loader-text {
-  font-size: 0.95rem;
-  font-weight: var(--type-weight-strong);
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.92);
 }
 
 /* Utility Hidden */
@@ -3755,6 +3727,11 @@ body.warm-theme {
   --color-brand-subtle: color-mix(in srgb, #04A9D2 15%, transparent);
   --color-brand-muted: color-mix(in srgb, #04A9D2 10%, transparent);
   --primary-color: var(--color-brand);
+
+  --skeleton-base: color-mix(in srgb, var(--text-primary) 8%, var(--bg-card));
+  --skeleton-highlight: color-mix(in srgb, var(--text-primary) 3%, var(--bg-card));
+  --skeleton-on-dark-base: rgba(255, 255, 255, 0.14);
+  --skeleton-on-dark-highlight: rgba(255, 255, 255, 0.3);
 }
 body.warm-theme .glass-card,
 body.warm-theme .reader-top-navbar,
@@ -5388,7 +5365,6 @@ body.reader-page .reader-ref-chip {
 /* Smart reader interaction fixes: closed layers must never block taps. */
 .full-page-overlay.hidden,
 .bottom-sheet-backdrop.hidden,
-.loader-overlay.hidden,
 .reader-search-panel.hidden {
   display: none !important;
   opacity: 0 !important;
@@ -5397,8 +5373,7 @@ body.reader-page .reader-ref-chip {
 }
 
 .full-page-overlay:not(.hidden),
-.bottom-sheet-backdrop:not(.hidden),
-.loader-overlay:not(.hidden) {
+.bottom-sheet-backdrop:not(.hidden) {
   pointer-events: auto;
   visibility: visible;
 }
@@ -5894,10 +5869,11 @@ body.light-theme .book-brand-box {
 }
 
 .skeleton-shimmer {
-  background: linear-gradient(90deg, 
-    #f1f5f9 25%, 
-    #ffffff 50%, 
-    #f1f5f9 75%
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 25%,
+    var(--skeleton-highlight) 50%,
+    var(--skeleton-base) 75%
   ) !important;
   background-size: 200% 100% !important;
   animation: skeleton-shimmer 1.6s infinite linear !important;
@@ -5905,17 +5881,36 @@ body.light-theme .book-brand-box {
   box-shadow: none !important;
 }
 
-body.dark-theme .skeleton-shimmer {
-  background: linear-gradient(90deg, 
-    rgba(30, 41, 59, 0.6) 25%, 
-    rgba(51, 65, 85, 0.5) 50%, 
-    rgba(30, 41, 59, 0.6) 75%
+.skeleton-on-dark .skeleton-shimmer,
+.verse-card-skeleton .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-on-dark-base) 25%,
+    var(--skeleton-on-dark-highlight) 50%,
+    var(--skeleton-on-dark-base) 75%
   ) !important;
   background-size: 200% 100% !important;
 }
 
+.skeleton-card {
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-radius: 14px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+}
+
 /* Base sizing and styles for skeleton items inside shimmer wrappers */
-.skeleton-wrapper div {
+.skeleton-wrapper,
+.skeleton-wrapper * {
   pointer-events: none !important;
   user-select: none !important;
 }

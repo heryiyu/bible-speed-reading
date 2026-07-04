@@ -1,16 +1,15 @@
 // Application entry point & initialization bootstrap
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // 💡 體驗優化：在最開始立即顯示 Loading 載入畫面，防止使用者在資料加載前看到 Demo 畫面或舊資料
-  if (typeof loader !== "undefined" && loader.show) {
-    loader.show("系統安全載入中，請稍候...");
-  }
-
   // 1. Initialize Theme
   try {
     initTheme();
   } catch (err) {
     console.error("Failed to initialize theme:", err);
+  }
+
+  if (typeof ComponentSkeletonLoader !== "undefined") {
+    ComponentSkeletonLoader.applyBootSkeletons();
   }
   
   // 2. Initialize Routing
@@ -84,9 +83,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (err) {
     console.error("Failed to load initial data & render dashboard:", err);
   } finally {
-    // 💡 體驗最優化：保證所有資料載入與畫面渲染「完全就緒」後才隱藏 Loading，不讓使用者看見空白或 Demo 畫面
-    if (typeof loader !== "undefined" && loader.hide) {
-      loader.hide();
+    if (typeof ComponentSkeletonLoader !== "undefined") {
+      ComponentSkeletonLoader.clearBootInlineSkeletons();
+    }
+    if (typeof renderProfileView === "function") {
+      renderProfileView();
     }
   }
 

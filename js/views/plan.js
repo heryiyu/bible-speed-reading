@@ -2152,7 +2152,7 @@ async function renderAdminPlanManagement() {
 
   tableBody.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
     ? `<tr><td colspan="3">${ComponentSkeletonLoader.getHtml("table-rows", { count: 3, cols: 3 })}</td></tr>`
-    : `<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">載入計畫列表中...</td></tr>`;
+    : "";
 
   try {
     const plans = state.globalPlans || [];
@@ -2361,7 +2361,7 @@ async function renderInlineScriptureText() {
   if (container) {
     container.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
       ? ComponentSkeletonLoader.getHtml("reader")
-      : `<div class="loader-inline" style="text-align: center; padding: 2rem; color: var(--text-muted);">讀取經文中...</div>`;
+      : "";
 
     const book = BIBLE_BOOKS.find(b => b.name === currentCh.book);
     if (book) {
@@ -3496,6 +3496,24 @@ function renderPersonalUnlockedBadges() {
 async function renderMyPersonalRankings() {
   if (!state.activePlan) return;
 
+  const rankSkeleton = typeof ComponentSkeletonLoader !== "undefined"
+    ? ComponentSkeletonLoader.getHtml("inline", { width: "4.5rem", height: "1.4rem" })
+    : "—";
+  const elRankAll = document.getElementById("my-rank-all");
+  const elRankAllTotal = document.getElementById("my-rank-all-total");
+  const elRankZoneTitle = document.getElementById("my-rank-zone-title");
+  const elRankZone = document.getElementById("my-rank-zone");
+  const elRankZoneTotal = document.getElementById("my-rank-zone-total");
+
+  if (elRankAll) elRankAll.innerHTML = rankSkeleton;
+  if (elRankAllTotal) elRankAllTotal.innerHTML = ComponentSkeletonLoader
+    ? ComponentSkeletonLoader.getHtml("inline", { width: "3rem", height: "0.8rem" })
+    : "—";
+  if (elRankZone) elRankZone.innerHTML = rankSkeleton;
+  if (elRankZoneTotal) elRankZoneTotal.innerHTML = ComponentSkeletonLoader
+    ? ComponentSkeletonLoader.getHtml("inline", { width: "3rem", height: "0.8rem" })
+    : "—";
+
   // Calculate completedDaysCount (讀完一遍後直接顯示總天數，避免進入二三遍計算落後/超前不準確)
   const isCompletedOnce = state.activePlan.isPlanCompleted || (state.activePlan.currentRound || 1) > 1;
   const completedDaysCount = isCompletedOnce
@@ -3538,8 +3556,6 @@ async function renderMyPersonalRankings() {
   const myIndexAll = sortedAll.findIndex(u => u.name === myName);
   const myRankAll = myIndexAll !== -1 ? myIndexAll + 1 : sortedAll.length;
 
-  const elRankAll = document.getElementById("my-rank-all");
-  const elRankAllTotal = document.getElementById("my-rank-all-total");
   if (elRankAll) elRankAll.textContent = `第 ${myRankAll} 名`;
   if (elRankAllTotal) elRankAllTotal.textContent = `共 ${sortedAll.length} 人`;
 
@@ -3548,9 +3564,6 @@ async function renderMyPersonalRankings() {
   const sortedZone = [...zoneUsers].sort((a, b) => b.progress - a.progress);
   const myIndexZone = sortedZone.findIndex(u => u.name === myName);
   const myRankZone = myIndexZone !== -1 ? myIndexZone + 1 : sortedZone.length;
-  const elRankZoneTitle = document.getElementById("my-rank-zone-title");
-  const elRankZone = document.getElementById("my-rank-zone");
-  const elRankZoneTotal = document.getElementById("my-rank-zone-total");
 
   if (elRankZoneTitle && myZone) elRankZoneTitle.textContent = `${myZone} 個人排行`;
   if (elRankZone) elRankZone.textContent = myZone ? `第 ${myRankZone} 名` : "未選牧區";

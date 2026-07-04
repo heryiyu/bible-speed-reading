@@ -573,6 +573,44 @@ const ComponentSkeletonLoader = {
     return `<div class="skeleton-shimmer" style="height:${height};width:${width};border-radius:${radius};${extra}"></div>`;
   },
 
+  _cardShell(content, extraStyle = "") {
+    return `<div class="skeleton-card" style="${extraStyle}">${content}</div>`;
+  },
+
+  setInlineSkeleton(element, options = {}) {
+    const el = typeof element === "string" ? document.querySelector(element) : element;
+    if (!el) return;
+    if (el.dataset.inlineOriginalHtml === undefined) {
+      el.dataset.inlineOriginalHtml = el.innerHTML;
+    }
+    el.innerHTML = this.getHtml("inline", options);
+  },
+
+  restoreInlineSkeleton(element) {
+    const el = typeof element === "string" ? document.querySelector(element) : element;
+    if (!el || el.dataset.inlineOriginalHtml === undefined) return;
+    el.innerHTML = el.dataset.inlineOriginalHtml;
+    delete el.dataset.inlineOriginalHtml;
+  },
+
+  applyBootSkeletons() {
+    this.show("dashboard-plan", "#active-plan-summary");
+    this.fill("announcement", "#church-announcements-list", { count: 2 });
+    this.fill("plan-list", "#joined-plans-list", { count: 2 });
+    this.fill("profile-org", "#profile-summary-org");
+    this.setInlineSkeleton("#profile-summary-name", { width: "6rem", height: "1.2rem" });
+    this.setInlineSkeleton("#dropdown-user-name", { width: "5.5rem", height: "0.95rem" });
+    const rankingList = document.getElementById("pastoral-ranking-list-container");
+    if (rankingList && !rankingList.innerHTML.trim()) {
+      this.fill("ranking", rankingList, { count: 5 });
+    }
+  },
+
+  clearBootInlineSkeletons() {
+    this.restoreInlineSkeleton("#profile-summary-name");
+    this.restoreInlineSkeleton("#dropdown-user-name");
+  },
+
   _memberRow() {
     return `
       <div style="height:64px;width:100%;border-radius:12px;display:flex;align-items:center;gap:1rem;padding:0.75rem;background:var(--bg-card);border:1px solid var(--border-card);">
@@ -592,6 +630,28 @@ const ComponentSkeletonLoader = {
    */
   getHtml(type, options = {}) {
     const count = options.count || 1;
+
+    if (type === "dashboard-plan") {
+      return `
+        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:1rem;padding:0.25rem 0;">
+          ${this._bar("62%", "18px", "6px")}
+          ${this._bar("88%", "12px", "4px")}
+          ${this._bar("100%", "10px", "999px")}
+          <div style="display:flex;justify-content:space-around;gap:0.75rem;padding:0.85rem 0.5rem;border-radius:12px;border:1px solid var(--border-card);background:var(--color-brand-muted);">
+            ${Array.from({ length: 3 }, () => `
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0.35rem;">
+                ${this._bar("3.5rem", "16px", "4px")}
+                ${this._bar("2.8rem", "10px", "4px")}
+              </div>
+            `).join("")}
+          </div>
+          <div style="display:flex;gap:0.75rem;margin-top:0.25rem;">
+            ${this._bar("50%", "40px", "10px")}
+            ${this._bar("50%", "40px", "10px")}
+          </div>
+        </div>
+      `;
+    }
 
     if (type === "reader") {
       return `
@@ -633,13 +693,13 @@ const ComponentSkeletonLoader = {
     if (type === "announcement") {
       return `
         <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.8rem;">
-          ${Array.from({ length: count || 2 }, () => `
-            <div style="padding:0.8rem 1rem;border-radius:12px;border:1px solid var(--border-card);display:flex;flex-direction:column;gap:0.5rem;">
+          ${Array.from({ length: count || 2 }, () => this._cardShell(`
+            <div style="padding:0.8rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
               ${this._bar("38%", "14px", "4px")}
               ${this._bar("92%", "12px", "4px")}
               ${this._bar("72%", "12px", "4px")}
             </div>
-          `).join("")}
+          `)).join("")}
         </div>
       `;
     }
@@ -662,7 +722,7 @@ const ComponentSkeletonLoader = {
       return `
         <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:1rem;padding:1rem 0;">
           ${Array.from({ length: count || 2 }, () => `
-            <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem;border-radius:14px;border:1px solid var(--border-card);background:var(--bg-card);">
+            <div class="skeleton-row">
               ${this._bar("72px", "72px", "12px", "flex-shrink:0;")}
               <div style="flex:1;display:flex;flex-direction:column;gap:0.45rem;min-width:0;">
                 ${this._bar("55%", "16px", "4px")}
@@ -723,7 +783,7 @@ const ComponentSkeletonLoader = {
 
     if (type === "verse-card") {
       return `
-        <div class="skeleton-wrapper verse-card-skeleton" style="display:flex;flex-direction:column;gap:1rem;padding:0.5rem 0;min-height:180px;justify-content:center;">
+        <div class="skeleton-wrapper skeleton-on-dark verse-card-skeleton" style="display:flex;flex-direction:column;gap:1rem;padding:0.5rem 0;min-height:180px;justify-content:center;">
           ${this._bar("28%", "12px", "4px")}
           ${this._bar("92%", "22px", "6px")}
           ${this._bar("84%", "22px", "6px")}
@@ -744,19 +804,9 @@ const ComponentSkeletonLoader = {
       `;
     }
 
-    if (type === "overlay") {
-      return `
-        <div class="loader-skeleton-panel">
-          ${this._bar("220px", "16px", "8px")}
-          ${this._bar("180px", "16px", "8px")}
-          ${this._bar("140px", "16px", "8px")}
-        </div>
-      `;
-    }
-
     if (type === "profile-org") {
       return `
-        <span style="display:inline-flex;flex-direction:column;gap:0.35rem;min-width:8rem;">
+        <span class="skeleton-wrapper" style="display:inline-flex;flex-direction:column;gap:0.35rem;min-width:8rem;">
           ${this._bar("9rem", "12px", "4px")}
           ${this._bar("6.5rem", "10px", "4px")}
         </span>

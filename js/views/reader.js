@@ -13,12 +13,12 @@ function closeReaderLayer(element) {
   element.classList.add("hidden");
   element.style.pointerEvents = "none";
   element.setAttribute("aria-hidden", "true");
-  const stillOpen = document.querySelector(".full-page-overlay:not(.hidden), .bottom-sheet-backdrop:not(.hidden), .loader-overlay:not(.hidden)");
+  const stillOpen = document.querySelector(".full-page-overlay:not(.hidden), .bottom-sheet-backdrop:not(.hidden)");
   document.body.classList.toggle("reader-modal-open", Boolean(stillOpen));
 }
 
 function releaseClosedReaderLayers() {
-  document.querySelectorAll(".full-page-overlay.hidden, .bottom-sheet-backdrop.hidden, .loader-overlay.hidden, .reader-search-panel.hidden, [aria-hidden='true']").forEach((layer) => {
+  document.querySelectorAll(".full-page-overlay.hidden, .bottom-sheet-backdrop.hidden, .reader-search-panel.hidden, [aria-hidden='true']").forEach((layer) => {
     layer.style.pointerEvents = "none";
   });
 }
@@ -1223,9 +1223,6 @@ async function selectNavVerse(vNum) {
   saveReaderPreferences();
   updatePillLabels();
   
-  // Show loader overlay since it is a full page transition
-  showLoader("讀取經文中...");
-  
   try {
     await renderReaderText();
     
@@ -1252,24 +1249,7 @@ async function selectNavVerse(vNum) {
     }
   } catch (err) {
     console.error(err);
-  } finally {
-    hideLoader();
   }
-}
-
-// Helper to show/hide loading skeleton overlay
-function showLoader(text) {
-  const overlay = document.getElementById("loader-overlay");
-  if (overlay) {
-    const textEl = overlay.querySelector(".loader-text");
-    if (textEl) textEl.textContent = text;
-    openReaderLayer(overlay);
-  }
-}
-
-function hideLoader() {
-  const overlay = document.getElementById("loader-overlay");
-  if (overlay) closeReaderLayer(overlay);
 }
 
 // ==========================================================================
