@@ -157,10 +157,6 @@ function updateDashboardView() {
     state.pilgrimageControlsInit = true;
   }
 
-  // Render Honor Badges Wall
-  if (typeof renderBadgeWall === "function") {
-    renderBadgeWall("stats-badge-wall-container");
-  }
 }
 
 async function calculateAndRenderPersonalRankings() {
