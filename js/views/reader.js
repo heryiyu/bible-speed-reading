@@ -18,7 +18,10 @@ function closeReaderLayer(element) {
 }
 
 function releaseClosedReaderLayers() {
-  document.querySelectorAll(".full-page-overlay.hidden, .bottom-sheet-backdrop.hidden, .reader-search-panel.hidden, [aria-hidden='true']").forEach((layer) => {
+  document.querySelectorAll(
+    ".full-page-overlay.hidden, .bottom-sheet-backdrop.hidden, .reader-search-panel.hidden, " +
+    ".full-page-overlay[aria-hidden='true'], .bottom-sheet-backdrop[aria-hidden='true'], .reader-search-panel[aria-hidden='true']"
+  ).forEach((layer) => {
     layer.style.pointerEvents = "none";
   });
 }

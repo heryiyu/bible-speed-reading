@@ -202,59 +202,267 @@ function buildHeatmapGrid(containerId, logsByDate, teamSize = 1, label = "章", 
 
   container.appendChild(wrapper);
 }
+
+const BADGE_UNLOCK_TARGETS = {
+  subscribe_plan: 1,
+  streak_30: 30,
+  complete_plan: 1,
+  share_verse: 1,
+  read_all_bible: 1189
+};
+
+function getBadgeMilestoneConfig(badgeId) {
+  const milestoneConfig = {
+    "badge-subscribe": { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.subscribedPlans ? state.subscribedPlans.length : 0) },
+    subscribe_plan: { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.subscribedPlans ? state.subscribedPlans.length : 0) },
+    "badge-streak": { levels: [30, 15, 7, 1], unit: "天打卡", getValue: () => (state.currentUser ? state.currentUser.streak || 0 : 0) },
+    streak_30: { levels: [30, 15, 7, 1], unit: "天打卡", getValue: () => (state.currentUser ? state.currentUser.streak || 0 : 0) },
+    "badge-complete": { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.completedPlans ? state.completedPlans.length : 0) },
+    complete_plan: { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.completedPlans ? state.completedPlans.length : 0) },
+    "badge-share": { levels: [50, 10, 5, 1], unit: "次分享", getValue: () => (localStorage.getItem("has_shared_verse") === "true" ? 1 : 0) },
+    share_verse: { levels: [50, 10, 5, 1], unit: "次分享", getValue: () => (localStorage.getItem("has_shared_verse") === "true" ? 1 : 0) },
+    "badge-bible": { levels: [1189, 500, 100, 10], unit: "章經文", getValue: () => {
+      const uniqueChapters = new Set();
+      if (state.readingLogs) {
+        state.readingLogs.forEach(l => uniqueChapters.add(`${l.book}_${l.chapter}`));
+      }
+      return uniqueChapters.size;
+    }},
+    read_all_bible: { levels: [1189, 500, 100, 10], unit: "章經文", getValue: () => {
+      const uniqueChapters = new Set();
+      if (state.readingLogs) {
+        state.readingLogs.forEach(l => uniqueChapters.add(`${l.book}_${l.chapter}`));
+      }
+      return uniqueChapters.size;
+    }}
+  };
+  return milestoneConfig[badgeId] || { levels: [1], unit: "次", getValue: () => 0 };
+}
+
+function getBadgeProgressValue(badgeId) {
+  if (badgeId === "subscribe_plan") {
+    return state.activePlan ? 1 : 0;
+  }
+  if (badgeId === "streak_30") {
+    return (state.currentUser && state.currentUser.streak) || 0;
+  }
+  if (badgeId === "complete_plan") {
+    if (state.completedPlans && state.completedPlans.length > 0) return 1;
+    if (state.activePlan && state.activePlan.days) {
+      const allDone = state.activePlan.days.every(d => d.chapters.every(ch => ch.isRead));
+      return allDone ? 1 : 0;
+    }
+    return 0;
+  }
+  if (badgeId === "share_verse") {
+    return localStorage.getItem("has_shared_verse") === "true" ||
+      localStorage.getItem("badge_share_verse_unlocked") === "true"
+      ? 1
+      : 0;
+  }
+  if (badgeId === "read_all_bible") {
+    const uniqueChapters = new Set();
+    if (state.readingLogs) {
+      state.readingLogs.forEach(l => uniqueChapters.add(`${l.book}_${l.chapter}`));
+    }
+    return uniqueChapters.size;
+  }
+  const conf = getBadgeMilestoneConfig(badgeId);
+  return typeof conf.getValue === "function" ? conf.getValue() : 0;
+}
+
+function getBadgeProgressInfo(badgeId, isUnlocked) {
+  const conf = getBadgeMilestoneConfig(badgeId);
+  const target = BADGE_UNLOCK_TARGETS[badgeId] || conf.levels[conf.levels.length - 1] || 1;
+  const current = getBadgeProgressValue(badgeId);
+  const pct = target > 0 ? Math.min(100, Math.floor((current / target) * 100)) : 0;
+  const remaining = Math.max(0, target - current);
+  const inProgress = !isUnlocked && current > 0;
+  return { current, target, pct, remaining, unit: conf.unit, inProgress };
+}
+
+function getBadgeEarnedDateLabel(badgeId) {
+  const target = BADGE_UNLOCK_TARGETS[badgeId];
+  if (target) {
+    const dated = localStorage.getItem(`date_unlocked_${badgeId}_lvl_${target}`);
+    if (dated) return dated;
+  }
+  const conf = getBadgeMilestoneConfig(badgeId);
+  for (let i = 0; i < conf.levels.length; i++) {
+    const lvl = conf.levels[i];
+    const dated = localStorage.getItem(`date_unlocked_${badgeId}_lvl_${lvl}`);
+    if (dated) return dated;
+  }
+  return null;
+}
+
+function formatBadgeProgressMeta(badge, isUnlocked, progress) {
+  if (isUnlocked) {
+    const earned = getBadgeEarnedDateLabel(badge.id);
+    if (earned) return `已解鎖 · ${earned}`;
+    return "已解鎖";
+  }
+  if (progress.inProgress) {
+    if (badge.id === "read_all_bible") {
+      return `${progress.current} / ${progress.target} ${progress.unit}`;
+    }
+    if (progress.target === 1) {
+      return `還差 ${progress.remaining} ${progress.unit}`;
+    }
+    return `還差 ${progress.remaining} ${progress.unit}`;
+  }
+  return "尚未開始";
+}
+
+function getBadgeWallItemClasses(isUnlocked, inProgress, accent) {
+  let cls = "honor-badge-item honor-badge-item--tile";
+  if (isUnlocked) cls += " unlocked";
+  else if (inProgress) cls += " in-progress";
+  else cls += " locked";
+  if (accent) cls += ` honor-badge-item--accent-${accent}`;
+  return cls;
+}
+
+let badgeWallFilter = "all";
+
+function bindBadgeWallFilters() {
+  const track = document.querySelector(".badge-wall__filters");
+  if (!track || track._badgeFilterBound) return;
+  track._badgeFilterBound = true;
+  track.addEventListener("click", function (e) {
+    const btn = e.target.closest("[data-badge-filter]");
+    if (!btn) return;
+    badgeWallFilter = btn.getAttribute("data-badge-filter") || "all";
+    track.querySelectorAll(".segment-toggle-btn").forEach(function (b) {
+      const active = b === btn;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    renderBadgeWall("badges-grid");
+  });
+}
+
+function updateBadgeWallChrome(unlockedIds, total) {
+  const summaryEl = document.getElementById("badge-wall-summary");
+  if (summaryEl) {
+    summaryEl.textContent = `已解鎖 ${unlockedIds.length} / ${total}`;
+  }
+
+  const nextUpEl = document.getElementById("badge-wall-next-up");
+  if (nextUpEl && typeof ACHIEVEMENTS !== "undefined") {
+    let closest = null;
+    let closestPct = -1;
+    ACHIEVEMENTS.forEach(function (badge) {
+      if (unlockedIds.includes(badge.id)) return;
+      const progress = getBadgeProgressInfo(badge.id, false);
+      if (progress.inProgress && progress.pct > closestPct) {
+        closestPct = progress.pct;
+        closest = { badge: badge, progress: progress };
+      }
+    });
+    if (closest) {
+      const meta = formatBadgeProgressMeta(closest.badge, false, closest.progress);
+      nextUpEl.innerHTML = `<span class="badge-wall__next-up-label">下一個目標</span><span class="badge-wall__next-up-text"><strong>${typeof escapeHTML === "function" ? escapeHTML(closest.badge.title) : closest.badge.title}</strong> — ${meta}</span>`;
+      nextUpEl.classList.remove("hidden");
+    } else {
+      nextUpEl.innerHTML = "";
+      nextUpEl.classList.add("hidden");
+    }
+  }
+}
+
+function badgeMatchesWallFilter(isUnlocked, inProgress) {
+  if (badgeWallFilter === "unlocked") return isUnlocked;
+  if (badgeWallFilter === "in-progress") return inProgress;
+  return true;
+}
+
 function renderBadgeWall(containerId) {
-  const container = document.getElementById("badges-grid") || document.getElementById(containerId);
+  const profileGrid = document.getElementById("badges-grid");
+  const container = profileGrid || document.getElementById(containerId);
   if (!container) return;
+
+  const isProfileWall = container.id === "badges-grid";
+  if (isProfileWall) {
+    bindBadgeWallFilters();
+  }
 
   container.innerHTML = "";
 
   if (typeof ACHIEVEMENTS === "undefined") {
-    container.innerHTML = `<div style="text-align:center;color:var(--text-muted);font-size:0.85rem;padding:1rem;">暫無解鎖勳章</div>`;
+    container.innerHTML = `<div class="badge-wall__empty">暫無解鎖勳章</div>`;
     return;
   }
 
   const unlocked = JSON.parse(localStorage.getItem("unlocked_badges") || "[]");
-  const getBadgeClasses = typeof getHonorBadgeItemClasses === "function"
-    ? getHonorBadgeItemClasses
-    : (isUnlocked) => (isUnlocked ? "honor-badge-item unlocked" : "honor-badge-item locked");
+  if (isProfileWall) {
+    updateBadgeWallChrome(unlocked, ACHIEVEMENTS.length);
+  }
 
-  ACHIEVEMENTS.forEach(badge => {
+  let visibleCount = 0;
+
+  ACHIEVEMENTS.forEach(function (badge) {
     const isUnlocked = unlocked.includes(badge.id);
+    const progress = getBadgeProgressInfo(badge.id, isUnlocked);
+    const inProgress = progress.inProgress;
 
+    if (isProfileWall && !badgeMatchesWallFilter(isUnlocked, inProgress)) {
+      return;
+    }
+
+    visibleCount += 1;
+    const accent = badge.accent || "achievement";
     const badgeItem = document.createElement("div");
-    badgeItem.className = getBadgeClasses(isUnlocked);
+    badgeItem.className = getBadgeWallItemClasses(isUnlocked, inProgress, accent);
+    badgeItem.setAttribute("role", "listitem");
+    badgeItem.setAttribute("tabindex", "0");
+    badgeItem.setAttribute("data-badge-id", badge.id);
+
+    const showLock = !isUnlocked && !inProgress;
+    const metaText = formatBadgeProgressMeta(badge, isUnlocked, progress);
+    const progressBar = !isUnlocked && inProgress
+      ? `<div class="honor-badge-item__track" aria-hidden="true"><div class="honor-badge-item__fill" style="width:${progress.pct}%;"></div></div>`
+      : "";
 
     badgeItem.innerHTML = `
-      ${!isUnlocked ? `
-        <div class="honor-badge-item__lock">
-          <span class="nlc-icon" data-icon="lock" aria-hidden="true"></span>
-        </div>
-      ` : ""}
-      <div class="honor-badge-item__icon">
-        <span class="nlc-icon" data-icon="${badge.iconKey || "award"}" aria-hidden="true"></span>
+      ${showLock ? `<div class="honor-badge-item__lock"><span class="nlc-icon nlc-icon--sm" data-icon="lock" aria-hidden="true"></span></div>` : ""}
+      <div class="honor-badge-item__icon-wrap">
+        <span class="nlc-icon nlc-icon--md" data-icon="${badge.iconKey || "award"}" aria-hidden="true"></span>
       </div>
-      <span class="honor-badge-item__title">${badge.title}</span>
+      <span class="honor-badge-item__title">${typeof escapeHTML === "function" ? escapeHTML(badge.title) : badge.title}</span>
+      <span class="honor-badge-item__meta">${typeof escapeHTML === "function" ? escapeHTML(metaText) : metaText}</span>
+      ${progressBar}
     `;
 
-    // Click handler: Open dynamic detail page subpage panel
-    badgeItem.onclick = () => {
+    const openDetail = function () {
       if (typeof window.openBadgeDetailPage === "function") {
         const isDark = state.theme === "dark" || document.body.classList.contains("dark-theme");
         window.openBadgeDetailPage(badge, isUnlocked, isDark);
       }
     };
 
+    badgeItem.onclick = openDetail;
+    badgeItem.onkeydown = function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openDetail();
+      }
+    };
+
     container.appendChild(badgeItem);
   });
+
+  if (visibleCount === 0 && isProfileWall) {
+    container.innerHTML = `<div class="badge-wall__empty">此篩選條件下沒有徽章。</div>`;
+  }
 
   if (typeof hydrateIcons === "function") {
     hydrateIcons(container);
   }
 
-  // Attach back button close event listener once
   const backBtn = document.getElementById("badge-page-back-btn");
   if (backBtn && !backBtn._hasBackListener) {
-    backBtn.addEventListener("click", function(e) {
+    backBtn.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
       const page = document.getElementById("badge-detail-page");
@@ -263,6 +471,9 @@ function renderBadgeWall(containerId) {
     backBtn._hasBackListener = true;
   }
 }
+
+window.getBadgeMilestoneConfig = getBadgeMilestoneConfig;
+window.getBadgeProgressInfo = getBadgeProgressInfo;
 
 // YouVersion high-grade full-screen detail subpage controller
 window.openBadgeDetailPage = function(badge, isUnlocked, isDark) {
@@ -311,30 +522,12 @@ window.openBadgeDetailPage = function(badge, isUnlocked, isDark) {
   }
 
   // Dynamic milestone configurations for YouVersion level circles
-  const milestoneConfig = {
-    "badge-subscribe": { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.subscribedPlans ? state.subscribedPlans.length : 0) },
-    "subscribe_plan": { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.subscribedPlans ? state.subscribedPlans.length : 0) },
-    
-    "badge-streak": { levels: [30, 15, 7, 1], unit: "天打卡", getValue: () => (state.currentUser ? state.currentUser.streak || 0 : 0) },
-    "streak_30": { levels: [30, 15, 7, 1], unit: "天打卡", getValue: () => (state.currentUser ? state.currentUser.streak || 0 : 0) },
-    
-    "badge-complete": { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.completedPlans ? state.completedPlans.length : 0) },
-    "complete_plan": { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.completedPlans ? state.completedPlans.length : 0) },
-    
-    "badge-share": { levels: [50, 10, 5, 1], unit: "次分享", getValue: () => (localStorage.getItem("has_shared_verse") === "true" ? 1 : 0) },
-    "share_verse": { levels: [50, 10, 5, 1], unit: "次分享", getValue: () => (localStorage.getItem("has_shared_verse") === "true" ? 1 : 0) },
-    
-    "badge-bible": { levels: [1189, 500, 100, 10], unit: "章經文", getValue: () => {
-      const uniqueChapters = new Set();
-      if (state.readingLogs) {
-        state.readingLogs.forEach(l => uniqueChapters.add(`${l.book}_${l.chapter}`));
-      }
-      return uniqueChapters.size;
-    }}
-  };
-
-  const conf = milestoneConfig[badge.id] || { levels: [1], unit: "次", getValue: () => (isUnlocked ? 1 : 0) };
-  const currentVal = conf.getValue();
+  const conf = typeof getBadgeMilestoneConfig === "function"
+    ? getBadgeMilestoneConfig(badge.id)
+    : { levels: [1], unit: "次", getValue: () => (isUnlocked ? 1 : 0) };
+  const currentVal = typeof getBadgeProgressValue === "function"
+    ? getBadgeProgressValue(badge.id)
+    : (typeof conf.getValue === "function" ? conf.getValue() : 0);
 
   // Determine highest unlocked level
   let highestUnlockedLevel = 0;
@@ -561,14 +754,14 @@ const ComponentSkeletonLoader = {
 
     if (type === "announcement") {
       return `
-        <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.8rem;">
-          ${Array.from({ length: count || 2 }, () => this._cardShell(`
-            <div style="padding:0.8rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
+        <div class="skeleton-wrapper announcements-list__skeleton">
+          ${Array.from({ length: count || 2 }, () => `
+            <div class="skeleton-card announcement-item announcement-item--skeleton">
               ${this._bar("38%", "14px", "4px")}
               ${this._bar("92%", "12px", "4px")}
               ${this._bar("72%", "12px", "4px")}
             </div>
-          `)).join("")}
+          `).join("")}
         </div>
       `;
     }

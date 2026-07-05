@@ -111,7 +111,7 @@ describe("getPlanProgressStatus labels", () => {
 describe("static markup audit", () => {
   it("profile badges card uses profile-badges-card without slate/zinc classes", () => {
     const html = readFileSync(join(root, "index.html"), "utf8");
-    expect(html).toMatch(/class="profile-badges-card"[^>]*id="profile-badges-inner-card"/);
+    expect(html).toMatch(/class="[^"]*\bprofile-badges-card\b[^"]*"[^>]*id="profile-badges-inner-card"/);
     expect(html).not.toMatch(/profile-badges-inner-card[^>]*slate-/);
     expect(html).not.toMatch(/profile-badges-inner-card[^>]*zinc-/);
   });

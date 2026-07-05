@@ -339,7 +339,7 @@ async function saveDevotionalNote(isAuto) {
   const todayStr = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
   
   if (statusEl && isAuto) {
-    statusEl.textContent = "自動儲存中...";
+    statusEl.innerHTML = `<span class="devotional-save-status__dot" aria-hidden="true"></span>自動儲存中...`;
     statusEl.style.opacity = "1";
   }
   
@@ -360,21 +360,14 @@ async function saveDevotionalNote(isAuto) {
 function showSaveSuccess(isAuto) {
   const statusEl = document.getElementById("devotional-save-status");
   if (!statusEl) return;
-  
-  statusEl.innerHTML = `
-    <span style="width: 5px; height: 5px; background: var(--color-success-foreground); border-radius: 50%; display: inline-block;"></span>
-    已自動儲存
-  `;
+
+  const savedMarkup = (label) =>
+    `<span class="devotional-save-status__dot" aria-hidden="true"></span>${label}`;
+
+  statusEl.innerHTML = savedMarkup(isAuto ? "已自動儲存" : "儲存成功");
   statusEl.classList.add("text-success-fg");
   statusEl.classList.remove("text-danger");
   statusEl.style.opacity = "1";
-  
-  if (!isAuto) {
-    statusEl.innerHTML = `
-      <span style="width: 5px; height: 5px; background: var(--color-success-foreground); border-radius: 50%; display: inline-block;"></span>
-      儲存成功
-    `;
-  }
   
   setTimeout(() => {
     statusEl.style.opacity = "0";
@@ -938,19 +931,18 @@ async function updateAnnouncementsList() {
   listContainer.innerHTML = "";
   
   if (announcements.length === 0) {
-    listContainer.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.85rem;">目前尚無教會公告。</div>`;
+    listContainer.innerHTML = `
+      <div class="announcements-empty">
+        <span class="announcements-empty__icon nlc-icon nlc-icon--md" data-icon="inbox" aria-hidden="true"></span>
+        <p class="announcements-empty__text">目前尚無教會公告。</p>
+      </div>`;
+    if (typeof hydrateIcons === "function") hydrateIcons(listContainer);
     return;
   }
   
   announcements.forEach(ann => {
     const item = document.createElement("div");
-    item.style = `
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border-card);
-      border-radius: 12px;
-      padding: 0.8rem 1rem;
-      position: relative;
-    `;
+    item.className = "announcement-item";
     
     const formattedTime = new Date(ann.created_at).toLocaleDateString('zh-TW', { 
       month: '2-digit', 
@@ -960,17 +952,18 @@ async function updateAnnouncementsList() {
     });
     
     item.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.3rem;">
-        <h4 style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary); margin: 0; line-height: 1.4;">${escapeHTML(ann.title)}</h4>
-        <div style="display: flex; align-items: center; gap: 0.4rem;">
-          <span style="font-size: 0.7rem; color: var(--text-muted); white-space: nowrap;">${formattedTime}</span>
-          ${isAdmin ? `<button class="circular-action-btn btn-danger-soft" onclick="window.deleteAnnouncement('${ann.id}')" title="刪除公告" aria-label="刪除公告"><span class="nlc-icon" data-icon="trash" aria-hidden="true"></span></button>` : ''}
+      <div class="announcement-item__header">
+        <h4 class="announcement-item__title">${escapeHTML(ann.title)}</h4>
+        <div class="announcement-item__meta">
+          <time class="announcement-item__time" datetime="${escapeHTML(ann.created_at || "")}">${formattedTime}</time>
+          ${isAdmin ? `<button type="button" class="circular-action-btn btn-danger-soft announcement-item__delete" onclick="window.deleteAnnouncement('${ann.id}')" title="刪除公告" aria-label="刪除公告"><span class="nlc-icon nlc-icon--sm" data-icon="trash" aria-hidden="true"></span></button>` : ''}
         </div>
       </div>
-      <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 0; line-height: 1.5; white-space: pre-wrap;">${escapeHTML(ann.content)}</p>
+      <p class="announcement-item__body">${escapeHTML(ann.content)}</p>
     `;
     listContainer.appendChild(item);
   });
+  if (typeof hydrateIcons === "function") hydrateIcons(listContainer);
 }
 
 let currentVerse = null;
@@ -1025,6 +1018,8 @@ function setVerseCardLoading(loading) {
     if (bgImgEl) bgImgEl.style.opacity = "0";
   } else if (body) {
     body.removeAttribute("aria-hidden");
+    // releaseClosedReaderLayers() may have set this while body was aria-hidden at boot
+    body.style.pointerEvents = "";
   }
 }
 

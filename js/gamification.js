@@ -6,6 +6,7 @@ const ACHIEVEMENTS = [
     title: "開啟新旅程",
     description: "成功加入一個讀經計畫",
     iconKey: "calendarPlus",
+    accent: "brand",
     color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   },
@@ -14,6 +15,7 @@ const ACHIEVEMENTS = [
     title: "持之以恆",
     description: "連續打卡 30 天",
     iconKey: "calendarCheck",
+    accent: "achievement",
     color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   },
@@ -22,6 +24,7 @@ const ACHIEVEMENTS = [
     title: "榮譽桂冠",
     description: "100% 完成任意一個讀經計畫",
     iconKey: "award",
+    accent: "achievement",
     color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   },
@@ -30,6 +33,7 @@ const ACHIEVEMENTS = [
     title: "傳遞愛光芒",
     description: "分享一次今日經文",
     iconKey: "share",
+    accent: "success",
     color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   },
@@ -38,6 +42,7 @@ const ACHIEVEMENTS = [
     title: "展開厚聖經",
     description: "讀完全本聖經所有卷書與章節",
     iconKey: "bookOpen",
+    accent: "brand",
     color: "#F59E0B",
     shadow: "rgba(245, 158, 11, 0.4)"
   }

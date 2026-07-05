@@ -193,7 +193,7 @@
                   </div>
                 </div>
 
-                <div id="verse-card-body" class="verse-card-body" aria-hidden="true">
+                <div id="verse-card-body" class="verse-card-body">
                 
                 <!-- Fade Wrapper containing Reference and Verse text -->
                 <div id="daily-verse-content" class="transition-all duration-700 ease-in-out" style="display: flex; flex-direction: column; flex: 1; text-align: left; width: 100%;">
@@ -235,36 +235,38 @@
             </div>
 
             <!-- 教會公告 (Church Announcements) -->
-            <div class="glass-card" style="margin-bottom: 1.5rem; display: flex; flex-direction: column; height: auto;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
-                <h3 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-                  <span class="nlc-icon nlc-icon--sm" data-icon="bell" aria-hidden="true" style="color: var(--primary-color);"></span>
-                  教會公告
+            <div class="glass-card dashboard-panel-card announcements-card">
+              <div class="dashboard-panel-card__header card-header-flex">
+                <h3 class="dashboard-panel-card__title card-title">
+                  <span class="dashboard-panel-card__title-icon" aria-hidden="true">
+                    <span class="nlc-icon nlc-icon--sm" data-icon="bell"></span>
+                  </span>
+                  <span class="dashboard-panel-card__title-text">教會公告</span>
                 </h3>
-                <button class="primary-btn admin-only-nav hidden" id="btn-show-announcement-form" style="font-size: 0.75rem; padding: 0.3rem 0.65rem;" onclick="window.openAnnouncementForm()">
-                  <span class="btn-with-icon"><span class="nlc-icon" data-icon="megaphone" aria-hidden="true"></span><span>發布公告</span></span>
+                <button type="button" class="secondary-btn dashboard-panel-card__action admin-only-nav hidden" id="btn-show-announcement-form" onclick="window.openAnnouncementForm()">
+                  <span class="btn-with-icon"><span class="nlc-icon nlc-icon--sm" data-icon="megaphone" aria-hidden="true"></span><span>發布公告</span></span>
                 </button>
               </div>
 
               <!-- 公告編輯表單 (管理員專屬，預設隱藏) -->
-              <div id="admin-announcement-form-container" class="hidden" style="background: var(--bg-input); border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.2rem; display: flex; flex-direction: column; gap: 0.8rem;">
-                <h4 style="margin: 0; font-size: 0.9rem; font-weight: 500; color: var(--text-primary);">發布教會公告</h4>
-                <input type="text" id="announcement-title-input" class="form-control" placeholder="公告標題" style="font-size: 0.85rem; padding: 0.4rem;">
-                <textarea id="announcement-content-input" class="form-control" placeholder="公告內容..." style="font-size: 0.85rem; padding: 0.4rem; min-height: 80px; resize: none;"></textarea>
-                <div style="display: flex; justify-content: flex-end; gap: 0.4rem;">
-                  <button type="button" class="pill-btn" onclick="window.closeAnnouncementForm()" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">取消</button>
-                  <button type="button" class="primary-btn" onclick="window.saveAnnouncement()" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">發布</button>
+              <div id="admin-announcement-form-container" class="announcement-form-panel hidden">
+                <h4 class="announcement-form-panel__title">發布教會公告</h4>
+                <input type="text" id="announcement-title-input" class="form-control announcement-form-panel__input" placeholder="公告標題">
+                <textarea id="announcement-content-input" class="form-control announcement-form-panel__textarea" placeholder="公告內容..." rows="4"></textarea>
+                <div class="announcement-form-panel__actions">
+                  <button type="button" class="pill-btn announcement-form-panel__cancel" onclick="window.closeAnnouncementForm()">取消</button>
+                  <button type="button" class="primary-btn announcement-form-panel__submit" onclick="window.saveAnnouncement()">發布</button>
                 </div>
               </div>
 
-              <div id="church-announcements-list" style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 280px; overflow-y: auto; padding-right: 0.2rem;">
-                <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.8rem;">
-                  <div class="skeleton-card" style="padding:0.8rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
+              <div id="church-announcements-list" class="announcements-list">
+                <div class="skeleton-wrapper announcements-list__skeleton">
+                  <div class="skeleton-card announcement-item announcement-item--skeleton">
                     <div class="skeleton-shimmer" style="height:14px;width:38%;border-radius:4px;"></div>
                     <div class="skeleton-shimmer" style="height:12px;width:92%;border-radius:4px;"></div>
                     <div class="skeleton-shimmer" style="height:12px;width:72%;border-radius:4px;"></div>
                   </div>
-                  <div class="skeleton-card" style="padding:0.8rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
+                  <div class="skeleton-card announcement-item announcement-item--skeleton">
                     <div class="skeleton-shimmer" style="height:14px;width:34%;border-radius:4px;"></div>
                     <div class="skeleton-shimmer" style="height:12px;width:88%;border-radius:4px;"></div>
                     <div class="skeleton-shimmer" style="height:12px;width:64%;border-radius:4px;"></div>
@@ -278,27 +280,29 @@
 
           <!-- Row 2 Left Column: Daily Devotional Notes -->
           <div class="card-col span-12">
-            <div class="glass-card devotional-card" style="height: auto; display: flex; flex-direction: column;">
-              <div class="card-header-flex" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem;">
-                <h3 class="card-title" style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
-                  <span class="nlc-icon nlc-icon--sm" data-icon="pencil" aria-hidden="true" style="color: var(--primary-color);"></span>
-                  今日靈修心得
+            <div class="glass-card dashboard-panel-card devotional-card">
+              <div class="dashboard-panel-card__header card-header-flex">
+                <h3 class="dashboard-panel-card__title card-title">
+                  <span class="dashboard-panel-card__title-icon" aria-hidden="true">
+                    <span class="nlc-icon nlc-icon--sm" data-icon="pencil"></span>
+                  </span>
+                  <span class="dashboard-panel-card__title-text">今日靈修心得</span>
                 </h3>
-                <span class="privacy-badge label-with-icon" style="font-size: 0.75rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.3rem; background: var(--bg-input); padding: 0.2rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-card);">
-                  <span class="nlc-icon" data-icon="lockFill" aria-hidden="true"></span>
+                <span class="privacy-badge stat-badge stat-badge--neutral label-with-icon">
+                  <span class="nlc-icon nlc-icon--sm" data-icon="lock" aria-hidden="true"></span>
                   只有你看得到
                 </span>
               </div>
-              <div class="form-group" style="margin-bottom: 1rem; position: relative; flex: 1; display: flex; flex-direction: column;">
-                <textarea id="devotional-content" class="form-control" placeholder="今天讀經有什麼感動？寫下來吧 — 只有你看得到" style="flex: 1; min-height: 140px; resize: none; padding: 0.9rem; border-radius: var(--radius-sm); font-size: 0.9rem; line-height: 1.6;"></textarea>
-                <div id="devotional-save-status" style="position: absolute; right: 15px; bottom: 15px; font-size: 0.72rem; color: var(--color-success-foreground); display: flex; align-items: center; gap: 0.25rem; transition: opacity 0.3s; opacity: 0; pointer-events: none; background: var(--bg-card); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--color-success-border);">
-                  <span style="width: 5px; height: 5px; background: var(--color-success-foreground); border-radius: 50%; display: inline-block;"></span>
+              <div class="form-group devotional-field">
+                <textarea id="devotional-content" class="form-control devotional-textarea" placeholder="今天讀經有什麼感動？寫下來吧 — 只有你看得到" rows="6"></textarea>
+                <div id="devotional-save-status" class="devotional-save-status" aria-live="polite">
+                  <span class="devotional-save-status__dot" aria-hidden="true"></span>
                   已自動儲存
                 </div>
               </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
-                <span style="font-size: 0.75rem; color: var(--text-muted);" id="devotional-word-count">字數: 0 字</span>
-                <button class="primary-btn" id="btn-save-devotional" style="padding: 0.5rem 1.2rem; font-size: 0.85rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.4rem;">
+              <div class="devotional-footer">
+                <span class="devotional-word-count" id="devotional-word-count">字數: 0 字</span>
+                <button type="button" class="primary-btn devotional-save-btn" id="btn-save-devotional">
                   <span class="nlc-icon nlc-icon--sm" data-icon="save" aria-hidden="true"></span>
                   儲存心得
                 </button>
@@ -1125,15 +1129,30 @@
             </div>
           </div>
 
-          <!-- Honor Badges Wall Card -->
-          <div class="card-col span-12" id="profile-badges-card-col" style="margin-top: 1rem;">
-            <div class="profile-badges-card" id="profile-badges-inner-card">
-              <h3 class="card-title" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
-                <span class="label-with-icon"><span class="nlc-icon" data-icon="trophy" aria-hidden="true"></span><span>我的榮譽徽章</span></span>
-              </h3>
-              <div id="badges-grid">
-                <!-- Dynamically populated -->
+            <!-- Honor Badges Wall Card -->
+          <div class="card-col span-12" id="profile-badges-card-col">
+            <div class="profile-badges-card badge-wall" id="profile-badges-inner-card">
+              <div class="badge-wall__header dashboard-panel-card__header card-header-flex">
+                <div class="badge-wall__heading">
+                  <h3 class="dashboard-panel-card__title card-title">
+                    <span class="dashboard-panel-card__title-icon" aria-hidden="true">
+                      <span class="nlc-icon nlc-icon--sm" data-icon="trophy"></span>
+                    </span>
+                    <span class="dashboard-panel-card__title-text">我的榮譽徽章</span>
+                  </h3>
+                  <p class="badge-wall__summary" id="badge-wall-summary">已解鎖 0 / 0</p>
+                </div>
               </div>
+
+              <div class="badge-wall__next-up hidden" id="badge-wall-next-up" aria-live="polite"></div>
+
+              <div class="badge-wall__filters segment-track" role="tablist" aria-label="徽章篩選">
+                <button type="button" class="segment-toggle-btn active" data-badge-filter="all" role="tab" aria-selected="true">全部</button>
+                <button type="button" class="segment-toggle-btn" data-badge-filter="unlocked" role="tab" aria-selected="false">已解鎖</button>
+                <button type="button" class="segment-toggle-btn" data-badge-filter="in-progress" role="tab" aria-selected="false">進行中</button>
+              </div>
+
+              <div id="badges-grid" class="badges-grid" role="list"></div>
             </div>
           </div>
           
