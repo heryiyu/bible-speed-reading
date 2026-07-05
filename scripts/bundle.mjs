@@ -21,6 +21,15 @@ export function contentHash(text) {
   return createHash("sha256").update(text).digest("hex").slice(0, 8);
 }
 
+export function assertParses(code) {
+  try {
+    // Parse without executing. `new Function` throws SyntaxError on parse failure.
+    new Function(code);
+  } catch (err) {
+    throw new Error(`bundle: assembled output failed syntax check: ${err.message}`);
+  }
+}
+
 export function emitBundle({ root, outDir }) {
   const indexPath = join(root, "index.html");
   if (!existsSync(indexPath)) throw new Error(`bundle: missing ${indexPath}`);
@@ -47,6 +56,9 @@ export function emitBundle({ root, outDir }) {
       throw new Error(`bundle: concatenated output missing verbatim content of ${rel}`);
     }
   }
+
+  // Guard 4: syntax-check the assembled output before writing.
+  assertParses(bundleJs);
 
   const cssContent = readSource(stylesheet);
   const jsFile = `app.${contentHash(bundleJs)}.js`;

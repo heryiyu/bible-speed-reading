@@ -5,7 +5,7 @@ import { readFileSync as rf } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { resolveLocalAssets, concatScripts, contentHash, emitBundle } from "./bundle.mjs";
+import { resolveLocalAssets, concatScripts, contentHash, emitBundle, assertParses } from "./bundle.mjs";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -48,6 +48,15 @@ describe("contentHash", () => {
     expect(h).toMatch(/^[0-9a-f]{8}$/);
     expect(h).toBe(contentHash("hello"));
     expect(h).not.toBe(contentHash("world"));
+  });
+});
+
+describe("assertParses", () => {
+  it("passes for valid concatenated JS", () => {
+    expect(() => assertParses("var a=1;\n;\nfunction f(){ return a; }")).not.toThrow();
+  });
+  it("throws a descriptive error for a syntax error", () => {
+    expect(() => assertParses("var a = ;")).toThrow(/failed syntax check/);
   });
 });
 
