@@ -4,6 +4,122 @@ function isLocalhostGoogleLoginAllowed() {
          window.location.hostname === "::1";
 }
 
+function getMemberHubUrls() {
+  if (typeof auth !== "undefined" && typeof auth.getMemberHubUrl === "function") {
+    return {
+      home: auth.getMemberHubUrl(""),
+      structure: auth.getMemberHubUrl("pastoral/structure")
+    };
+  }
+  return {
+    home: "https://member.newlife.org.tw",
+    structure: "https://member.newlife.org.tw/pastoral/structure"
+  };
+}
+
+function isMemberHubManagedProfile() {
+  return typeof auth !== "undefined" &&
+    typeof auth.isMemberHubSession === "function" &&
+    auth.isMemberHubSession();
+}
+
+function userNeedsOrgSetup() {
+  const user = state.currentUser || {};
+  return !String(user.great_region || "").trim() &&
+    !String(user.pastoral_zone || "").trim() &&
+    !String(user.small_group || "").trim();
+}
+
+function openMemberHubStructure() {
+  if (typeof auth !== "undefined" && typeof auth.openMemberHub === "function") {
+    auth.openMemberHub("pastoral/structure");
+    return;
+  }
+  window.open(getMemberHubUrls().structure, "_blank", "noopener,noreferrer");
+}
+
+function renderMemberHubProfileLinks() {
+  const copy = (window.APP_COPY && window.APP_COPY.memberHub) || {};
+  const urls = getMemberHubUrls();
+  const needsOrg = userNeedsOrgSetup();
+  const hubManaged = isMemberHubManagedProfile();
+  const lockedFields = new Set(state.profileLockedFields || []);
+  const hasLockedIdentity = ["name", "great_region", "pastoral_zone", "small_group"]
+    .some(function (field) { return lockedFields.has(field); });
+
+  const structureEl = document.getElementById("btn-member-hub-structure");
+  const homeEl = document.getElementById("btn-member-hub-home");
+  const avatarHubEl = document.getElementById("btn-avatar-member-hub");
+  if (structureEl) structureEl.href = urls.structure;
+  if (homeEl) homeEl.href = urls.home;
+  if (avatarHubEl) avatarHubEl.href = urls.structure;
+
+  const card = document.getElementById("profile-member-hub-card");
+  const descEl = document.getElementById("profile-member-hub-desc");
+  const titleEl = document.getElementById("profile-member-hub-title");
+  const primaryLabel = document.getElementById("profile-member-hub-primary-label");
+  if (titleEl) titleEl.textContent = copy.cardTitle || "新生命會員中心";
+  if (descEl) {
+    descEl.textContent = needsOrg
+      ? (copy.cardBodyNeedsOrg || descEl.textContent)
+      : (copy.cardBody || descEl.textContent);
+  }
+  if (primaryLabel) primaryLabel.textContent = copy.manageStructure || "管理身份與牧區歸屬";
+  if (card) card.classList.toggle("member-hub-profile-card--needs-org", needsOrg);
+
+  const formNotice = document.getElementById("profile-member-hub-form-notice");
+  const formNoticeText = document.getElementById("profile-member-hub-form-notice-text");
+  if (formNotice) formNotice.classList.toggle("hidden", !hubManaged && !hasLockedIdentity);
+  if (formNoticeText) {
+    formNoticeText.textContent = copy.formNotice || formNoticeText.textContent;
+  }
+
+  const formNoticeBtn = document.getElementById("btn-member-hub-form-notice");
+  if (formNoticeBtn && !formNoticeBtn._hubBound) {
+    formNoticeBtn._hubBound = true;
+    formNoticeBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      openMemberHubStructure();
+    });
+  }
+
+  const summaryOrg = document.getElementById("profile-summary-org");
+  if (summaryOrg && needsOrg) {
+    const label = (copy.orgUnset || "未設定所屬小組") + " · " + (copy.orgSetupCta || "前往會員中心設定");
+    summaryOrg.innerHTML = `<button type="button" class="profile-summary-org-link" id="profile-org-setup-link">${label}</button>`;
+    const setupLink = document.getElementById("profile-org-setup-link");
+    if (setupLink && !setupLink._hubBound) {
+      setupLink._hubBound = true;
+      setupLink.addEventListener("click", function (e) {
+        e.preventDefault();
+        openMemberHubStructure();
+      });
+    }
+  }
+
+  const btnProfile = document.getElementById("btn-avatar-profile");
+  if (btnProfile && copy.profileSettings) {
+    btnProfile.innerHTML = `<span class="nlc-icon nlc-icon--sm" data-icon="setting" aria-hidden="true" style="margin-right: 0.4rem;"></span>${copy.profileSettings}`;
+  }
+  if (avatarHubEl && copy.dropdownLabel) {
+    avatarHubEl.innerHTML = `<span class="nlc-icon nlc-icon--sm" data-icon="layers" aria-hidden="true" style="margin-right: 0.4rem;"></span>${copy.dropdownLabel}`;
+  }
+
+  const btnToggle = document.getElementById("btn-toggle-profile-form");
+  const formWrapper = document.getElementById("profile-form-wrapper");
+  if (btnToggle && hubManaged && formWrapper && formWrapper.classList.contains("hidden")) {
+    btnToggle.innerHTML = typeof iconLabel === "function"
+      ? iconLabel("setting", copy.profileSettings || "帳號設定（本 app）")
+      : (copy.profileSettings || "帳號設定（本 app）");
+  }
+
+  if (typeof hydrateIcons === "function") {
+    [card, formNotice, summaryOrg, btnProfile, avatarHubEl, btnToggle].forEach(function (el) {
+      if (el) hydrateIcons(el);
+    });
+  }
+}
+
 function updateGoogleLoginVisibility() {
   const allowGoogle = isLocalhostGoogleLoginAllowed();
   ["btn-google-login", "btn-gate-google-login"].forEach(id => {
@@ -141,6 +257,8 @@ function renderProfileView() {
     });
   };
   applyProfileFieldLocks();
+
+  renderMemberHubProfileLinks();
 
   greatRegionSelect.onchange = () => {
     if (greatRegionSelect.value === "custom") {

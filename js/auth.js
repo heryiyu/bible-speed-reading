@@ -29,6 +29,21 @@ const auth = {
     return `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
   },
 
+  getMemberHubUrl(path = "") {
+    const base = (this.config.memberHubUrl || "https://member.newlife.org.tw").replace(/\/+$/, "");
+    if (!path) return base;
+    return this._joinUrl(base, path);
+  },
+
+  openMemberHub(path = "") {
+    const url = this.getMemberHubUrl(path);
+    window.open(url, "_blank", "noopener,noreferrer");
+  },
+
+  isMemberHubSession() {
+    return this.isLoggedIn();
+  },
+
   async _fetchMetadata() {
     if (this.metadata) return this.metadata;
 

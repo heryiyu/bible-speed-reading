@@ -123,8 +123,12 @@
               <div class="dropdown-divider"></div>
               <button class="dropdown-item" id="btn-avatar-profile">
                 <span class="nlc-icon nlc-icon--sm" data-icon="setting" aria-hidden="true" style="margin-right: 0.4rem;"></span>
-                帳號設定
+                帳號設定（本 app）
               </button>
+              <a class="dropdown-item" id="btn-avatar-member-hub" href="https://member.newlife.org.tw/pastoral/structure" target="_blank" rel="noopener noreferrer">
+                <span class="nlc-icon nlc-icon--sm" data-icon="layers" aria-hidden="true" style="margin-right: 0.4rem;"></span>
+                會員中心
+              </a>
               <div class="dropdown-divider"></div>
               <button class="dropdown-item logout-btn" id="btn-avatar-logout">
                 <span class="nlc-icon nlc-icon--sm" data-icon="logout" aria-hidden="true" style="margin-right: 0.4rem;"></span>
@@ -1076,6 +1080,27 @@
                 </div>
               </div>
 
+              <!-- Member Hub identity card -->
+              <div class="member-hub-profile-card" id="profile-member-hub-card">
+                <div class="member-hub-profile-card__header">
+                  <span class="member-hub-profile-card__icon" aria-hidden="true">
+                    <span class="nlc-icon nlc-icon--sm" data-icon="layers"></span>
+                  </span>
+                  <div class="member-hub-profile-card__heading">
+                    <h3 class="member-hub-profile-card__title" id="profile-member-hub-title">新生命會員中心</h3>
+                    <p class="member-hub-profile-card__desc" id="profile-member-hub-desc">姓名、牧區歸屬與教會身份由會員中心統一管理；更新後會自動同步至本 app。</p>
+                  </div>
+                </div>
+                <div class="member-hub-profile-card__actions">
+                  <a class="primary-btn member-hub-profile-card__cta" id="btn-member-hub-structure" href="https://member.newlife.org.tw/pastoral/structure" target="_blank" rel="noopener noreferrer">
+                    <span class="btn-with-icon"><span class="nlc-icon nlc-icon--sm" data-icon="signpost" aria-hidden="true"></span><span id="profile-member-hub-primary-label">管理身份與牧區歸屬</span></span>
+                  </a>
+                  <a class="secondary-btn member-hub-profile-card__cta" id="btn-member-hub-home" href="https://member.newlife.org.tw" target="_blank" rel="noopener noreferrer">
+                    <span class="btn-with-icon"><span class="nlc-icon nlc-icon--sm" data-icon="home" aria-hidden="true"></span><span>開啟會員中心</span></span>
+                  </a>
+                </div>
+              </div>
+
               <!-- Button to toggle the form -->
               <button class="secondary-btn w-full" id="btn-toggle-profile-form">
                 <span class="btn-with-icon"><span class="nlc-icon" data-icon="edit" aria-hidden="true"></span><span>編輯個人檔案</span></span>
@@ -1083,6 +1108,11 @@
 
               <!-- Collapsible Profile Form Wrapper -->
               <div id="profile-form-wrapper" class="hidden" style="margin-top: 1rem; border-top: 1px solid var(--border-card); padding-top: 1.5rem;">
+                <div class="member-hub-form-notice hidden" id="profile-member-hub-form-notice">
+                  <span class="nlc-icon nlc-icon--sm" data-icon="layers" aria-hidden="true"></span>
+                  <p id="profile-member-hub-form-notice-text">若欄位無法編輯，請至會員中心更新；儲存於此的變更僅適用於本 app 可編輯項目。</p>
+                  <button type="button" class="secondary-btn member-hub-form-notice__link" id="btn-member-hub-form-notice">前往會員中心</button>
+                </div>
                 <form id="profile-form">
                   <div class="form-group">
                     <label for="profile-name">姓名</label>
