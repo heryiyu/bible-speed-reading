@@ -296,45 +296,48 @@
             </div>
             </div>
 
-          <!-- 首頁最下方的金句牆區塊 (無邊框磨砂微光瀑布流) -->
-          <div class="card-col span-12 mt-6 px-4 w-full">
-            <!-- 區塊標題 -->
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-sm font-bold tracking-wide text-slate-800 dark:text-zinc-200 flex items-center">
-                <span class="nlc-icon nlc-icon--sm" data-icon="heart" style="color: #8b5cf6; margin-right: 0.35rem;"></span>
-                <span>牧區靈修分享牆</span>
+          <!-- 首頁最下方的金句牆區塊 (符合 UI/UX 設計風格的牧區靈修分享牆) -->
+          <div class="glass-card dashboard-panel-card sharing-wall-card span-12 mt-6">
+            <div class="dashboard-panel-card__header card-header-flex">
+              <h3 class="dashboard-panel-card__title card-title">
+                <span class="dashboard-panel-card__title-icon" aria-hidden="true">
+                  <span class="nlc-icon nlc-icon--sm" data-icon="heart" style="color: #8b5cf6;"></span>
+                </span>
+                <span class="dashboard-panel-card__title-text">牧區靈修分享牆</span>
               </h3>
-              <span class="text-[10px] bg-violet-500/10 text-violet-500 px-2 py-0.5 rounded-full font-medium">今日即時</span>
+              <span class="privacy-badge stat-badge stat-badge--success label-with-icon">今日即時</span>
             </div>
 
-            <!-- 發布金句/心得的區塊 -->
-            <div class="p-5 rounded-3xl bg-slate-50 dark:bg-zinc-900/60 backdrop-blur-xl border border-slate-200 dark:border-zinc-800/50 shadow-[0_8px_30px_rgb(15,23,42,0.02)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.15)] mb-6 devotional-card">
-              <div class="flex items-center space-x-3 mb-3">
-                <div class="w-8 h-8 rounded-full bg-violet-500/10 text-violet-500 flex items-center justify-center font-bold text-xs">
-                  我
+            <div class="dashboard-panel-card__content">
+              <!-- 發布金句/心得的區塊 -->
+              <div class="mb-6 devotional-card">
+                <div class="flex items-center space-x-3 mb-3">
+                  <div class="w-8 h-8 rounded-full bg-violet-500/10 text-violet-500 flex items-center justify-center font-bold text-xs">
+                    我
+                  </div>
+                  <span class="text-xs font-bold text-slate-900 dark:text-zinc-100">記錄並分享今日金句與靈修心得</span>
                 </div>
-                <span class="text-xs font-bold text-slate-900 dark:text-zinc-100">記錄並分享今日金句與靈修心得</span>
-              </div>
-              <div class="form-group devotional-field relative mb-3">
-                <textarea id="devotional-content" class="w-full text-sm p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 leading-relaxed shadow-inner" placeholder="今天速讀完之後，哪一節經文讓你最印象深刻？在這裡分享給同小組的家人們吧！" rows="3" style="resize: none;"></textarea>
-                <div id="devotional-save-status" class="devotional-save-status absolute bottom-2 right-3 text-[10px] text-slate-400 dark:text-zinc-500 flex items-center space-x-1" aria-live="polite">
-                  <span class="devotional-save-status__dot w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-                  <span>已自動儲存</span>
+                <div class="form-group devotional-field relative mb-3">
+                  <textarea id="devotional-content" class="w-full text-sm p-4 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/40 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 leading-relaxed shadow-inner" placeholder="今天速讀完之後，哪一節經文讓你最印象深刻？在這裡分享給同小組的家人們吧！" rows="3" style="resize: none;"></textarea>
+                  <div id="devotional-save-status" class="devotional-save-status absolute bottom-2 right-3 text-[10px] text-slate-400 dark:text-zinc-500 flex items-center space-x-1" aria-live="polite">
+                    <span class="devotional-save-status__dot w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                    <span>已自動儲存</span>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] text-slate-500 dark:text-zinc-400 font-medium" id="devotional-word-count">字數: 0 字</span>
+                  <button type="button" class="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-full text-xs font-bold border-0 cursor-pointer shadow-md transition-all duration-300 flex items-center space-x-1.5" id="btn-save-devotional">
+                    <span class="nlc-icon nlc-icon--sm" data-icon="save" aria-hidden="true" style="width: 12px; height: 12px;"></span>
+                    <span>分享金句</span>
+                  </button>
                 </div>
               </div>
-              <div class="flex items-center justify-between">
-                <span class="text-[10px] text-slate-500 dark:text-zinc-400 font-medium" id="devotional-word-count">字數: 0 字</span>
-                <button type="button" class="px-4 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-full text-xs font-bold border-0 cursor-pointer shadow-md transition-all duration-300 flex items-center space-x-1.5" id="btn-save-devotional">
-                  <span class="nlc-icon nlc-icon--sm" data-icon="save" aria-hidden="true" style="width: 12px; height: 12px;"></span>
-                  <span>分享金句</span>
-                </button>
-              </div>
-            </div>
 
-            <!-- 金句卡片瀑布流動態渲染主容器 -->
-            <div id="home-verse-wall" class="space-y-4 pb-12">
-              <!-- 骨架屏加載狀態（預設） -->
-              <div class="animate-pulse p-4 rounded-2xl bg-zinc-900/20 h-24 w-full border border-zinc-800/30"></div>
+              <!-- 金句卡片瀑布流動態渲染主容器 -->
+              <div id="home-verse-wall" class="space-y-4 pb-4">
+                <!-- 骨架屏加載狀態（預設） -->
+                <div class="animate-pulse p-4 rounded-2xl bg-zinc-900/20 h-24 w-full border border-zinc-800/30"></div>
+              </div>
             </div>
           </div>
 

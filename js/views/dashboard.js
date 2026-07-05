@@ -1650,6 +1650,7 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
 
   container.innerHTML = "";
   const currentUserId = state.currentUser ? state.currentUser.id : null;
+  window.expandedNoteIds = window.expandedNoteIds || new Set();
 
   notes.forEach(note => {
     const profile = profileMap[note.user_id] || { name: "未知成員", small_group: "小組" };
@@ -1703,6 +1704,8 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
       `;
     });
 
+    const isExpanded = window.expandedNoteIds.has(note.id);
+
     const card = document.createElement("div");
     card.className = "p-5 rounded-3xl bg-white dark:bg-zinc-900/40 backdrop-blur-xl border border-slate-200/80 dark:border-zinc-800/30 shadow-[0_8px_30px_rgb(15,23,42,0.03)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] hover:shadow-[0_8px_30px_rgb(15,23,42,0.06)] hover:-translate-y-1 transition-all duration-500 ease-out";
     
@@ -1726,7 +1729,7 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
       <!-- Golden verse content quotes (highly readable contrast) -->
       <div class="relative pl-3 border-l-2 border-violet-500/50 my-3">
         <p class="text-[14px] text-slate-900 dark:text-zinc-50 leading-relaxed font-sans font-medium m-0">
-          「${note.content}」
+          ${note.content}
         </p>
       </div>
 
@@ -1743,11 +1746,19 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
       </div>
 
       <!-- Comments Thread Panel -->
-      <div id="comments-section-${note.id}" class="hidden mt-3 pt-3 border-t border-slate-200/40 dark:border-zinc-850/10">
+      <div id="comments-section-${note.id}" class="${isExpanded ? '' : 'hidden'} mt-3 pt-3 border-t border-slate-200/40 dark:border-zinc-850/10">
         <div id="comments-list-${note.id}" class="space-y-2.5 mb-3">
-          ${commentsHtml || '<div class="text-[10px] text-slate-400 dark:text-zinc-500 text-center py-2">尚無回覆，快來寫下第一個回覆吧！</div>'}
+          ${commentsHtml || '<div class="text-[10px] text-slate-400 dark:text-zinc-500 text-center py-2">目前尚無留言</div>'}
         </div>
-        <div class="flex items-center space-x-2">
+        
+        <!-- Toggle Add Comment button -->
+        <button type="button" class="w-full py-1.5 border border-dashed border-slate-350 dark:border-zinc-750 hover:border-violet-500 rounded-xl text-[10px] font-bold text-slate-500 dark:text-zinc-400 hover:text-violet-500 bg-transparent cursor-pointer transition-colors duration-200 flex items-center justify-center space-x-1 mb-2" onclick="window.toggleCommentInput('${note.id}')">
+          <span class="nlc-icon nlc-icon--sm" data-icon="plus" style="width: 10px; height: 10px;"></span>
+          <span>+ 新增留言</span>
+        </button>
+
+        <!-- Comment Input Box (Hidden by default, shown when clicking "+ 新增留言") -->
+        <div id="comment-input-container-${note.id}" class="hidden flex items-center space-x-2">
           <input type="text" id="comment-input-${note.id}" placeholder="寫下你的回覆..." class="flex-1 text-xs px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 shadow-inner">
           <button type="button" class="px-3 py-1.5 bg-violet-500 hover:bg-violet-600 text-white rounded-full text-[10px] font-bold border-0 cursor-pointer" onclick="window.submitDevotionalComment('${note.id}')">發送</button>
         </div>
@@ -1775,6 +1786,19 @@ window.toggleCommentsSection = function(noteId) {
   const el = document.getElementById(`comments-section-${noteId}`);
   if (el) {
     el.classList.toggle("hidden");
+    window.expandedNoteIds = window.expandedNoteIds || new Set();
+    if (el.classList.contains("hidden")) {
+      window.expandedNoteIds.delete(noteId);
+    } else {
+      window.expandedNoteIds.add(noteId);
+    }
+  }
+};
+
+window.toggleCommentInput = function(noteId) {
+  const el = document.getElementById(`comment-input-container-${noteId}`);
+  if (el) {
+    el.classList.toggle("hidden");
   }
 };
 
@@ -1787,6 +1811,11 @@ window.submitDevotionalComment = async function(noteId) {
   try {
     await db.addDevotionalComment(noteId, content);
     input.value = "";
+    
+    // Ensure it stays expanded
+    window.expandedNoteIds = window.expandedNoteIds || new Set();
+    window.expandedNoteIds.add(noteId);
+    
     await fetchPastoralVerseWall();
   } catch (err) {
     console.error("Failed to add comment:", err);
