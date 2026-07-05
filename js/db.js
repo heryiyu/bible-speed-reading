@@ -306,6 +306,7 @@ const db = {
     state.currentUser.small_group = profile.small_group || "";
     state.currentUser.role = profile.role || "member";
     if (profile.membership_status) state.membershipStatus = profile.membership_status;
+    if (profile.avatar_url) state.currentUser.avatar_url = profile.avatar_url;
     if (Array.isArray(lockedFields)) state.profileLockedFields = lockedFields;
     state.currentUser.is_demo = !!profile.is_demo;
     state.realRole = state.currentUser.role;
@@ -318,6 +319,9 @@ const db = {
     }
     if (typeof updateProfileDropdown === "function") {
       updateProfileDropdown();
+    }
+    if (typeof refreshUserAvatars === "function") {
+      refreshUserAvatars();
     }
   },
 

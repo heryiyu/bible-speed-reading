@@ -212,9 +212,8 @@ function renderProfileView() {
     summaryRole.textContent = roleNames[state.currentUser.role] || "一般組員";
   }
 
-  const summaryInitial = document.getElementById("profile-summary-initial");
-  if (summaryInitial) {
-    summaryInitial.textContent = (state.currentUser.name || "新").substring(0, 1);
+  if (typeof refreshUserAvatars === "function") {
+    refreshUserAvatars();
   }
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -1426,7 +1425,6 @@ function updateHeaderAvatar() {
     senior_pastor: "\u4e3b\u4efb\u7267\u5e2b"
   };
 
-  const btn = document.getElementById("user-avatar-btn");
   const nameEl = document.getElementById("dropdown-user-name");
   const emailEl = document.getElementById("dropdown-user-email");
   const roleEl = document.getElementById("dropdown-user-role");
@@ -1434,10 +1432,6 @@ function updateHeaderAvatar() {
   const userName = state.currentUser.name || "NLC User";
   const userRole = state.currentUser.role || "member";
   const roleLabel = roleNames[userRole] || userRole;
-  const initial = (userName || "N").trim().charAt(0) || "N";
-  const setInitialAvatar = () => {
-    if (btn) btn.innerHTML = `<span id="user-avatar-initial">${initial}</span>`;
-  };
 
   if (nameEl) nameEl.textContent = userName;
   if (roleEl) roleEl.textContent = roleLabel;
@@ -1446,11 +1440,7 @@ function updateHeaderAvatar() {
     const payload = auth._parseJwt ? auth._parseJwt(localStorage.getItem(auth.keys.idToken) || "") : null;
     const email = payload?.email || payload?.preferred_username || payload?.sub || "\u6559\u6703\u7cfb\u7d71\u767b\u5165\u4e2d";
     if (emailEl) emailEl.textContent = email;
-    if (payload?.picture && btn) {
-      btn.innerHTML = `<img src="${payload.picture}" alt="avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;">`;
-    } else {
-      setInitialAvatar();
-    }
+    if (typeof refreshUserAvatars === "function") refreshUserAvatars();
     return;
   }
 
@@ -1459,25 +1449,20 @@ function updateHeaderAvatar() {
       const user = data && data.user;
       if (user) {
         if (emailEl) emailEl.textContent = user.email || "\u6559\u6703\u7cfb\u7d71\u767b\u5165\u4e2d";
-        const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
-        if (avatarUrl && btn) {
-          btn.innerHTML = `<img src="${avatarUrl}" alt="avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;">`;
-        } else {
-          setInitialAvatar();
-        }
-      } else {
-        if (emailEl) emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
-        setInitialAvatar();
+      } else if (emailEl) {
+        emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
       }
+      if (typeof refreshUserAvatars === "function") refreshUserAvatars();
     }).catch(err => {
       console.error("Error in updateHeaderAvatar:", err);
       if (emailEl) emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
-      setInitialAvatar();
+      if (typeof refreshUserAvatars === "function") refreshUserAvatars();
     });
-  } else {
-    if (emailEl) emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
-    setInitialAvatar();
+    return;
   }
+
+  if (emailEl) emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
+  if (typeof refreshUserAvatars === "function") refreshUserAvatars();
 }
 /**
  * Wire up avatar dropdown toggle, click-outside-to-close, and logout.

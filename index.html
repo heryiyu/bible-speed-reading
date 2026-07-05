@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="index.css">
+  <link rel="stylesheet" href="index.css?v=20260705_avatar">
   <!-- Supabase JS Client library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
   <!-- Chart.js for premium stats dashboard -->
@@ -106,9 +106,7 @@
 
           <!-- User Profile Avatar Button -->
           <div class="user-avatar-container" id="user-avatar-container">
-            <button class="avatar-btn" id="user-avatar-btn" title="帳號選單">
-              <span id="user-avatar-initial">管</span>
-            </button>
+            <button class="avatar-btn" id="user-avatar-btn" type="button" title="帳號選單" aria-label="帳號選單"></button>
             
             <!-- Dropdown Menu -->
             <div class="avatar-dropdown hidden" id="avatar-dropdown-menu">
@@ -1062,11 +1060,9 @@
           <div class="card-col span-12" id="profile-card-col">
             <div class="glass-card">
               <!-- Profile Summary Header -->
-              <div style="display: flex; align-items: center; gap: 1.2rem; border-bottom: 1px solid var(--border-card); padding-bottom: 1.5rem; margin-bottom: 1rem;">
-                <div id="profile-summary-avatar" style="width: 64px; height: 64px; border-radius: 50%; background: var(--color-brand); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.8rem; font-weight: 500; box-shadow: var(--shadow-sm);">
-                  <span id="profile-summary-initial">管</span>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0;">
+              <div class="profile-summary-header">
+                <div id="profile-summary-avatar"></div>
+                <div class="profile-summary-header__meta">
                   <h2 id="profile-summary-name" style="font-size: 1.4rem; font-weight: 500; color: var(--text-primary); margin: 0;">新使用者</h2>
                   <p id="profile-summary-org" style="font-size: 0.85rem; color: var(--text-secondary); margin: 0;">
                     <span class="skeleton-wrapper" style="display:inline-flex;flex-direction:column;gap:0.35rem;min-width:8rem;">
@@ -1550,12 +1546,12 @@
   <script src="js/auth.js?v=20260705_nlc_sync"></script>
   <script src="js/views/plan.js"></script>
   <script src="js/db.js?v=20260705_nlc_sync"></script>
-  <script src="js/utils.js"></script>
+  <script src="js/utils.js?v=20260705_avatar"></script>
   <script src="js/gamification.js"></script>
   <script src="js/views/dashboard.js"></script>
   <script src="js/views/reader.js"></script>
   <script src="js/views/stats.js"></script>
-  <script src="js/views/profile.js?v=20260705_nlc_sync"></script>
+  <script src="js/views/profile.js?v=20260705_avatar"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
