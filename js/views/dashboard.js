@@ -1564,7 +1564,7 @@ async function fetchPastoralVerseWall() {
 
   if (state.isSupabaseMode && state.supabase) {
     try {
-      const pastoralZone = state.currentUser.pastoral_zone || "";
+      const pastoralZone = (state.currentUser && state.currentUser.pastoral_zone) || "";
       let profilesQuery = state.supabase.from("profiles").select("id, name, small_group");
       if (pastoralZone) {
         profilesQuery = profilesQuery.eq("pastoral_zone", pastoralZone);
@@ -1627,29 +1627,83 @@ function renderVerseWallCards(notes, profileMap) {
 
   notes.forEach(note => {
     const profile = profileMap[note.user_id] || { name: "未知成員", small_group: "小組" };
-    const card = document.createElement("div");
     
-    // Borderless frosted shimmer card using Tailwind CSS
-    card.className = "p-4 rounded-2xl bg-slate-500/5 dark:bg-zinc-800/10 backdrop-blur-md border border-slate-500/10 dark:border-zinc-800/20 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5";
+    // Get initials avatar character
+    const initial = profile.name ? profile.name.charAt(0) : "神";
     
-    let timeStr = "今日";
+    // Hash name to gradient background color class
+    const colors = [
+      "from-pink-500/20 to-rose-500/20 text-rose-500 dark:text-rose-300",
+      "from-purple-500/20 to-indigo-500/20 text-indigo-500 dark:text-indigo-300",
+      "from-blue-500/20 to-cyan-500/20 text-cyan-500 dark:text-cyan-300",
+      "from-emerald-500/20 to-teal-500/20 text-teal-500 dark:text-teal-300",
+      "from-amber-500/20 to-orange-500/20 text-orange-500 dark:text-orange-300"
+    ];
+    const charCode = profile.name ? profile.name.charCodeAt(0) : 0;
+    const avatarColorClass = colors[charCode % colors.length];
+
+    // Format relative time or standard time
+    let timeStr = "剛剛";
     if (note.created_at) {
       try {
-        const d = new Date(note.created_at);
-        timeStr = d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+        const diffMs = new Date() - new Date(note.created_at);
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) {
+          timeStr = "剛剛";
+        } else if (diffMins < 60) {
+          timeStr = `${diffMins} 分鐘前`;
+        } else {
+          const d = new Date(note.created_at);
+          timeStr = d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+        }
       } catch (e) {}
     }
 
+    const card = document.createElement("div");
+    // Borderless frosted shimmer card using Tailwind CSS
+    card.className = "p-5 rounded-3xl bg-gradient-to-br from-slate-500/5 to-slate-500/[0.02] dark:from-zinc-950/20 dark:to-zinc-950/5 backdrop-blur-xl border border-slate-500/10 dark:border-zinc-800/10 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-500 ease-out";
+    
     card.innerHTML = `
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center space-x-2">
-          <span class="text-xs font-semibold text-slate-700 dark:text-zinc-300">${profile.name}</span>
-          <span class="text-[10px] text-slate-400 dark:text-zinc-500 bg-slate-500/10 dark:bg-zinc-800/20 px-1.5 py-0.5 rounded-md">${profile.small_group || "小組"}</span>
+      <!-- User profile header -->
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center space-x-3">
+          <!-- Initials Avatar -->
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br ${avatarColorClass} flex items-center justify-center font-bold text-sm shadow-inner">
+            ${initial}
+          </div>
+          <div class="flex flex-col">
+            <span class="text-xs font-semibold text-slate-800 dark:text-zinc-200">${profile.name}</span>
+            <span class="text-[9px] text-slate-400 dark:text-zinc-500 mt-0.5">${profile.small_group || "小組"}</span>
+          </div>
         </div>
-        <span class="text-[9px] text-slate-400 dark:text-zinc-500">${timeStr}</span>
+        <!-- Time badge -->
+        <span class="text-[9px] text-slate-400 dark:text-zinc-500 bg-slate-500/5 dark:bg-zinc-800/20 px-2.5 py-1 rounded-full font-medium">${timeStr}</span>
       </div>
-      <p class="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed font-serif italic m-0">「${note.content}」</p>
+
+      <!-- Golden verse content quotes -->
+      <div class="relative pl-3 border-l-2 border-violet-500/40 my-3">
+        <p class="text-[13px] text-slate-700 dark:text-zinc-300 leading-relaxed font-serif italic m-0">
+          「${note.content}」
+        </p>
+      </div>
+
+      <!-- Footer social actions -->
+      <div class="flex items-center justify-start space-x-6 mt-4 pt-3 border-t border-slate-500/5 dark:border-zinc-800/5 text-slate-400 dark:text-zinc-500">
+        <button type="button" class="flex items-center space-x-1.5 hover:text-rose-500 transition-colors duration-250 bg-transparent border-0 cursor-pointer p-0 text-[11px]" onclick="event.stopPropagation(); this.classList.toggle('text-rose-500')">
+          <span class="nlc-icon nlc-icon--sm" data-icon="heart" style="width: 14px; height: 14px;"></span>
+          <span class="font-medium text-[10px]">讚</span>
+        </button>
+        <button type="button" class="flex items-center space-x-1.5 hover:text-blue-500 transition-colors duration-250 bg-transparent border-0 cursor-pointer p-0 text-[11px]" onclick="event.stopPropagation();">
+          <span class="nlc-icon nlc-icon--sm" data-icon="inbox" style="width: 14px; height: 14px;"></span>
+          <span class="font-medium text-[10px]">回覆</span>
+        </button>
+      </div>
     `;
     container.appendChild(card);
   });
+
+  // Hydrate Lucide icons dynamically inside card feed
+  if (typeof hydrateIcons === "function") {
+    hydrateIcons(container);
+  }
 }
