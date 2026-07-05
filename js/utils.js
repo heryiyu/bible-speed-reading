@@ -48,6 +48,127 @@ function showToast(message, duration = 2500) {
   }, duration);
 }
 
+// ── User Avatar (shadcn-inspired: image + initials fallback) ──
+
+function getUserAvatarInitial(name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return "N";
+  return trimmed.charAt(0).toUpperCase();
+}
+
+function normalizeAvatarUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  return "";
+}
+
+function getUserAvatarContext() {
+  const name = state.currentUser?.name || "NLC User";
+  let avatarUrl = normalizeAvatarUrl(state.currentUser?.avatar_url);
+
+  if (!avatarUrl && typeof auth !== "undefined" && auth.isLoggedIn() && typeof auth._parseJwt === "function") {
+    const payload = auth._parseJwt(localStorage.getItem(auth.keys.idToken) || "");
+    avatarUrl = normalizeAvatarUrl(payload?.picture);
+  }
+
+  return { name, avatarUrl };
+}
+
+function resolveUserAvatarContext(done) {
+  const base = getUserAvatarContext();
+  if (base.avatarUrl) {
+    done(base);
+    return;
+  }
+
+  if (typeof auth !== "undefined" && auth.isLoggedIn()) {
+    done(base);
+    return;
+  }
+
+  if (state.isSupabaseMode && state.supabase?.auth?.getUser) {
+    state.supabase.auth.getUser().then(({ data }) => {
+      const user = data?.user;
+      const avatarUrl = normalizeAvatarUrl(
+        user?.user_metadata?.avatar_url || user?.user_metadata?.picture
+      );
+      done({
+        name: state.currentUser?.name || user?.email || "NLC User",
+        avatarUrl
+      });
+    }).catch(() => done(base));
+    return;
+  }
+
+  done(base);
+}
+
+/**
+ * Render avatar into a container (header button or profile summary).
+ * @param {HTMLElement|null} container
+ * @param {{ size?: "header"|"lg"|"sm", name?: string, avatarUrl?: string }} [options]
+ */
+function renderUserAvatar(container, options) {
+  if (!container) return;
+
+  const opts = options || {};
+  const ctx = getUserAvatarContext();
+  const name = opts.name || ctx.name || "NLC User";
+  const avatarUrl = opts.avatarUrl != null ? normalizeAvatarUrl(opts.avatarUrl) : ctx.avatarUrl;
+  const initial = getUserAvatarInitial(name);
+  const size = opts.size || "sm";
+  const sizeClass = size === "header"
+    ? " nlc-avatar--header"
+    : size === "lg"
+      ? " nlc-avatar--lg"
+      : " nlc-avatar--sm";
+
+  container.innerHTML = "";
+  const root = document.createElement("span");
+  root.className = "nlc-avatar" + sizeClass;
+  root.setAttribute("role", "img");
+  root.setAttribute("aria-label", name);
+
+  const fallback = document.createElement("span");
+  fallback.className = "nlc-avatar__fallback";
+  fallback.textContent = initial;
+  root.appendChild(fallback);
+
+  if (avatarUrl) {
+    const img = document.createElement("img");
+    img.className = "nlc-avatar__image";
+    img.alt = "";
+    img.referrerPolicy = "no-referrer";
+    img.decoding = "async";
+    img.onload = function () {
+      img.classList.add("nlc-avatar__image--loaded");
+    };
+    img.onerror = function () {
+      img.remove();
+    };
+    img.src = avatarUrl;
+    root.insertBefore(img, fallback);
+  }
+
+  container.appendChild(root);
+}
+
+function refreshUserAvatars() {
+  resolveUserAvatarContext(function (ctx) {
+    renderUserAvatar(document.getElementById("user-avatar-btn"), {
+      size: "header",
+      name: ctx.name,
+      avatarUrl: ctx.avatarUrl
+    });
+    renderUserAvatar(document.getElementById("profile-summary-avatar"), {
+      size: "lg",
+      name: ctx.name,
+      avatarUrl: ctx.avatarUrl
+    });
+  });
+}
+
 // ── User Scope Filtering ─────────────────────────────────────
 /**
  * Returns true if the user has admin/senior-pastor level access.
