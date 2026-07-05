@@ -335,11 +335,14 @@ function renderBadgeWall(containerId) {
     badgeItem.setAttribute("aria-label", (isUnlocked ? "已解鎖：" : "尚未解鎖：") + badge.title);
 
     const safeTitle = typeof escapeHTML === "function" ? escapeHTML(badge.title) : badge.title;
+    const hexState = isUnlocked ? "honor-badge-hex--unlocked" : "honor-badge-hex--locked";
     badgeItem.innerHTML = `
       ${!isUnlocked ? `<div class="honor-badge-item__lock"><span class="nlc-icon nlc-icon--sm" data-icon="lock" aria-hidden="true"></span></div>` : ""}
-      <div class="honor-badge-item__icon-wrap">
-        <span class="nlc-icon nlc-icon--md" data-icon="${badge.iconKey || "award"}" aria-hidden="true"></span>
-        ${isUnlocked ? `<span class="honor-badge-item__check" aria-hidden="true"><span class="nlc-icon nlc-icon--sm" data-icon="checkCircle"></span></span>` : ""}
+      <div class="honor-badge-item__icon-wrap honor-badge-hex-shell">
+        <div class="honor-badge-hex ${hexState}">
+          <span class="nlc-icon nlc-icon--md" data-icon="${badge.iconKey || "award"}" aria-hidden="true"></span>
+        </div>
+        ${isUnlocked ? `<span class="honor-badge-hex__check" aria-hidden="true"><span class="nlc-icon nlc-icon--sm" data-icon="checkCircle"></span></span>` : ""}
       </div>
       <span class="honor-badge-item__title">${safeTitle}</span>
     `;
@@ -385,10 +388,15 @@ function renderBadgeStrip(containerId, options) {
     item.type = "button";
     item.className = "badge-strip__item " + (isUnlocked ? "unlocked" : "locked");
     item.setAttribute("aria-label", (isUnlocked ? "已解鎖：" : "尚未解鎖：") + badge.title);
+    const hexState = isUnlocked ? "honor-badge-hex--unlocked" : "honor-badge-hex--locked";
     item.innerHTML = `
-      <span class="nlc-icon nlc-icon--sm" data-icon="${badge.iconKey || "award"}" aria-hidden="true"></span>
-      ${!isUnlocked ? `<span class="badge-strip__item-lock" aria-hidden="true"><span class="nlc-icon nlc-icon--sm" data-icon="lock"></span></span>` : ""}
-      ${isUnlocked ? `<span class="badge-strip__item-check" aria-hidden="true"><span class="nlc-icon nlc-icon--sm" data-icon="checkCircle"></span></span>` : ""}
+      <span class="honor-badge-hex-shell honor-badge-hex-shell--sm">
+        <span class="honor-badge-hex ${hexState}">
+          <span class="nlc-icon nlc-icon--sm" data-icon="${badge.iconKey || "award"}" aria-hidden="true"></span>
+        </span>
+        ${!isUnlocked ? `<span class="honor-badge-hex__lock" aria-hidden="true"><span class="nlc-icon nlc-icon--sm" data-icon="lock"></span></span>` : ""}
+        ${isUnlocked ? `<span class="honor-badge-hex__check" aria-hidden="true"><span class="nlc-icon nlc-icon--sm" data-icon="checkCircle"></span></span>` : ""}
+      </span>
     `;
     attachBadgeOpenHandlers(item, badge, isUnlocked);
     container.appendChild(item);
@@ -466,6 +474,11 @@ window.openBadgeDetailPage = function(badge, isUnlocked, isDark) {
   if (shield) {
     shield.classList.remove("badge-shield--unlocked", "badge-shield--locked");
     shield.classList.add(isUnlocked ? "badge-shield--unlocked" : "badge-shield--locked");
+    const hexInner = shield.querySelector(".honor-badge-hex");
+    if (hexInner) {
+      hexInner.classList.remove("honor-badge-hex--unlocked", "honor-badge-hex--locked");
+      hexInner.classList.add(isUnlocked ? "honor-badge-hex--unlocked" : "honor-badge-hex--locked");
+    }
     shield.style.background = "";
     shield.style.borderColor = "";
     shield.style.borderStyle = "";

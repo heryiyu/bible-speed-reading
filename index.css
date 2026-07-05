@@ -446,60 +446,87 @@ body.dark-theme {
   }
 }
 
-/* Honor badge wall items */
-.honor-badge-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 0.875rem 0.5rem;
-  border-radius: var(--radius-sm);
-  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
-  cursor: pointer;
+/* Honor badge hex medallions (soft rounded hex + dot texture) */
+:root {
+  --badge-hex-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 74'%3E%3Cpath d='M32 2 L57 15.5 Q59.5 17.2 59.5 19.5 L59.5 54.5 Q59.5 56.8 57 58.5 L32 72 L7 58.5 Q4.5 56.8 4.5 54.5 L4.5 19.5 Q4.5 17.2 7 15.5 Z'/%3E%3C/svg%3E");
+}
+
+.honor-badge-hex-shell {
   position: relative;
-  user-select: none;
-  box-shadow: var(--shadow-sm);
+  width: 3.25rem;
+  height: 3.75rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 3px 10px color-mix(in srgb, var(--color-brand) 14%, transparent));
 }
 
-.honor-badge-item--tile {
-  padding: 0.75rem 0.5rem;
-  gap: 0.375rem;
-  min-height: 0;
-}
-
-.honor-badge-item.unlocked {
-  background: color-mix(in srgb, var(--text-primary) 2%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, var(--color-achievement) 35%, var(--border-card));
-}
-
-.honor-badge-item.locked {
-  background: color-mix(in srgb, var(--text-muted) 6%, var(--bg-card));
-  border: 1px dashed var(--border-card);
-}
-
-.honor-badge-item.unlocked:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--color-brand) 35%, var(--border-card));
-}
-
-.honor-badge-item__lock {
-  position: absolute;
-  top: 0.375rem;
-  right: 0.375rem;
-  color: var(--color-icon-muted);
-}
-
-.honor-badge-item--tile .honor-badge-item__icon-wrap {
-  position: relative;
-  width: 3rem;
+.honor-badge-hex-shell--sm {
+  width: 2.625rem;
   height: 3rem;
-  border-radius: 50%;
+  filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--color-brand) 12%, transparent));
 }
 
-.honor-badge-item__check {
+.honor-badge-hex-shell--hero {
+  width: 5.5rem;
+  height: 6.375rem;
+  filter: drop-shadow(0 6px 18px color-mix(in srgb, var(--color-brand) 22%, transparent));
+}
+
+.honor-badge-hex-shell::before {
+  content: "";
   position: absolute;
-  right: -0.125rem;
-  bottom: -0.125rem;
+  inset: 0;
+  background: var(--bg-card);
+  -webkit-mask: var(--badge-hex-mask) center / contain no-repeat;
+  mask: var(--badge-hex-mask) center / contain no-repeat;
+}
+
+.honor-badge-hex {
+  position: absolute;
+  inset: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-icon-achievement);
+  -webkit-mask: var(--badge-hex-mask) center / contain no-repeat;
+  mask: var(--badge-hex-mask) center / contain no-repeat;
+  background-color: color-mix(in srgb, var(--color-brand) 10%, var(--bg-card));
+  background-image:
+    radial-gradient(circle, color-mix(in srgb, var(--bg-card) 50%, transparent) 0.85px, transparent 0.85px),
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--color-brand) 26%, var(--bg-card)) 0%,
+      color-mix(in srgb, var(--color-achievement) 30%, var(--bg-card)) 52%,
+      color-mix(in srgb, var(--color-brand) 18%, var(--bg-card)) 100%
+    );
+  background-size: 7px 7px, 100% 100%;
+}
+
+.honor-badge-hex--locked {
+  color: var(--color-icon-muted);
+  background-color: color-mix(in srgb, var(--text-muted) 8%, var(--bg-card));
+  background-image:
+    radial-gradient(circle, color-mix(in srgb, var(--text-muted) 22%, transparent) 0.85px, transparent 0.85px),
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--text-muted) 12%, var(--bg-card)) 0%,
+      color-mix(in srgb, var(--text-muted) 18%, var(--bg-input)) 100%
+    );
+  filter: saturate(0.45);
+}
+
+.honor-badge-hex .nlc-icon {
+  position: relative;
+  z-index: 1;
+  color: inherit;
+  background: transparent;
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, currentColor 28%, transparent));
+}
+
+.honor-badge-hex__check {
+  position: absolute;
+  right: -0.05rem;
+  bottom: 0.15rem;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -509,37 +536,125 @@ body.dark-theme {
   background: color-mix(in srgb, var(--text-primary) 4%, var(--bg-input));
   border: 1px solid color-mix(in srgb, var(--color-icon-achievement) 45%, var(--border-card));
   color: var(--color-icon-achievement);
-  z-index: 2;
 }
 
-.honor-badge-item__icon,
+.honor-badge-hex__lock {
+  position: absolute;
+  top: -0.05rem;
+  right: -0.05rem;
+  z-index: 3;
+  display: flex;
+  color: var(--color-icon-muted);
+}
+
+.honor-badge-hex__level-pill {
+  position: absolute;
+  bottom: -0.35rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: var(--type-weight-strong);
+  background: color-mix(in srgb, var(--text-primary) 72%, transparent);
+  color: var(--bg-card);
+  border: 1px solid color-mix(in srgb, var(--bg-card) 35%, transparent);
+}
+
+#badge-detail-hero .honor-badge-hex-shell::before {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+#badge-detail-hero .honor-badge-hex--unlocked {
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.35) 0.85px, transparent 0.85px),
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--color-brand) 42%, #171717) 0%,
+      color-mix(in srgb, var(--color-achievement) 48%, #171717) 52%,
+      color-mix(in srgb, var(--color-brand) 32%, #171717) 100%
+    );
+  color: #FBBF24;
+}
+
+#badge-detail-hero .honor-badge-hex--locked {
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.12) 0.85px, transparent 0.85px),
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--text-muted) 22%, #171717) 0%,
+      color-mix(in srgb, var(--text-muted) 30%, #262626) 100%
+    );
+}
+
+body.dark-theme .honor-badge-hex--unlocked {
+  background-image:
+    radial-gradient(circle, color-mix(in srgb, var(--bg-card) 35%, transparent) 0.85px, transparent 0.85px),
+    linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--color-brand) 32%, #171717) 0%,
+      color-mix(in srgb, var(--color-achievement) 38%, #171717) 52%,
+      color-mix(in srgb, var(--color-brand) 24%, #171717) 100%
+    );
+  color: #FBBF24;
+}
+
+/* Honor badge wall items */
+.honor-badge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0.5rem 0.375rem;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  transition: transform 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+}
+
+.honor-badge-item--tile {
+  padding: 0.5rem 0.375rem;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+.honor-badge-item.unlocked,
+.honor-badge-item.locked {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.honor-badge-item.unlocked:hover {
+  transform: translateY(-2px);
+}
+
+.honor-badge-item.unlocked:hover .honor-badge-hex-shell {
+  filter: drop-shadow(0 4px 12px color-mix(in srgb, var(--color-achievement) 22%, transparent));
+}
+
+.honor-badge-item__lock {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  z-index: 4;
+  color: var(--color-icon-muted);
+}
+
 .honor-badge-item__icon-wrap {
   display: flex;
-  width: 2.75rem;
-  height: 2.75rem;
-  justify-content: center;
   align-items: center;
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-card);
+  justify-content: center;
+  padding: 0;
+  border: none;
   background: transparent;
 }
 
-.honor-badge-item.unlocked .honor-badge-item__icon,
-.honor-badge-item.unlocked .honor-badge-item__icon-wrap {
-  color: var(--color-icon-achievement);
-  border-color: color-mix(in srgb, var(--color-icon-achievement) 42%, transparent);
-  background: var(--color-achievement-subtle);
-}
-
-.honor-badge-item.locked .honor-badge-item__icon,
-.honor-badge-item.locked .honor-badge-item__icon-wrap {
-  color: var(--color-icon-muted);
-  border-color: color-mix(in srgb, var(--color-icon-muted) 32%, transparent);
-  border-style: dashed;
-}
-
-.honor-badge-item__icon .nlc-icon,
+.honor-badge-item__icon,
 .honor-badge-item__icon-wrap .nlc-icon {
   color: inherit;
   background: transparent;
@@ -595,62 +710,27 @@ body.dark-theme {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: auto;
+  height: auto;
   padding: 0;
-  border-radius: 50%;
-  border: 1px solid var(--border-card);
-  background: color-mix(in srgb, var(--text-muted) 6%, var(--bg-card));
+  border: none;
+  background: transparent;
   cursor: pointer;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
-.badge-strip__item.unlocked {
-  border-color: color-mix(in srgb, var(--color-achievement) 40%, var(--border-card));
-  background: var(--color-achievement-subtle);
-  color: var(--color-icon-achievement);
-}
-
-.badge-strip__item.locked {
-  border-style: dashed;
-  color: var(--color-icon-muted);
-}
-
-.badge-strip__item.unlocked:hover {
+.badge-strip__item.unlocked:hover,
+.badge-strip__item.locked:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--color-brand) 35%, var(--border-card));
+}
+
+.badge-strip__item.unlocked:hover .honor-badge-hex-shell {
+  filter: drop-shadow(0 3px 10px color-mix(in srgb, var(--color-achievement) 20%, transparent));
 }
 
 .badge-strip__item .nlc-icon {
   color: inherit;
   background: transparent;
-}
-
-.badge-strip__item-lock {
-  position: absolute;
-  top: -0.125rem;
-  right: -0.125rem;
-  display: flex;
-  width: 0.875rem;
-  height: 0.875rem;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-icon-muted);
-}
-
-.badge-strip__item-check {
-  position: absolute;
-  right: -0.125rem;
-  bottom: -0.125rem;
-  display: flex;
-  width: 0.875rem;
-  height: 0.875rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--text-primary) 4%, var(--bg-input));
-  border: 1px solid color-mix(in srgb, var(--color-icon-achievement) 45%, var(--border-card));
-  color: var(--color-icon-achievement);
 }
 
 /* Badge detail — how to earn trigger card */
@@ -4782,45 +4862,27 @@ button.logout-btn:hover {
 }
 
 #detail-shield {
-  width: 144px;
-  height: 160px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-radius: 2rem 2rem 35% 35%;
   position: relative;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding-top: 0.5rem;
+  margin: 0 auto;
 }
 
-#detail-shield.badge-shield--unlocked {
-  background: rgba(254, 243, 199, 0.95);
-  border: 1px solid color-mix(in srgb, var(--color-icon-achievement) 60%, transparent);
-  color: var(--color-icon-achievement);
-}
-
+#detail-shield.badge-shield--unlocked,
 #detail-shield.badge-shield--locked {
-  background: color-mix(in srgb, var(--color-icon-muted) 35%, var(--bg-card));
-  border: 1px dashed color-mix(in srgb, var(--color-icon-muted) 60%, transparent);
-  color: var(--color-icon-muted);
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
-body.dark-theme #detail-shield.badge-shield--unlocked {
-  background: color-mix(in srgb, var(--color-icon-achievement) 35%, #171717);
-  border-color: color-mix(in srgb, var(--color-icon-achievement) 25%, transparent);
-  color: #FBBF24;
-}
-
+body.dark-theme #detail-shield.badge-shield--unlocked,
 body.dark-theme #detail-shield.badge-shield--locked {
-  background: color-mix(in srgb, var(--color-icon-muted) 25%, #171717);
-  border-color: color-mix(in srgb, var(--color-icon-muted) 40%, transparent);
-  color: var(--color-icon-muted);
+  background: transparent;
+  border: none;
 }
 
 #detail-shield .nlc-icon,
 #detail-icon.nlc-icon {
   color: inherit;
+  background: transparent;
 }
 
 .badge-milestone-item {
