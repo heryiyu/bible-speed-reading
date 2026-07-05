@@ -331,6 +331,18 @@ function initDevotionalControls() {
     });
   }
 
+  // Toggle Devotional input box visibility when '+留言' (sharing) button is clicked
+  const toggleBtn = document.getElementById("btn-toggle-devotional-box");
+  const devCard = document.querySelector(".devotional-card");
+  if (toggleBtn && devCard) {
+    toggleBtn.addEventListener("click", () => {
+      devCard.classList.toggle("hidden");
+      if (!devCard.classList.contains("hidden")) {
+        textarea.focus();
+      }
+    });
+  }
+
   const searchInput = document.getElementById("member-today-search");
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
@@ -360,6 +372,13 @@ async function saveDevotionalNote(isAuto) {
     }
     if (typeof fetchPastoralVerseWall === "function") {
       fetchPastoralVerseWall();
+    }
+    // Auto-hide the input block after manual post submission
+    if (!isAuto) {
+      const devCard = document.querySelector(".devotional-card");
+      if (devCard) {
+        devCard.classList.add("hidden");
+      }
     }
   } catch (err) {
     console.error("Failed to save devotional note:", err);

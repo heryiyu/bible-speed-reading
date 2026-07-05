@@ -305,12 +305,18 @@
                 </span>
                 <span class="dashboard-panel-card__title-text">牧區靈修分享牆</span>
               </h3>
-              <span class="privacy-badge stat-badge stat-badge--success label-with-icon">今日即時</span>
+              <div class="flex items-center space-x-2">
+                <span class="privacy-badge stat-badge stat-badge--success label-with-icon">今日即時</span>
+                <button type="button" id="btn-toggle-devotional-box" class="secondary-btn" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; border-radius: var(--radius-sm); font-weight: var(--type-weight-strong); display: inline-flex; align-items: center; gap: 0.25rem;">
+                  <span class="nlc-icon nlc-icon--sm" data-icon="plus" style="width:12px; height:12px;"></span>
+                  <span>+留言</span>
+                </button>
+              </div>
             </div>
 
             <div class="dashboard-panel-card__content">
               <!-- 發布金句/心得的區塊 -->
-              <div class="mb-6 devotional-card">
+              <div class="mb-6 devotional-card hidden">
                 <div class="flex items-center space-x-3 mb-3">
                   <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs" style="background-color: var(--color-brand-subtle); color: var(--color-brand);">
                     我
