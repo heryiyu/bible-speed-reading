@@ -146,7 +146,7 @@ NLC_MEMBER_COLORS    // avatar / trail palette
 - **Icon glyphs are always transparent** — never put `background` on `.nlc-icon`, `.honor-badge-item__icon`, or other raw icon slots. Subtle tinted chips belong only on optional wrappers (e.g. `.stat-bento__icon-wrap`, `.stat-icon-wrapper`).
 - **Icon stroke colors must be 100% opaque** — use `--color-icon-*` tokens on `.nlc-icon` or wrappers, not `--text-muted` / `--text-secondary` (which are rgba and cause path bleed on complex SVGs).
 - Parent text may stay muted; set explicit icon color on `.nlc-icon` (mobile nav, honor badges, search icons, stat icon wraps).
-- Filled exceptions: `heartFill`, `likeFill`, `starFill`, `zapFill` are generated with `fill="currentColor"` for active states.
+- Filled exceptions: `heartFill`, `likeFill`, `starFill`, `zapFill` — use only when `renderIcon(..., { solid: true })` or the manifest key ends in `Fill` (e.g. liked heart). Do **not** auto-solidify by size.
 
 ### Icon size scale
 
@@ -154,8 +154,8 @@ CSS tokens in `:root` (mirrored in `js/design-tokens.js` as `NLC_ICON_SIZES`):
 
 | Token | Value | Utility class | Role |
 |-------|-------|---------------|------|
-| `--icon-size-xs` | `14px` | `.nlc-icon--xs` | Dense UI (dropdown rows, inline badges, button icons) |
-| `--icon-size-sm` | `18px` | `.nlc-icon--sm` | Compact chrome (plan nav, overlay, login lock) |
+| `--icon-size-xs` | `14px` | `.nlc-icon--xs` | **Deprecated** — stroke icons below `sm` auto-swapped to Fill and read poorly; use `sm` instead |
+| `--icon-size-sm` | `18px` | `.nlc-icon--sm` | Minimum stroke size for dense UI (dropdown rows, stat strip, search, inline badges) |
 | `--icon-size-md` | `22px` | `.nlc-icon--md` | Default chrome (header back, verse toolbar) |
 | `--icon-size-lg` | `24px` | `.nlc-icon--lg` | Floating chapter nav |
 | `--icon-size-nav` | `23px` | `.nlc-icon--nav` | Mobile bottom tab bar only |
@@ -193,8 +193,8 @@ Nav-back chevrons (`.nav-back-chevron`) use stroke-width `2.5` and a 1px optical
 | `#reader-view .floating-nav-btn .nlc-icon` | `touch` |
 | `.stat-bento__icon-wrap .nlc-icon` | `sm` |
 | `.honor-badge-item__icon .nlc-icon` | `md` |
-| `.search-icon-inside .nlc-icon` | `xs` |
-| `.dashboard-stat-strip__icon` | `xs` |
+| `.search-icon-inside .nlc-icon` | `sm` |
+| `.dashboard-stat-strip__icon` | `sm` |
 | `#detail-icon.nlc-icon` | `hero` |
 
 ## PWA bottom navigation

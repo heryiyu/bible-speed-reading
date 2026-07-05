@@ -1589,7 +1589,7 @@ async function renderPlanScheduleTracker(skipCarouselUpdate = false, signal = nu
       </div>
       ${roundLabelHtml}
       <div class="task-arrow">
-        ${typeof renderIcon === "function" ? renderIcon("chevronRight", { size: "xs", className: "nlc-icon" }) : ""}
+        ${typeof renderIcon === "function" ? renderIcon("chevronRight", { size: "sm", className: "nlc-icon" }) : ""}
       </div>
     `;
     const openChapter = () => window.openPlanChapterInReader(ch.book, ch.chapter, state.selectedPlanDay, ch.round || currentRound);
@@ -1605,9 +1605,9 @@ async function renderPlanScheduleTracker(skipCarouselUpdate = false, signal = nu
 }
 
 function getChapterCheckboxState(ch, currentRound) {
-  const ICON_R1 = typeof renderIcon === "function" ? renderIcon("check", { size: "xs", className: "nlc-icon" }) : "";
-  const ICON_R2 = typeof renderIcon === "function" ? renderIcon("zapFill", { size: "xs", className: "nlc-icon" }) : "";
-  const ICON_R3 = typeof renderIcon === "function" ? renderIcon("starFill", { size: "xs", className: "nlc-icon" }) : "";
+  const ICON_R1 = typeof renderIcon === "function" ? renderIcon("check", { size: "sm", className: "nlc-icon" }) : "";
+  const ICON_R2 = typeof renderIcon === "function" ? renderIcon("zap", { size: "sm", className: "nlc-icon" }) : "";
+  const ICON_R3 = typeof renderIcon === "function" ? renderIcon("star", { size: "sm", className: "nlc-icon" }) : "";
 
   if (currentRound === 1) {
     return ch.isReadR1 ? { cssClass: 'checked', content: ICON_R1 } : { cssClass: '', content: '' };

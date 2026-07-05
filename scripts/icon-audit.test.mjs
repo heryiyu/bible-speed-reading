@@ -225,6 +225,31 @@ describe("icon audit", () => {
     expect(hits, hits.join(", ")).toEqual([]);
   });
 
+  it("does not use deprecated nlc-icon--xs in app markup", () => {
+    const hits = [];
+    for (const abs of walk(root)) {
+      const rel = relative(root, abs);
+      if (EXCLUDE.has(rel)) continue;
+      if (!/\.(html|js)$/.test(abs)) continue;
+      if (/nlc-icon--xs/.test(readFileSync(abs, "utf8"))) hits.push(rel);
+    }
+    expect(hits, hits.join(", ")).toEqual([]);
+  });
+
+  it("does not use deprecated xs size in renderIcon calls", () => {
+    const hits = [];
+    const renderSize = /renderIcon\([^)]*size:\s*["']xs["']/g;
+    for (const abs of walk(root)) {
+      const rel = relative(root, abs);
+      if (EXCLUDE.has(rel)) continue;
+      if (!/\.js$/.test(abs)) continue;
+      const content = readFileSync(abs, "utf8");
+      if (renderSize.test(content)) hits.push(rel);
+      renderSize.lastIndex = 0;
+    }
+    expect(hits, hits.join(", ")).toEqual([]);
+  });
+
   it("does not use legacy px selectors for nav-back chevrons", () => {
     const css = readFileSync(join(root, "index.css"), "utf8");
     const hits = findLegacyNavBackSizeSelectors(css);

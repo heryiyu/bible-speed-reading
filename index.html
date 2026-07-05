@@ -122,12 +122,12 @@
               </div>
               <div class="dropdown-divider"></div>
               <button class="dropdown-item" id="btn-avatar-profile">
-                <span class="nlc-icon nlc-icon--xs" data-icon="setting" aria-hidden="true" style="margin-right: 0.4rem;"></span>
+                <span class="nlc-icon nlc-icon--sm" data-icon="setting" aria-hidden="true" style="margin-right: 0.4rem;"></span>
                 帳號設定
               </button>
               <div class="dropdown-divider"></div>
               <button class="dropdown-item logout-btn" id="btn-avatar-logout">
-                <span class="nlc-icon nlc-icon--xs" data-icon="logout" aria-hidden="true" style="margin-right: 0.4rem;"></span>
+                <span class="nlc-icon nlc-icon--sm" data-icon="logout" aria-hidden="true" style="margin-right: 0.4rem;"></span>
                 登出帳號
               </button>
             </div>
@@ -299,7 +299,7 @@
               <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto;">
                 <span style="font-size: 0.75rem; color: var(--text-muted);" id="devotional-word-count">字數: 0 字</span>
                 <button class="primary-btn" id="btn-save-devotional" style="padding: 0.5rem 1.2rem; font-size: 0.85rem; font-weight: 500; display: inline-flex; align-items: center; gap: 0.4rem;">
-                  <span class="nlc-icon nlc-icon--xs" data-icon="save" aria-hidden="true"></span>
+                  <span class="nlc-icon nlc-icon--sm" data-icon="save" aria-hidden="true"></span>
                   儲存心得
                 </button>
               </div>
@@ -551,7 +551,7 @@
               <div class="px-4 py-2 flex items-center justify-between text-xs border-b border-slate-100/50 dark:border-zinc-800/30" style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border-card); font-size: 0.75rem; width: 100%; margin-bottom: 0.8rem; background: rgba(148, 163, 184, 0.05); border-radius: 8px;">
                 <!-- 左側：一鍵回到【我的進度】雷達 -->
                 <button id="go-my-progress-btn" class="flex items-center space-x-1 text-slate-400 hover:text-violet-500 dark:text-zinc-500 dark:hover:text-violet-400 transition-colors font-medium" style="display: flex; align-items: center; gap: 4px; color: var(--text-muted); background: none; border: none; cursor: pointer; font-weight: 500; transition: color 0.2s; padding: 0;" onmouseover="this.style.color='var(--color-brand)'" onmouseout="this.style.color='var(--text-muted)'">
-                  <span class="nlc-icon nlc-icon--xs" data-icon="personBox"></span>
+                  <span class="nlc-icon nlc-icon--sm" data-icon="personBox"></span>
                   <span>↺ 我的進度</span>
                 </button>
 
@@ -567,7 +567,7 @@
                 <!-- 右側：一鍵看【今天進度】雷達 -->
                 <button id="go-today-plan-btn" class="flex items-center space-x-1 text-slate-400 hover:text-emerald-500 dark:text-zinc-500 dark:hover:text-emerald-400 transition-colors font-medium" style="display: flex; align-items: center; gap: 4px; color: var(--text-muted); background: none; border: none; cursor: pointer; font-weight: 500; transition: color 0.2s; padding: 0;" onmouseover="this.style.color='var(--color-success-foreground)'" onmouseout="this.style.color='var(--text-muted)'">
                   <span>今天計畫 ↻</span>
-                  <span class="nlc-icon nlc-icon--xs" data-icon="calendarEvent"></span>
+                  <span class="nlc-icon nlc-icon--sm" data-icon="calendarEvent"></span>
                 </button>
               </div>
 
@@ -1158,7 +1158,7 @@
                 <!-- Search Bar -->
                 <div style="position: relative; display: flex; width: 100%;">
                   <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); display: flex; align-items: center;">
-                    <span class="nlc-icon nlc-icon--xs" data-icon="search" aria-hidden="true"></span>
+                    <span class="nlc-icon nlc-icon--sm" data-icon="search" aria-hidden="true"></span>
                   </span>
                   <input type="text" id="admin-search-user" class="form-control" placeholder="搜尋成員姓名..." style="padding-left: 2.3rem; width: 100%;">
                 </div>
@@ -1320,14 +1320,16 @@
     </div>
 
     <div class="mode-selector-bar bible-nav-sheet__toolbar">
-      <div class="view-mode-container bible-nav-sheet__toggle-group segment-track">
-        <span class="bible-nav-sheet__toggle-label">檢視</span>
-        <button type="button" class="view-mode-btn segment-toggle-btn active" id="view-mode-grid" title="網格" aria-label="網格">
-          <span class="nlc-icon nlc-icon--sm" data-icon="gridFour"></span>
-        </button>
-        <button type="button" class="view-mode-btn segment-toggle-btn" id="view-mode-list" title="清單" aria-label="清單">
-          <span class="nlc-icon nlc-icon--sm" data-icon="unorderedList"></span>
-        </button>
+      <div class="bible-nav-sheet__view-mode">
+        <span class="bible-nav-sheet__toggle-label" id="bible-nav-view-label">檢視</span>
+        <div class="view-mode-container bible-nav-sheet__toggle-group segment-track" role="group" aria-labelledby="bible-nav-view-label">
+          <button type="button" class="view-mode-btn segment-toggle-btn active" id="view-mode-grid" title="網格" aria-label="網格">
+            <span class="nlc-icon nlc-icon--sm" data-icon="gridFour" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="view-mode-btn segment-toggle-btn" id="view-mode-list" title="清單" aria-label="清單">
+            <span class="nlc-icon nlc-icon--sm" data-icon="unorderedList" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
     </div>
 

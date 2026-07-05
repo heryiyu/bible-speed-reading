@@ -496,7 +496,7 @@ function renderProgressListFiltered(searchText) {
     if (isRecentRead) {
       badge.className = "progress-badge completed";
       badge.innerHTML = `
-        ${typeof renderIcon === "function" ? renderIcon("check", { size: "xs", className: "nlc-icon nlc-icon--inline" }) : ""}
+        ${typeof renderIcon === "function" ? renderIcon("check", { size: "sm", className: "nlc-icon nlc-icon--inline" }) : ""}
         今日已讀
       `;
     } else {
