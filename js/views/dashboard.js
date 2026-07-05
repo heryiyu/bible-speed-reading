@@ -1693,18 +1693,18 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
     noteComments.forEach(comm => {
       const commProfile = profileMap[comm.user_id] || { name: "未知組員" };
       commentsHtml += `
-        <div class="text-[11px] bg-slate-500/5 dark:bg-zinc-950/20 p-2 rounded-xl border border-slate-500/[0.05] dark:border-zinc-800/[0.05]">
+        <div class="text-[11px] bg-slate-100/50 dark:bg-zinc-950/40 p-2.5 rounded-xl border border-slate-200/60 dark:border-zinc-800/40 shadow-sm">
           <div class="flex items-center justify-between mb-1">
-            <span class="font-bold text-slate-800 dark:text-zinc-200">${commProfile.name}</span>
-            <span class="text-[9px] text-slate-400 dark:text-zinc-500">${new Date(comm.created_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span class="font-bold text-slate-900 dark:text-zinc-100">${commProfile.name}</span>
+            <span class="text-[9px] text-slate-500 dark:text-zinc-400">${new Date(comm.created_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
-          <p class="m-0 text-slate-700 dark:text-zinc-300 leading-normal font-sans">${comm.content}</p>
+          <p class="m-0 text-slate-800 dark:text-zinc-200 leading-normal font-sans">${comm.content}</p>
         </div>
       `;
     });
 
     const card = document.createElement("div");
-    card.className = "p-5 rounded-3xl bg-gradient-to-br from-slate-500/5 to-slate-500/[0.02] dark:from-zinc-950/20 dark:to-zinc-950/5 backdrop-blur-xl border border-slate-500/10 dark:border-zinc-800/10 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-500 ease-out";
+    card.className = "p-5 rounded-3xl bg-white dark:bg-zinc-900/40 backdrop-blur-xl border border-slate-200/80 dark:border-zinc-800/30 shadow-[0_8px_30px_rgb(15,23,42,0.03)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] hover:shadow-[0_8px_30px_rgb(15,23,42,0.06)] hover:-translate-y-1 transition-all duration-500 ease-out";
     
     card.innerHTML = `
       <!-- User profile header -->
@@ -1715,12 +1715,12 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
             ${initial}
           </div>
           <div class="flex flex-col">
-            <span class="text-xs font-semibold text-slate-800 dark:text-zinc-200">${profile.name}</span>
-            <span class="text-[9px] text-slate-400 dark:text-zinc-500 mt-0.5">${profile.small_group || "小組"}</span>
+            <span class="text-xs font-bold text-slate-900 dark:text-zinc-100">${profile.name}</span>
+            <span class="text-[9px] text-slate-500 dark:text-zinc-400 mt-0.5">${profile.small_group || "小組"}</span>
           </div>
         </div>
         <!-- Time badge -->
-        <span class="text-[9px] text-slate-400 dark:text-zinc-500 bg-slate-500/5 dark:bg-zinc-800/20 px-2.5 py-1 rounded-full font-medium">${timeStr}</span>
+        <span class="text-[9px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/40 px-2.5 py-1 rounded-full font-medium">${timeStr}</span>
       </div>
 
       <!-- Golden verse content quotes (highly readable contrast) -->
@@ -1731,7 +1731,7 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
       </div>
 
       <!-- Footer social actions -->
-      <div class="flex items-center justify-start space-x-6 mt-4 pt-3 border-t border-slate-500/5 dark:border-zinc-800/5 text-slate-400 dark:text-zinc-500">
+      <div class="flex items-center justify-start space-x-6 mt-4 pt-3 border-t border-slate-200/40 dark:border-zinc-850/10 text-slate-400 dark:text-zinc-500">
         <button type="button" class="flex items-center space-x-1.5 hover:text-rose-500 transition-colors duration-250 bg-transparent border-0 cursor-pointer p-0 text-[11px] ${hasLiked ? 'text-rose-500' : ''}" onclick="window.toggleDevotionalLike('${note.id}')">
           <span class="nlc-icon nlc-icon--sm" data-icon="${hasLiked ? 'heartFill' : 'heart'}" style="width: 14px; height: 14px;"></span>
           <span class="font-bold text-[10px]">${noteLikes.length > 0 ? noteLikes.length + ' ' : ''}讚</span>
@@ -1743,12 +1743,12 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
       </div>
 
       <!-- Comments Thread Panel -->
-      <div id="comments-section-${note.id}" class="hidden mt-3 pt-3 border-t border-slate-500/5 dark:border-zinc-800/5">
+      <div id="comments-section-${note.id}" class="hidden mt-3 pt-3 border-t border-slate-200/40 dark:border-zinc-850/10">
         <div id="comments-list-${note.id}" class="space-y-2.5 mb-3">
           ${commentsHtml || '<div class="text-[10px] text-slate-400 dark:text-zinc-500 text-center py-2">尚無回覆，快來寫下第一個回覆吧！</div>'}
         </div>
         <div class="flex items-center space-x-2">
-          <input type="text" id="comment-input-${note.id}" placeholder="寫下你的回覆..." class="flex-1 text-xs px-3 py-1.5 rounded-full border border-slate-500/10 dark:border-zinc-800/10 bg-slate-500/5 dark:bg-zinc-950/20 text-slate-800 dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-violet-500">
+          <input type="text" id="comment-input-${note.id}" placeholder="寫下你的回覆..." class="flex-1 text-xs px-3 py-1.5 rounded-full border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/40 text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 shadow-inner">
           <button type="button" class="px-3 py-1.5 bg-violet-500 hover:bg-violet-600 text-white rounded-full text-[10px] font-bold border-0 cursor-pointer" onclick="window.submitDevotionalComment('${note.id}')">發送</button>
         </div>
       </div>
