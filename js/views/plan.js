@@ -1730,8 +1730,8 @@ window.toggleYouVersionChapter = function (checkboxEl, book, chapter, taskRound 
 function renderPlanLevelEditor() {
   const currentLevel = state.activePlan ? (state.activePlan.level || "normal") : "normal";
 
-  // 💡 關鍵修復：直接從計畫各章節的打卡狀態（R2, R3）計算實際已讀的最大遍數，避免與 raw logs 型態不合
-  let maxReadRound = 1;
+  // 💡 關鍵修復：直接從計畫各章節的打卡狀態（R2, R3）計算實際已讀的最大遍數，並加上當前遍數防護
+  let maxReadRound = state.activePlan ? (state.activePlan.currentRound || 1) : 1;
   if (state.activePlan && state.activePlan.days) {
     state.activePlan.days.forEach(day => {
       if (day.chapters) {
@@ -2017,8 +2017,8 @@ window.changePlanLevel = async function (newLevel) {
 
   const currentLevel = state.activePlan.level || "normal";
 
-  // 💡 關鍵修復：直接從計畫各章節的打卡狀態（R2, R3）計算實際已讀的最大遍數
-  let maxReadRound = 1;
+  // 💡 關鍵修復：直接從計畫各章節的打卡狀態（R2, R3）與當前遍數計算最大遍數
+  let maxReadRound = state.activePlan ? (state.activePlan.currentRound || 1) : 1;
   if (state.activePlan && state.activePlan.days) {
     state.activePlan.days.forEach(day => {
       if (day.chapters) {
