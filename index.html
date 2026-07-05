@@ -1303,35 +1303,35 @@
   </div>
 
   <!-- Bible Navigation Shell (Full-Page Overlay) -->
-  <div class="full-page-overlay hidden" id="bible-nav-overlay" aria-hidden="true">
-    <header class="overlay-header bible-native-overlay-header">
-      <button type="button" class="overlay-back-btn" id="bible-nav-back-btn" aria-label="&#x8FD4;&#x56DE;">
+  <div class="full-page-overlay bible-nav-sheet hidden" id="bible-nav-overlay" aria-hidden="true">
+    <header class="overlay-header bible-native-overlay-header bible-nav-sheet__header">
+      <button type="button" class="overlay-back-btn bible-nav-sheet__back" id="bible-nav-back-btn" aria-label="&#x8FD4;&#x56DE;">
         <span class="nlc-icon nlc-icon--md nav-back-chevron" data-icon="chevronLeft" aria-hidden="true"></span>
         <span>&#x8FD4;&#x56DE;</span>
       </button>
-      <div class="overlay-title" id="bible-nav-title">&#x76EE;&#x9304;</div>
-      <button type="button" class="overlay-version" id="bible-nav-version-badge">CUNP</button>
+      <div class="overlay-title bible-nav-sheet__title" id="bible-nav-title">&#x76EE;&#x9304;</div>
+      <button type="button" class="overlay-version bible-nav-sheet__badge" id="bible-nav-version-badge">CUNP</button>
     </header>
 
-    <div class="segmented-control bible-native-tabs" role="tablist" aria-label="&#x8056;&#x7D93;&#x5C0E;&#x89BD;">
+    <div class="segmented-control bible-native-tabs bible-nav-sheet__tabs" role="tablist" aria-label="&#x8056;&#x7D93;&#x5C0E;&#x89BD;">
       <button type="button" class="segmented-tab active" data-tab="book" role="tab">&#x5377;</button>
       <button type="button" class="segmented-tab" data-tab="chapter" role="tab">&#x7AE0;</button>
       <button type="button" class="segmented-tab" data-tab="verse" role="tab">&#x7BC0;</button>
     </div>
 
-    <div class="mode-selector-bar">
-      <div class="view-mode-container">
-        <span>&#x6AA2;&#x8996;</span>
+    <div class="mode-selector-bar bible-nav-sheet__toolbar">
+      <div class="view-mode-container bible-nav-sheet__toggle-group">
+        <span class="bible-nav-sheet__toggle-label">&#x6AA2;&#x8996;</span>
         <button type="button" class="view-mode-btn active" id="view-mode-grid" title="&#x7DB2;&#x683C;" aria-label="&#x7DB2;&#x683C;">
-          <span class="nlc-icon" data-icon="gridFour"></span>
+          <span class="nlc-icon nlc-icon--sm" data-icon="gridFour"></span>
         </button>
         <button type="button" class="view-mode-btn" id="view-mode-list" title="&#x6E05;&#x55AE;" aria-label="&#x6E05;&#x55AE;">
-          <span class="nlc-icon" data-icon="unorderedList"></span>
+          <span class="nlc-icon nlc-icon--sm" data-icon="unorderedList"></span>
         </button>
       </div>
     </div>
 
-    <div class="overlay-scroll-content" id="bible-nav-content"></div>
+    <div class="overlay-scroll-content bible-nav-sheet__body" id="bible-nav-content"></div>
   </div>
 
   <!-- Global Search Layer (Full-Page Overlay) -->

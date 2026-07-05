@@ -1,8 +1,9 @@
 name: CI
 
 # Vercel auto-deploy is disabled in vercel.json (git.deploymentEnabled: false).
-# Deployments run here only after build-and-test succeeds.
-# Required GitHub secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+# CI deploy jobs are temporarily paused until VERCEL_TOKEN, VERCEL_ORG_ID, and
+# VERCEL_PROJECT_ID are configured in GitHub secrets. Re-enable by restoring
+# the deploy job `if:` conditions below.
 
 on:
   pull_request:
@@ -42,7 +43,7 @@ jobs:
 
   deploy-production:
     needs: build-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: false # paused: restore `github.event_name == 'push' && github.ref == 'refs/heads/main'` when Vercel secrets exist
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-production
@@ -72,7 +73,7 @@ jobs:
 
   deploy-preview:
     needs: build-and-test
-    if: github.event_name == 'pull_request'
+    if: false # paused: restore `github.event_name == 'pull_request'` when Vercel secrets exist
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-preview-${{ github.event.pull_request.number }}
