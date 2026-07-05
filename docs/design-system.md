@@ -143,6 +143,7 @@ NLC_MEMBER_COLORS    // avatar / trail palette
 - Registry: `js/icon-manifest.json` → build generates `js/icon-registry.js` (`window.NLC_ICON_SVGS`).
 - Runtime: `js/icons.js` — `renderIcon(key)`, `iconLabel(key, text)`, `hydrateIcons(root)`.
 - Markup: `<span class="nlc-icon" data-icon="fire" aria-hidden="true"></span>`; no inline SVG in app UI (except third-party brand marks, e.g. Google sign-in).
+- **Icon glyphs are always transparent** — never put `background` on `.nlc-icon`, `.honor-badge-item__icon`, or other raw icon slots. Subtle tinted chips belong only on optional wrappers (e.g. `.stat-bento__icon-wrap`, `.stat-icon-wrapper`).
 - **Icon stroke colors must be 100% opaque** — use `--color-icon-*` tokens on `.nlc-icon` or wrappers, not `--text-muted` / `--text-secondary` (which are rgba and cause path bleed on complex SVGs).
 - Parent text may stay muted; set explicit icon color on `.nlc-icon` (mobile nav, honor badges, search icons, stat icon wraps).
 - Filled exceptions: `heartFill`, `likeFill`, `starFill`, `zapFill` are generated with `fill="currentColor"` for active states.

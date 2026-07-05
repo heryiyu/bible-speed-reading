@@ -88,4 +88,12 @@ describe("icon audit", () => {
     const hits = findInlineSvgHits();
     expect(hits, hits.join(", ")).toEqual([]);
   });
+
+  it("nlc-icon base rules keep glyph backgrounds transparent", () => {
+    const css = readFileSync(join(root, "index.css"), "utf8");
+    const block = css.match(/\/\* Lucide icons[\s\S]*?\.search-icon-inside/);
+    expect(block).toBeTruthy();
+    expect(block[0]).toMatch(/\.nlc-icon\s*\{[\s\S]*?background:\s*transparent/);
+    expect(block[0]).toMatch(/\.nlc-icon svg\s*\{[\s\S]*?background:\s*transparent/);
+  });
 });
