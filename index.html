@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>新生命聖經速讀計畫</title>
   <!-- PWA Manifest & Mobile Meta -->
   <link rel="manifest" href="manifest.json">
@@ -649,62 +649,62 @@
                 
                 <!-- 卡片 1 - 累積閱讀章數 (核心主卡，橫跨兩欄) -->
                 <div class="col-span-2 bento-card stat-card--primary" style="grid-column: span 2 / span 2;">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-black tracking-tight text-slate-800 dark:text-neutral-100" style="font-size: 2.25rem; line-height: 1;">
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value stat-bento__value--hero">
                       <span id="report-stat-total-chapters">0</span>
-                      <span class="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-0.5">章</span>
+                      <span class="stat-bento__unit">章</span>
                     </div>
-                    <i class="bi bi-book-half" style="font-size: 1.25rem; color: var(--color-brand);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--brand stat-bento__icon-wrap--hero"><i class="bi bi-book-half" aria-hidden="true"></i></span>
                   </div>
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;">累積閱讀章數</span>
+                  <span class="stat-bento__label">累積閱讀章數</span>
                 </div>
 
                 <!-- 卡片 2 - 最高連續 -->
                 <div class="bento-card">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-black tracking-tight text-slate-800 dark:text-neutral-100" style="font-size: 1.75rem; line-height: 1;">
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value">
                       <span id="report-stat-streak">0</span>
-                      <span class="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-0.5">天</span>
+                      <span class="stat-bento__unit">天</span>
                     </div>
-                    <i class="bi bi-fire" style="font-size: 1.15rem; color: var(--color-warning);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--warning"><i class="bi bi-fire" aria-hidden="true"></i></span>
                   </div>
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;">最高連續</span>
+                  <span class="stat-bento__label">最高連續</span>
                 </div>
 
                 <!-- 卡片 3 - 累計完成 -->
                 <div class="bento-card">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-black tracking-tight text-slate-800 dark:text-neutral-100" style="font-size: 1.75rem; line-height: 1;">
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value">
                       <span id="report-stat-completed">0</span>
-                      <span class="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-0.5">天</span>
+                      <span class="stat-bento__unit">天</span>
                     </div>
-                    <i class="bi bi-calendar-check" style="font-size: 1.15rem; color: var(--color-success);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--success"><i class="bi bi-calendar-check" aria-hidden="true"></i></span>
                   </div>
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;">累計完成</span>
+                  <span class="stat-bento__label">累計完成</span>
                   <span id="report-stat-start-date" class="hidden" style="display: none;"></span>
                 </div>
 
                 <!-- 卡片 4 - 進度狀態 -->
                 <div class="bento-card">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-medium text-slate-800 dark:text-neutral-100" style="font-size: 0.85rem; line-height: 1;">
-                      <span id="report-stat-progress-status" class="px-2 py-0.5 rounded-full bg-slate-200/50 dark:bg-zinc-800/60 font-semibold" style="font-size: 0.75rem; display: inline-block;">第 2 遍</span>
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value stat-bento__value--status">
+                      <span id="report-stat-progress-status" class="stat-badge stat-badge--brand">進度一致</span>
                     </div>
-                    <i class="bi bi-arrow-repeat" style="font-size: 1.15rem; color: var(--color-brand);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--brand"><i class="bi bi-arrow-repeat" aria-hidden="true"></i></span>
                   </div>
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;">進度狀態</span>
+                  <span class="stat-bento__label">進度狀態</span>
                 </div>
 
                 <!-- 卡片 5 - 補讀天數 -->
-                <div class="bento-card">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-black tracking-tight" style="font-size: 1.75rem; line-height: 1; color: var(--color-danger);">
+                <div class="bento-card" id="report-stat-makeup-card">
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value stat-bento__value--danger">
                       <span id="report-stat-makeup">0</span>
-                      <span class="text-xs font-semibold ml-0.5" style="color: var(--color-danger);">天</span>
+                      <span class="stat-bento__unit">天</span>
                     </div>
-                    <i class="bi bi-hourglass-split" style="font-size: 1.15rem; color: var(--color-danger);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--danger stat-bento__icon-wrap--danger-only"><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
                   </div>
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;">補讀天數</span>
+                  <span class="stat-bento__label">補讀天數</span>
                 </div>
 
               </div>
@@ -717,11 +717,13 @@
                   <!-- Generated dynamically -->
                 </div>
                 
-                <div class="flex items-center space-x-1 text-[10px] text-slate-400 justify-end mt-2" style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; color: #94a3b8; margin-top: 0.5rem;">
+                <div class="heatmap-legend">
                   <span>少</span>
-                  <span style="width: 10px; height: 10px; border-radius: 2px; background: var(--color-brand-muted);"></span>
-                  <span style="width: 10px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--color-brand) 50%, transparent);"></span>
-                  <span style="width: 10px; height: 10px; border-radius: 2px; background: var(--color-brand);"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--0"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--1"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--2"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--3"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--4"></span>
                   <span>多</span>
                 </div>
               </div>
@@ -753,70 +755,70 @@
                 
                 <!-- 卡片 1 - 總閱讀章數 (核心主卡，橫跨兩欄) -->
                 <div class="col-span-2 bento-card stat-card--primary" style="grid-column: span 2 / span 2;">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-black tracking-tight text-slate-800 dark:text-neutral-100" style="font-size: 2.25rem; line-height: 1;">
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value stat-bento__value--hero">
                       <span id="grp-total-read">0</span>
-                      <span class="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-0.5">章</span>
+                      <span class="stat-bento__unit">章</span>
                     </div>
-                    <i class="bi bi-people-fill" style="font-size: 1.25rem; color: var(--color-brand);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--brand stat-bento__icon-wrap--hero"><i class="bi bi-people-fill" aria-hidden="true"></i></span>
                   </div>
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;" id="grp-label-total-read">總閱讀章數</span>
+                  <span class="stat-bento__label" id="grp-label-total-read">總閱讀章數</span>
                 </div>
 
                 <!-- 卡片 2 - 參與人數 -->
                 <div class="bento-card">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-black tracking-tight text-slate-800 dark:text-neutral-100" style="font-size: 1.75rem; line-height: 1;">
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value">
                       <span id="grp-total-members">0</span>
-                      <span class="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-0.5">人</span>
+                      <span class="stat-bento__unit">人</span>
                     </div>
-                    <i class="bi bi-people" style="font-size: 1.15rem; color: var(--color-success);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--success"><i class="bi bi-people" aria-hidden="true"></i></span>
                   </div>
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;" id="grp-label-members">參與人數</span>
+                  <span class="stat-bento__label" id="grp-label-members">參與人數</span>
                 </div>
 
                 <!-- 卡片 3 - 每日活躍 -->
                 <div class="bento-card">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-black tracking-tight text-slate-800 dark:text-neutral-100" style="font-size: 1.75rem; line-height: 1;">
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value">
                       <span id="grp-active-members">0</span>
-                      <span class="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-0.5">人</span>
+                      <span class="stat-bento__unit">人</span>
                     </div>
-                    <i class="bi bi-lightning-charge" style="font-size: 1.15rem; color: var(--color-warning);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--warning"><i class="bi bi-lightning-charge" aria-hidden="true"></i></span>
                   </div>
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;" id="grp-label-active">每日活躍</span>
+                  <span class="stat-bento__label" id="grp-label-active">每日活躍</span>
                 </div>
 
                 <!-- 卡片 4 - 今日完成% -->
                 <div class="bento-card">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-black tracking-tight text-slate-800 dark:text-neutral-100" style="font-size: 1.75rem; line-height: 1;">
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value">
                       <span id="grp-today-rate">0</span>
-                      <span class="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-0.5">%</span>
+                      <span class="stat-bento__unit">%</span>
                     </div>
-                    <i class="bi bi-check-circle" style="font-size: 1.15rem; color: var(--color-brand);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--brand"><i class="bi bi-check-circle" aria-hidden="true"></i></span>
                   </div>
                   
                   <!-- 三色進度條 -->
-                  <div class="w-full bg-slate-100 dark:bg-neutral-850 rounded-full flex overflow-hidden mt-1.5" style="display: flex; height: 6px; border-radius: 9999px; overflow: hidden; background-color: rgba(148,163,184,0.12);">
-                    <div id="grp-today-bar-behind" class="bg-rose-400 h-full" style="width: 0%" title="落後"></div>
-                    <div id="grp-today-bar-on-schedule" class="bg-sky-400 h-full" style="width: 0%" title="在進度上"></div>
-                    <div id="grp-today-bar-ahead" class="bg-emerald-400 h-full" style="width: 0%" title="超前"></div>
+                  <div class="progress-segment-track">
+                    <div id="grp-today-bar-behind" class="progress-segment--behind" style="width: 0%" title="落後"></div>
+                    <div id="grp-today-bar-on-schedule" class="progress-segment--on-schedule" style="width: 0%" title="在進度上"></div>
+                    <div id="grp-today-bar-ahead" class="progress-segment--ahead" style="width: 0%" title="超前"></div>
                   </div>
                   
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;">今日完成 %</span>
+                  <span class="stat-bento__label">今日完成 %</span>
                 </div>
 
                 <!-- 卡片 5 - 複讀人數 -->
                 <div class="bento-card">
-                  <div class="flex items-center justify-between w-full">
-                    <div class="font-black tracking-tight text-slate-800 dark:text-neutral-100" style="font-size: 1.75rem; line-height: 1;">
+                  <div class="stat-bento__row">
+                    <div class="stat-bento__value">
                       <span id="grp-reread-count">0</span>
-                      <span class="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-0.5">人</span>
+                      <span class="stat-bento__unit">人</span>
                     </div>
-                    <i class="bi bi-arrow-repeat" style="font-size: 1.15rem; color: var(--color-brand);"></i>
+                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--brand"><i class="bi bi-arrow-repeat" aria-hidden="true"></i></span>
                   </div>
-                  <span class="text-xs font-medium text-slate-400 dark:text-zinc-400" style="margin-top: 0.35rem;">複讀人數</span>
+                  <span class="stat-bento__label">複讀人數</span>
                 </div>
 
               </div>
@@ -852,11 +854,13 @@
                   <!-- Generated dynamically -->
                 </div>
                 
-                <div class="flex items-center space-x-1 text-[10px] text-slate-400 justify-end mt-2" style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; color: #94a3b8; margin-top: 0.5rem;">
+                <div class="heatmap-legend">
                   <span>少</span>
-                  <span style="width: 10px; height: 10px; border-radius: 2px; background: var(--color-brand-muted);"></span>
-                  <span style="width: 10px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--color-brand) 50%, transparent);"></span>
-                  <span style="width: 10px; height: 10px; border-radius: 2px; background: var(--color-brand);"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--0"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--1"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--2"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--3"></span>
+                  <span class="heatmap-legend__swatch heatmap-legend__swatch--4"></span>
                   <span>多</span>
                 </div>
               </div>
@@ -1003,7 +1007,7 @@
               </div>
 
               <!-- Button to toggle the form -->
-              <button class="secondary-btn w-full" id="btn-toggle-profile-form" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; border: 1px solid var(--border-card); background: transparent; padding: 0.6rem 1rem; border-radius: var(--radius-sm); font-weight: 500; color: var(--text-primary); cursor: pointer; transition: var(--transition-smooth);">
+              <button class="secondary-btn w-full" id="btn-toggle-profile-form">
                 <span class="btn-with-icon"><i class="bi bi-pencil" aria-hidden="true"></i><span>編輯個人檔案</span></span>
               </button>
 
@@ -1072,11 +1076,11 @@
 
           <!-- Honor Badges Wall Card -->
           <div class="card-col span-12" id="profile-badges-card-col" style="margin-top: 1rem;">
-            <div class="w-full rounded-2xl p-5 bg-slate-50 border border-slate-200 dark:bg-zinc-900/60 dark:border-zinc-800 transition-colors duration-300" id="profile-badges-inner-card" style="border-radius: 1rem; padding: 1.25rem;">
+            <div class="profile-badges-card" id="profile-badges-inner-card">
               <h3 class="card-title" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
                 <span class="label-with-icon"><i class="bi bi-trophy" aria-hidden="true"></i><span>我的榮譽徽章</span></span>
               </h3>
-              <div class="grid grid-cols-3 gap-y-6 gap-x-4 mt-4" id="badges-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; width: 100%;">
+              <div id="badges-grid">
                 <!-- Dynamically populated -->
               </div>
             </div>
@@ -1193,24 +1197,24 @@
     </footer>
 
     <!-- Mobile Navigation Bar -->
-    <nav class="mobile-nav-bar">
-      <button class="mobile-nav-btn active" data-target="dashboard-view">
+    <nav class="mobile-nav-bar" role="tablist" aria-label="主要導覽">
+      <button class="mobile-nav-btn active" role="tab" aria-selected="true" aria-current="page" data-target="dashboard-view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg>
         <span>&#x9996;&#x9801;</span>
       </button>
-      <button class="mobile-nav-btn" data-target="reader-view">
+      <button class="mobile-nav-btn" role="tab" aria-selected="false" data-target="reader-view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
         <span>&#x8B80;&#x7D93;</span>
       </button>
-      <button class="mobile-nav-btn" data-target="plan-view">
+      <button class="mobile-nav-btn" role="tab" aria-selected="false" data-target="plan-view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect x="3" y="4" width="18" height="18" rx="3"></rect><path d="M3 10h18"></path><path d="m8 15 2 2 4-4"></path></svg>
         <span>&#x8A08;&#x756B;</span>
       </button>
-      <button class="mobile-nav-btn" data-target="profile-view">
+      <button class="mobile-nav-btn" role="tab" aria-selected="false" data-target="profile-view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="icon"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>
         <span>&#x500B;&#x4EBA;</span>
       </button>
-      <button class="mobile-nav-btn admin-only-nav hidden" data-target="admin-view">
+      <button class="mobile-nav-btn admin-only-nav hidden" role="tab" aria-selected="false" data-target="admin-view">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
         <span>&#x7BA1;&#x7406;</span>
       </button>
@@ -1431,6 +1435,7 @@
 
   <script src="js/copy/zh-Hant.js"></script>
   <script src="js/design-tokens.js"></script>
+  <script src="js/design-system-helpers.js"></script>
   <script src="js/state.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/views/plan.js"></script>

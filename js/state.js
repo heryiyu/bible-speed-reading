@@ -169,6 +169,7 @@ const appRouter = {
     const mobileNavBar = document.querySelector(".mobile-nav-bar");
     if (mobileNavBar) {
       mobileNavBar.classList.toggle("hidden", isReaderPage);
+      mobileNavBar.setAttribute("aria-hidden", isReaderPage ? "true" : "false");
     }
     if (!backBtn || !backLabel) return;
 
@@ -249,10 +250,16 @@ const appRouter = {
     
     // Update Active Nav Buttons (both desktop and mobile)
     document.querySelectorAll(".tab-btn, .mobile-nav-btn").forEach(btn => {
-      if (btn.getAttribute("data-target") === tabId) {
-        btn.classList.add("active");
-      } else {
-        btn.classList.remove("active");
+      const target = btn.getAttribute("data-target");
+      const isActive = target === tabId;
+      btn.classList.toggle("active", isActive);
+      if (btn.classList.contains("mobile-nav-btn")) {
+        btn.setAttribute("aria-selected", isActive ? "true" : "false");
+        if (isActive) {
+          btn.setAttribute("aria-current", "page");
+        } else {
+          btn.removeAttribute("aria-current");
+        }
       }
     });
 

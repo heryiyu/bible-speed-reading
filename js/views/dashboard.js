@@ -75,8 +75,8 @@ function updateDashboardView() {
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
           <h4 style="font-size: 1.15rem; font-weight: 500; color: var(--text-primary); margin: 0;">${state.activePlan.name}</h4>
           ${started 
-            ? '<span style="font-size: 0.7rem; background: #10b981; color: white; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 500; white-space: nowrap;">進行中</span>'
-            : '<span style="font-size: 0.7rem; background: #3b82f6; color: white; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 500; white-space: nowrap;">等待開始</span>'
+            ? '<span class="stat-badge stat-badge--success">進行中</span>'
+            : '<span class="stat-badge stat-badge--brand">等待開始</span>'
           }
         </div>
         <p style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 0.2rem;">
@@ -89,26 +89,28 @@ function updateDashboardView() {
           ${statusText}
         </p>
 
-        <!-- 第一線首頁常駐卡片 (簡短核心，橫向 Flex 佈局) -->
-        <div class="dashboard-stats-strip" 
+        <div class="dashboard-stat-strip"
              onclick="event.stopPropagation(); window.showPlanStatsModal ? window.showPlanStatsModal() : null;"
-             style="display: flex; justify-content: space-around; background: var(--color-brand-muted, rgba(4,169,210,0.08)); border: 1px solid var(--border-card); border-radius: 12px; padding: 0.8rem 0.5rem; cursor: pointer; transition: transform 0.2s, background-color 0.2s;"
-             onmouseover="this.style.background='var(--color-brand-subtle, rgba(4,169,210,0.12))'; this.style.transform='scale(1.01)';"
-             onmouseout="this.style.background='var(--color-brand-muted, rgba(4,169,210,0.08))'; this.style.transform='scale(1)';"
              title="點擊展開詳細統計">
-          <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; min-width: 0;">
-            <span style="font-size: 1.15rem; font-weight: 500; color: #ef4444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">🔥 ${streakDays} 天</span>
-            <span style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">連續讀經</span>
+          <div class="dashboard-stat-strip__item">
+            <span class="dashboard-stat-strip__value dashboard-stat-strip__value--warning">
+              <i class="bi bi-fire dashboard-stat-strip__icon" aria-hidden="true"></i>${streakDays} 天
+            </span>
+            <span class="dashboard-stat-strip__label">連續讀經</span>
           </div>
-          <div style="width: 1px; background: var(--border-card); align-self: stretch;"></div>
-          <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; min-width: 0;">
-            <span style="font-size: 1.15rem; font-weight: 500; color: var(--primary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">📖 ${todayReadCount}/${todayTotalCount} 章</span>
-            <span style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">今日進度</span>
+          <div class="dashboard-stat-strip__divider"></div>
+          <div class="dashboard-stat-strip__item">
+            <span class="dashboard-stat-strip__value dashboard-stat-strip__value--brand">
+              <i class="bi bi-book-half dashboard-stat-strip__icon" aria-hidden="true"></i>${todayReadCount}/${todayTotalCount} 章
+            </span>
+            <span class="dashboard-stat-strip__label">今日進度</span>
           </div>
-          <div style="width: 1px; background: var(--border-card); align-self: stretch;"></div>
-          <div style="display: flex; flex-direction: column; align-items: center; text-align: center; flex: 1; min-width: 0;">
-            <span style="font-size: 1.15rem; font-weight: 500; color: #10b981; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">📈 ${totalCompletionRate}%</span>
-            <span style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">計畫進度</span>
+          <div class="dashboard-stat-strip__divider"></div>
+          <div class="dashboard-stat-strip__item">
+            <span class="dashboard-stat-strip__value dashboard-stat-strip__value--success">
+              <i class="bi bi-graph-up-arrow dashboard-stat-strip__icon" aria-hidden="true"></i>${totalCompletionRate}%
+            </span>
+            <span class="dashboard-stat-strip__label">計畫進度</span>
           </div>
         </div>
       </div>

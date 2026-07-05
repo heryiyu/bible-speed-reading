@@ -35,12 +35,12 @@ describe("resolveLocalAssets", () => {
     expect(resolveLocalAssets(`<script src="js/a.js"></script>`).stylesheet).toBeNull();
   });
 
-  it("resolves the real index.html to the exact 16-file order", () => {
+  it("resolves the real index.html to the exact 17-file order", () => {
     const html = readFileSync(join(root, "index.html"), "utf8");
     const { scripts } = resolveLocalAssets(html);
     expect(scripts).toEqual([
       "config.js", "js/data/bible_data.js", "js/data/bible_verse_counts.js",
-      "js/copy/zh-Hant.js", "js/design-tokens.js", "js/state.js", "js/auth.js",
+      "js/copy/zh-Hant.js", "js/design-tokens.js", "js/design-system-helpers.js", "js/state.js", "js/auth.js",
       "js/views/plan.js", "js/db.js", "js/utils.js", "js/gamification.js",
       "js/views/dashboard.js", "js/views/reader.js", "js/views/stats.js",
       "js/views/profile.js", "js/main.js",

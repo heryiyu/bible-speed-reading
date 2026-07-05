@@ -114,6 +114,26 @@ NLC_MEMBER_COLORS    // avatar / trail palette
 - Loading skeleton shimmer and progress-bar shine animations use neutral/white gradients (not brand chrome).
 - Plan cover photo overlays use dark scrim gradients for text legibility.
 
+## Shared component classes (vanilla shadcn-inspired)
+
+| Pattern | Classes |
+|---------|---------|
+| Stat bento cell | `.stat-bento__row`, `.stat-bento__value`, `.stat-bento__label`, `.stat-bento__icon-wrap--{brand,success,warning,danger,neutral}` |
+| Status badge | `.stat-badge`, `.stat-badge--{brand,success,warning,danger,neutral}` |
+| Dashboard strip | `.dashboard-stat-strip`, `.dashboard-stat-strip__item`, `.dashboard-stat-strip__value--{brand,success,warning}` |
+| Profile badges card | `.profile-badges-card`, `.honor-badge-item.unlocked` / `.locked` |
+| Heatmap intensity | `--heatmap-level-0` … `--heatmap-level-4` (brand monochrome ramp) |
+| Group progress | `.progress-segment-track`, `.progress-segment--{behind,on-schedule,ahead}` |
+
+**Rules:** no emoji in data UI (Bootstrap Icons only); JS toggles modifier classes, not inline hex colors; theme via `body.dark-theme` / `body.warm-theme` CSS selectors.
+
+## PWA bottom navigation
+
+- Fixed bar: `.mobile-nav-bar` with `env(safe-area-inset-bottom)` padding and `viewport-fit=cover`.
+- Active tab: brand color + `--color-brand-subtle` pill (`.mobile-nav-btn.active`).
+- Accessibility: `role="tablist"`, `role="tab"`, `aria-selected`, `aria-current="page"` synced in `switchTab()`.
+- Reader mode: bar hidden with `aria-hidden="true"`; main content bottom inset removed.
+
 ## Satellite wayfinding
 
 - Header brand: `assets/bible-reading-icon.svg`

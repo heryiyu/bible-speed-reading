@@ -1126,33 +1126,10 @@ function getExpectedPlanDayCount(plan = state.activePlan, now = new Date()) {
 }
 
 function getPlanProgressStatus(plan = state.activePlan) {
-  if (!plan || !plan.days || plan.days.length === 0) {
-    return { label: "進度一致", color: "var(--text-primary)", bg: "var(--color-brand-muted, rgba(4,169,210,0.08))", diff: 0 };
+  if (typeof getPlanProgressStatusFromDesignSystem === "function") {
+    return getPlanProgressStatusFromDesignSystem(plan);
   }
-
-  const currentRound = plan.currentRound || 1;
-  if (currentRound > 1 || plan.isPlanCompleted) {
-    return {
-      label: "第" + currentRound + "遍",
-      color: currentRound === 2 ? "#04A9D2" : "#FE7615",
-      bg: currentRound === 2 ? "rgba(4, 169, 210, 0.15)" : "rgba(254, 118, 21, 0.15)",
-      diff: 0
-    };
-  }
-
-  const nextDay = getNextReadingPlanDay(plan);
-  const nextDayNum = nextDay ? Number(nextDay.dayNum || 1) : 1;
-  const completedBeforeNext = Math.max(0, nextDayNum - 1);
-  const expectedDays = getExpectedPlanDayCount(plan);
-  const diff = completedBeforeNext - expectedDays;
-
-  if (diff > 0) {
-    return { label: "超前 " + diff + "天", color: "#10b981", bg: "rgba(16, 185, 129, 0.15)", diff };
-  }
-  if (diff < 0) {
-    return { label: "落後 " + Math.abs(diff) + "天", color: "#ef4444", bg: "rgba(239, 68, 68, 0.15)", diff };
-  }
-  return { label: "進度一致", color: "var(--text-primary)", bg: "var(--color-brand-muted, rgba(4,169,210,0.08))", diff: 0 };
+  return { label: "進度一致", badgeClass: "stat-badge--brand", diff: 0 };
 }
 
 function renderHorizontalDateStrip() {
@@ -2866,9 +2843,7 @@ async function renderPlanStatsView() {
     if (reportStatProgressStatus) {
       const progressStatus = getPlanProgressStatus(state.activePlan);
       reportStatProgressStatus.textContent = progressStatus.label;
-      reportStatProgressStatus.style.color = progressStatus.color;
-      reportStatProgressStatus.style.backgroundColor = progressStatus.bg;
-      reportStatProgressStatus.style.borderColor = progressStatus.color + "33";
+      reportStatProgressStatus.className = "stat-badge " + progressStatus.badgeClass;
     }
 
     // 4. Makeup/Catch up days (🛡️ 進度救援)
@@ -2912,6 +2887,10 @@ async function renderPlanStatsView() {
     }
     const reportStatMakeup = document.getElementById("report-stat-makeup");
     if (reportStatMakeup) reportStatMakeup.textContent = catchUpDaysVal;
+    const makeupCard = document.getElementById("report-stat-makeup-card");
+    if (makeupCard) {
+      makeupCard.classList.toggle("stat-bento--danger-active", catchUpDaysVal > 0);
+    }
 
     // 5. Cumulative chapters read (累積閱讀章數) — 所有遍次累計，不重置
     const reportStatTotalChapters = document.getElementById("report-stat-total-chapters");
@@ -4161,8 +4140,7 @@ window.showPlanStatsModal = function () {
 
   const progressStatus = getPlanProgressStatus(plan);
   const statusLabel = progressStatus.label;
-  const statusColor = progressStatus.color;
-  const statusBg = progressStatus.bg;
+  const statusBadgeClass = progressStatus.badgeClass || "stat-badge--brand";
 
   // Mandatory debug log injection representing modal useEffect mount hook
   console.log('📊 [統計面板載入] 真實讀取 -> 累計章數:', totalReadChapters, '成功追回天數:', catchUpDays);
@@ -4292,9 +4270,7 @@ window.showPlanStatsModal = function () {
 
   // Card D: 計畫狀態 (Badge text with specific colors)
   const badgeHtml = `
-    <span style="font-size: 0.75rem; font-weight: 500; background: ${statusBg}; color: ${statusColor}; padding: 0.25rem 0.6rem; border-radius: 20px; display: inline-block; border: 1px solid rgba(${statusColor === '#10b981' ? '16,185,129' : (statusColor === '#ef4444' ? '239,68,68' : (statusColor === '#f59e0b' ? '245,158,11' : '59,130,246'))}, 0.25);">
-      ${statusLabel}
-    </span>
+    <span class="stat-badge ${statusBadgeClass}">${statusLabel}</span>
   `;
   const cardD = makeCardHtml(
     iconLabel("bi-signpost-split", "計畫狀態"),

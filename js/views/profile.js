@@ -412,7 +412,7 @@ function initProfileControls() {
       const isHidden = formWrapper.classList.contains("hidden");
       if (isHidden) {
         formWrapper.classList.remove("hidden");
-        btnToggleForm.innerHTML = "收起個人檔案編輯";
+        btnToggleForm.innerHTML = iconLabel("bi-chevron-up", "收起個人檔案編輯");
       } else {
         formWrapper.classList.add("hidden");
         btnToggleForm.innerHTML = iconLabel("bi-pencil", "編輯個人檔案");

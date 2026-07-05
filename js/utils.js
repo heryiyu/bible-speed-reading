@@ -224,127 +224,36 @@ function renderBadgeWall(containerId) {
   }
 
   const unlocked = JSON.parse(localStorage.getItem("unlocked_badges") || "[]");
-
-  // Determine current active theme
-  const isDark = state.theme === "dark" || document.body.classList.contains("dark-theme");
-
-  // Update outer card container theme styling
-  const outerCard = document.getElementById("profile-badges-inner-card");
-  if (outerCard) {
-    if (isDark) {
-      outerCard.style.background = "rgba(24, 24, 27, 0.6)"; // zinc-900/60
-      outerCard.style.borderColor = "rgba(39, 39, 42, 0.8)"; // zinc-800
-      outerCard.style.borderStyle = "solid";
-      outerCard.style.borderWidth = "1px";
-      outerCard.style.color = "#ffffff";
-    } else {
-      outerCard.style.background = "#f8fafc"; // slate-50
-      outerCard.style.borderColor = "#e2e8f0"; // slate-200
-      outerCard.style.borderStyle = "solid";
-      outerCard.style.borderWidth = "1px";
-      outerCard.style.color = "#1e293b";
-    }
-  }
-
-  // Force grid layout styling on container
-  container.style.cssText = "display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem 1rem; margin-top: 1rem; width: 100%;";
+  const getBadgeClasses = typeof getHonorBadgeItemClasses === "function"
+    ? getHonorBadgeItemClasses
+    : (isUnlocked) => (isUnlocked ? "honor-badge-item unlocked" : "honor-badge-item locked");
 
   ACHIEVEMENTS.forEach(badge => {
     const isUnlocked = unlocked.includes(badge.id);
 
     const badgeItem = document.createElement("div");
-    badgeItem.className = isUnlocked ? "honor-badge-item unlocked" : "honor-badge-item locked";
-    
-    // Shield shape styling (rounded top, tapered bottom)
-    const baseCardStyle = `
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      padding: 0.9rem 0.5rem;
-      border-radius: 1rem 1rem 30% 30%;
-      transition: all 0.3s ease;
-      cursor: pointer;
-      position: relative;
-      user-select: none;
-      box-shadow: ${(window.NLC_SHADOW && window.NLC_SHADOW.md) || "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"};
-    `;
-    
-    let stateStyle = "";
-    let iconColor = "";
-    let textColor = "";
-    let lockColor = "";
+    badgeItem.className = getBadgeClasses(isUnlocked);
 
-    if (isUnlocked) {
-      // Unlocked State Styling
-      if (isDark) {
-        stateStyle = "background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35);";
-        iconColor = "color: #fbbf24;"; // dark:text-amber-400
-        textColor = "color: #ffffff; font-weight: 500;"; // dark:text-white
-      } else {
-        stateStyle = "background: rgba(254, 243, 199, 0.9); border: 1px solid rgba(251, 191, 36, 0.5);";
-        iconColor = "color: #d97706;"; // text-amber-600
-        textColor = "color: #1e293b; font-weight: 500;"; // text-slate-800 font-medium
-      }
-    } else {
-      // Locked State Styling
-      if (isDark) {
-        stateStyle = "border: 1px dashed rgba(63, 63, 70, 0.8); background: rgba(39, 39, 42, 0.6);";
-        iconColor = "color: #52525b;"; // dark:text-zinc-600
-        textColor = "color: #71717a;"; // dark:text-zinc-500
-        lockColor = "color: #52525b;";
-      } else {
-        stateStyle = "border: 1px dashed rgba(148, 163, 184, 0.6); background: rgba(226, 232, 240, 0.6);";
-        iconColor = "color: #94a3b8;"; // text-slate-400
-        textColor = "color: #475569;"; // text-slate-600
-        lockColor = "color: #94a3b8;";
-      }
-    }
-      
-    badgeItem.style.cssText = baseCardStyle + stateStyle;
-    
     badgeItem.innerHTML = `
-      <!-- Lock Badge for Locked State -->
       ${!isUnlocked ? `
-        <div style="position: absolute; top: 6px; right: 8px; opacity: 0.75;">
-          <i class="bi bi-lock-fill" style="font-size: 0.7rem; ${lockColor}"></i>
+        <div class="honor-badge-item__lock">
+          <i class="bi bi-lock-fill" aria-hidden="true"></i>
         </div>
       ` : ""}
-      
-      <!-- Double Ring Circles Inside -->
-      <div style="position: absolute; width: 44px; height: 44px; top: 0.9rem; border: 1px solid currentColor; border-radius: 50%; opacity: 0.08; pointer-events: none; ${iconColor}"></div>
-      <div style="position: absolute; width: 38px; height: 38px; top: 1.1rem; border: 1px dashed currentColor; border-radius: 50%; opacity: 0.15; pointer-events: none; ${iconColor}"></div>
-
-      <!-- Badge Icon -->
-      <div style="font-size: 1.4rem; display: flex; width: 44px; height: 44px; justify-content: center; align-items: center; flex-shrink: 0; position: relative; z-index: 10; ${iconColor}">
-        <i class="bi ${badge.iconClass}"></i>
+      <div class="honor-badge-item__rings honor-badge-item__rings--outer"></div>
+      <div class="honor-badge-item__rings honor-badge-item__rings--inner"></div>
+      <div class="honor-badge-item__icon">
+        <i class="bi ${badge.iconClass}" aria-hidden="true"></i>
       </div>
-      
-      <!-- Short Title Only (4-6 words) -->
-      <span style="font-size: 0.72rem; margin-top: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; position: relative; z-index: 10; ${textColor}">
-        ${badge.title}
-      </span>
+      <span class="honor-badge-item__title">${badge.title}</span>
     `;
 
     // Click handler: Open dynamic detail page subpage panel
     badgeItem.onclick = () => {
       if (typeof window.openBadgeDetailPage === "function") {
+        const isDark = state.theme === "dark" || document.body.classList.contains("dark-theme");
         window.openBadgeDetailPage(badge, isUnlocked, isDark);
       }
-    };
-
-    // Hover scale effects
-    badgeItem.onmouseenter = () => {
-      badgeItem.style.transform = "scale(1.05)";
-      if (isUnlocked) {
-        badgeItem.style.boxShadow = isDark 
-          ? "0 4px 12px rgba(245, 158, 11, 0.15)" 
-          : "0 4px 12px rgba(217, 119, 6, 0.2)";
-      }
-    };
-    badgeItem.onmouseleave = () => {
-      badgeItem.style.transform = "scale(1)";
-      badgeItem.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
     };
 
     container.appendChild(badgeItem);
