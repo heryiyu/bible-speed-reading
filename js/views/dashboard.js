@@ -1780,8 +1780,23 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
             <span class="text-[10px]" style="color: var(--text-muted);">${profile.small_group || "小組"}</span>
           </div>
         </div>
-        <!-- Time badge -->
-        <span class="text-[10px]" style="color: var(--text-muted);">${timeStr}</span>
+        <!-- Time and options dropdown -->
+        <div class="flex items-center space-x-2">
+          <span class="text-[10px]" style="color: var(--text-muted);">${timeStr}</span>
+          ${note.user_id === currentUserId ? `
+            <div class="relative inline-block" style="position: relative;">
+              <button type="button" class="flex items-center justify-center p-1 rounded-full hover:bg-white/10 dark:hover:bg-white/5 transition-colors border-0 bg-transparent cursor-pointer" onclick="event.stopPropagation(); window.toggleDevotionalOptions('${note.id}')" style="color: var(--text-muted); height: 24px; width: 24px;">
+                <span class="nlc-icon nlc-icon--sm" data-icon="threeDots" style="width: 16px; height: 16px;"></span>
+              </button>
+              <div id="devotional-options-${note.id}" class="hidden" style="position: absolute; right: 0; top: 28px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: var(--radius-sm); width: 100px; box-shadow: var(--shadow-lg); z-index: 99; display: flex; flex-direction: column; overflow: hidden; padding: 4px 0;">
+                <button type="button" class="options-dropdown-item danger-item" onclick="event.stopPropagation(); window.deleteDevotionalNote('${note.id}')" style="padding: 0.5rem 0.75rem; font-size: 0.75rem; font-weight: var(--type-weight-strong); border: 0; background: transparent; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 0.35rem; color: var(--color-danger); width: 100%;">
+                  <span class="nlc-icon nlc-icon--sm" data-icon="trash" style="width: 12px; height: 12px;"></span>
+                  <span>刪除</span>
+                </button>
+              </div>
+            </div>
+          ` : ''}
+        </div>
       </div>
 
       <!-- Golden verse content (No brackets, left border brand accented) -->
@@ -1886,3 +1901,38 @@ window.submitDevotionalComment = async function (noteId) {
     showToast("發送回覆失敗，請稍後再試");
   }
 };
+
+window.toggleDevotionalOptions = function (noteId) {
+  const dropdowns = document.querySelectorAll('[id^="devotional-options-"]');
+  dropdowns.forEach(d => {
+    if (d.id !== `devotional-options-${noteId}`) {
+      d.classList.add("hidden");
+    }
+  });
+
+  const dropdown = document.getElementById(`devotional-options-${noteId}`);
+  if (dropdown) {
+    dropdown.classList.toggle("hidden");
+  }
+};
+
+window.deleteDevotionalNote = async function (noteId) {
+  if (!confirm("確定要刪除此則靈修分享嗎？")) return;
+
+  try {
+    await db.deleteDevotionalNote(noteId);
+    if (typeof fetchPastoralVerseWall === "function") {
+      fetchPastoralVerseWall();
+    }
+    showToast("已成功刪除");
+  } catch (err) {
+    console.error("Failed to delete devotional note:", err);
+    showToast("刪除失敗");
+  }
+};
+
+// Global click handler to close any active options dropdown
+document.addEventListener("click", () => {
+  const dropdowns = document.querySelectorAll('[id^="devotional-options-"]');
+  dropdowns.forEach(d => d.classList.add("hidden"));
+});
