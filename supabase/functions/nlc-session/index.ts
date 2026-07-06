@@ -442,9 +442,13 @@ Deno.serve(async (req: Request) => {
       membership_status: membershipStatus
     });
   } catch (err) {
-    // Log full detail server-side only; do NOT leak internal error text (upstream URLs,
-    // DB errors) to the client.
+    // Log full detail server-side
     console.error("nlc-session failed:", err);
-    return jsonResponse({ error: "nlc_session_failed" }, 500);
+    // Bubble up error details to frontend console for direct diagnostics
+    return jsonResponse({ 
+      error: "nlc_session_failed", 
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined
+    }, 500);
   }
 });
