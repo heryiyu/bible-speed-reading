@@ -200,9 +200,9 @@ const appRouter = {
       if (topBarSubMode) {
         const currentSubTab = state.planActiveSubTab || "today";
         if (currentSubTab === "today") {
-          topBarSubMode.innerHTML = `<span>小組進度</span><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" style="font-size: 8px;"></span>`;
+          topBarSubMode.innerHTML = `<span>小組進度</span><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight"></span>`;
         } else {
-          topBarSubMode.innerHTML = `<span>今日讀經</span><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" style="font-size: 8px;"></span>`;
+          topBarSubMode.innerHTML = `<span>今日讀經</span><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight"></span>`;
         }
         if (typeof hydrateIcons === "function") hydrateIcons(topBarSubMode);
       }
