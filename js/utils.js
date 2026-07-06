@@ -1027,3 +1027,511 @@ window.getScopedUsers = getScopedUsers;
 window.buildHeatmapGrid = buildHeatmapGrid;
 window.renderBadgeWall = renderBadgeWall;
 
+
+// === Moved Plan Helpers ===
+function getPlanLevelRounds(level) {
+  if (level === "breakthrough") return 2;
+  if (level === "super") return 3;
+  return 1;
+}
+
+function getPlanLevelLabel(level) {
+  if (level === "breakthrough") return "突破";
+  if (level === "super") return "興盛";
+  return "一般";
+}
+
+function getPlanLevelOrder(level) {
+  if (level === "super") return 3;
+  if (level === "breakthrough") return 2;
+  return 1;
+}
+
+function addDaysIso(days) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + days);
+  return date.toISOString();
+}
+
+function getDowngradeLockedUntil(plan) {
+  return (plan && plan.downgradeLockedUntil) || (typeof getLocalPlanDowngradeLock === "function" ? getLocalPlanDowngradeLock(plan) : null);
+}
+
+function isPlanUpgradeLocked(plan) {
+  const lockedUntil = getDowngradeLockedUntil(plan);
+  if (!lockedUntil) return false;
+  return new Date(lockedUntil).getTime() > Date.now();
+}
+
+function formatLockDate(lockedUntil) {
+  const date = new Date(lockedUntil);
+  if (isNaN(date)) return "兩週後";
+  return date.getFullYear() + "/" + String(date.getMonth() + 1).padStart(2, "0") + "/" + String(date.getDate()).padStart(2, "0");
+}
+
+async function persistPlanLevelState(plan) {
+  if (!plan) return;
+  if (typeof setLocalPlanDowngradeLock === "function") {
+    setLocalPlanDowngradeLock(plan, plan.downgradeLockedUntil || null);
+  }
+
+  if (state.isSupabaseMode && state.supabase && plan.id) {
+    const payload = {
+      level: plan.level,
+      current_round: plan.currentRound || getPlanLevelOrder(plan.level),
+      was_downgraded: !!plan.wasDowngraded,
+      downgrade_locked_until: plan.downgradeLockedUntil || null,
+      upgrade_prompt_handled: !!plan.upgradePromptHandled
+    };
+    const { error } = await state.supabase.from("reading_plans").update(payload).eq("id", plan.id);
+    if (error) {
+      console.warn("Failed to persist downgrade lock column, retrying without it", error);
+      await state.supabase.from("reading_plans")
+        .update({
+          level: plan.level,
+          current_round: plan.currentRound || getPlanLevelOrder(plan.level),
+          was_downgraded: !!plan.wasDowngraded,
+          upgrade_prompt_handled: !!plan.upgradePromptHandled
+        })
+        .eq("id", plan.id);
+    }
+  } else if (!state.isSupabaseMode) {
+    localStorage.setItem("active_reading_plans", JSON.stringify(state.activePlans || []));
+  }
+}
+
+function expandChaptersForLevel(chapters, level) {
+  const rounds = getPlanLevelRounds(level);
+  const expanded = [];
+  for (let round = 1; round <= rounds; round++) {
+    chapters.forEach(ch => expanded.push({ ...ch, round }));
+  }
+  return expanded;
+}
+
+function distributeChaptersAcrossDays(chapters, readingDays) {
+  const dailyChapters = Array.from({ length: readingDays }, () => []);
+  const chsPerDay = Math.floor(chapters.length / readingDays);
+  let remainder = chapters.length % readingDays;
+  let chIdx = 0;
+
+  for (let d = 0; d < readingDays; d++) {
+    const todayCount = chsPerDay + (remainder > 0 ? 1 : 0);
+    remainder--;
+    for (let c = 0; c < todayCount; c++) {
+      if (chIdx < chapters.length) {
+        dailyChapters[d].push(chapters[chIdx]);
+        chIdx++;
+      }
+    }
+  }
+
+  return dailyChapters;
+}
+
+function rebuildPlanScheduleForLevel(plan, level) {
+  if (!plan) return plan;
+  const rebuilt = generatePlanObject(
+    plan.name,
+    plan.startDate,
+    plan.endDate,
+    plan.target_books || plan.targetBooks || [],
+    plan.presetKey,
+    level
+  );
+  Object.assign(plan, {
+    totalDays: rebuilt.totalDays,
+    totalChapters: rebuilt.totalChapters,
+    days: rebuilt.days,
+    level,
+    currentRound: getPlanLevelOrder(level),
+    target_books: plan.target_books || rebuilt.target_books,
+    targetBooks: plan.targetBooks || rebuilt.targetBooks
+  });
+  return plan;
+}
+function generatePlanObject(name, startDate, endDate, selectedBooks, presetKey = null, level = "normal") {
+  const preset = presetKey ? CHURCH_PLAN_PRESETS[presetKey] : null;
+
+  // 1. Calculate parseLocalDate
+  const parseLocalDate = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+  // 2. If level is normal AND it is a preset plan, use the original month-by-month calendar grid
+  if (level === "normal" && preset && preset.months) {
+    const days = [];
+    let dayNumCounter = 1;
+    let totalChaptersCount = 0;
+
+    preset.months.forEach(mSpec => {
+      const allChapters = [];
+      mSpec.books.forEach(bookName => {
+        if (bookName === "詩篇 1-110") {
+          for (let i = 1; i <= 110; i++) {
+            allChapters.push({ book: "詩篇", chapter: i });
+          }
+        } else if (bookName === "詩篇 111-150") {
+          for (let i = 111; i <= 150; i++) {
+            allChapters.push({ book: "詩篇", chapter: i });
+          }
+        } else {
+          const book = BIBLE_BOOKS.find(b => b.name === bookName);
+          if (book) {
+            for (let i = 1; i <= book.chapters; i++) {
+              allChapters.push({ book: book.name, chapter: i });
+            }
+          }
+        }
+      });
+
+      const expandedChapters = expandChaptersForLevel(allChapters, level);
+      totalChaptersCount += expandedChapters.length;
+
+      const readingDays = mSpec.readingDays;
+      const dailyChapters = distributeChaptersAcrossDays(expandedChapters, readingDays);
+      const daysInMonth = new Date(mSpec.year, mSpec.month, 0).getDate();
+
+      for (let dayOffset = 0; dayOffset < daysInMonth; dayOffset++) {
+        const dayDate = new Date(mSpec.year, mSpec.month - 1, dayOffset + 1);
+        const mm = String(dayDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(dayDate.getDate()).padStart(2, '0');
+        const dateStr = `${mm}/${dd}`;
+
+        let chapters = [];
+        if (dayOffset < readingDays) {
+          chapters = dailyChapters[dayOffset].map(ch => ({
+            book: ch.book,
+            chapter: ch.chapter,
+            key: `${ch.book}_${ch.chapter}_${ch.round || 1}`,
+            round: ch.round || 1
+          }));
+        }
+
+        days.push({
+          dayNum: dayNumCounter++,
+          date: dateStr,
+          year: mSpec.year,
+          month: mSpec.month,
+          chapters: chapters
+        });
+      }
+    });
+
+    return {
+      name: preset.name,
+      startDate: preset.startDate,
+      endDate: preset.endDate,
+      totalDays: days.length,
+      totalChapters: totalChaptersCount,
+      completedChapters: 0,
+      progress: 0,
+      days,
+      presetKey,
+      target_books: selectedBooks,
+      level,
+      currentRound: 1,
+      wasDowngraded: false
+    };
+  }
+
+  // 3. Otherwise (custom plans, or upgraded preset plans), use the new segmented round-distribution logic!
+  const allChapters = [];
+  const booksToUse = preset && preset.months ? preset.months.flatMap(m => m.books) : selectedBooks;
+  booksToUse.forEach(bookName => {
+    if (bookName === "詩篇 1-110") {
+      for (let i = 1; i <= 110; i++) {
+        allChapters.push({ book: "詩篇", chapter: i });
+      }
+    } else if (bookName === "詩篇 111-150") {
+      for (let i = 111; i <= 150; i++) {
+        allChapters.push({ book: "詩篇", chapter: i });
+      }
+    } else {
+      const book = BIBLE_BOOKS.find(b => b.name === bookName);
+      if (book) {
+        for (let i = 1; i <= book.chapters; i++) {
+          allChapters.push({ book: book.name, chapter: i });
+        }
+      }
+    }
+  });
+
+  // Calculate D1 and D2 (round completion days) dynamically from reading logs
+  let d1 = null;
+  let d2 = null;
+
+  if (level === "breakthrough" || level === "super") {
+    const round1Logs = (state.readingLogs || []).filter(l => (l.round || 1) === 1);
+    if (round1Logs.length > 0) {
+      const maxDateStr = round1Logs.reduce((max, log) => log.read_at > max ? log.read_at : max, round1Logs[0].read_at);
+      const maxDate = new Date(maxDateStr.substring(0, 10));
+      maxDate.setHours(0, 0, 0, 0);
+      start.setHours(0, 0, 0, 0);
+      d1 = Math.max(1, Math.floor((maxDate - start) / (1000 * 60 * 60 * 24)) + 1);
+      d1 = Math.min(d1, totalDays - 1);
+    } else {
+      d1 = Math.floor(totalDays / (level === "super" ? 3 : 2));
+    }
+
+    if (level === "super") {
+      const round2Logs = (state.readingLogs || []).filter(l => l.round === 2);
+      if (round2Logs.length > 0) {
+        const maxDateStr = round2Logs.reduce((max, log) => log.read_at > max ? log.read_at : max, round2Logs[0].read_at);
+        const maxDate = new Date(maxDateStr.substring(0, 10));
+        maxDate.setHours(0, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
+        d2 = Math.max(d1 + 1, Math.floor((maxDate - start) / (1000 * 60 * 60 * 24)) + 1);
+        d2 = Math.min(d2, totalDays - 1);
+      } else {
+        d2 = Math.floor(totalDays * 2 / 3);
+      }
+    }
+  }
+
+  let dailyChapters = Array.from({ length: totalDays }, () => []);
+
+  // Distribute Round 1
+  const round1Chapters = allChapters.map(ch => ({ ...ch, round: 1 }));
+  if (d1 === null) {
+    dailyChapters = distributeChaptersAcrossDays(round1Chapters, totalDays);
+  } else {
+    const r1Daily = distributeChaptersAcrossDays(round1Chapters, d1);
+    for (let i = 0; i < d1; i++) {
+      dailyChapters[i] = dailyChapters[i].concat(r1Daily[i]);
+    }
+
+    // Distribute Round 2
+    const round2Chapters = allChapters.map(ch => ({ ...ch, round: 2 }));
+    if (level === "breakthrough") {
+      const r2Days = totalDays - d1;
+      const r2Daily = distributeChaptersAcrossDays(round2Chapters, r2Days);
+      for (let i = 0; i < r2Days; i++) {
+        dailyChapters[d1 + i] = dailyChapters[d1 + i].concat(r2Daily[i]);
+      }
+    } else if (level === "super") {
+      const r2Days = d2 - d1;
+      const r2Daily = distributeChaptersAcrossDays(round2Chapters, r2Days);
+      for (let i = 0; i < r2Days; i++) {
+        dailyChapters[d1 + i] = dailyChapters[d1 + i].concat(r2Daily[i]);
+      }
+
+      // Distribute Round 3
+      const round3Chapters = allChapters.map(ch => ({ ...ch, round: 3 }));
+      const r3Days = totalDays - d2;
+      const r3Daily = distributeChaptersAcrossDays(round3Chapters, r3Days);
+      for (let i = 0; i < r3Days; i++) {
+        dailyChapters[d2 + i] = dailyChapters[d2 + i].concat(r3Daily[i]);
+      }
+    }
+  }
+
+  const days = dailyChapters.map((chapters, index) => {
+    const dayDate = new Date(start);
+    dayDate.setDate(start.getDate() + index);
+    const mm = String(dayDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(dayDate.getDate()).padStart(2, '0');
+    const dateStr = `${mm}/${dd}`;
+
+    return {
+      dayNum: index + 1,
+      date: dateStr,
+      year: dayDate.getFullYear(),
+      month: dayDate.getMonth() + 1,
+      chapters: chapters.map(ch => ({
+        book: ch.book,
+        chapter: ch.chapter,
+        key: `${ch.book}_${ch.chapter}_${ch.round || 1}`,
+        round: ch.round || 1
+      }))
+    };
+  });
+
+  return {
+    name,
+    startDate,
+    endDate,
+    totalDays,
+    totalChapters: allChapters.length * getPlanLevelRounds(level),
+    completedChapters: 0,
+    progress: 0,
+    days,
+    presetKey,
+    target_books: selectedBooks,
+    level,
+    currentRound: getPlanLevelRounds(level),
+    wasDowngraded: false
+  };
+}
+
+function calculatePlanProgress() {
+  calculateAllPlansProgress();
+  if (state.activePlan && state.activePlans) {
+    const currentInList = state.activePlans.find(p => p.presetKey === state.activePlan.presetKey);
+    if (currentInList) {
+      state.activePlan = currentInList;
+    }
+  }
+}
+
+function isPlanStarted(plan) {
+  if (!plan) return false;
+  const todayStr = new Date().toISOString().split('T')[0];
+  return todayStr >= plan.startDate;
+}
+
+function calculateAllPlansProgress() {
+  const visibleActivePlans = getVisiblePlans(state.activePlans || []);
+
+  if (visibleActivePlans.length === 0) {
+    state.activePlan = null;
+    return;
+  }
+
+  visibleActivePlans.forEach(plan => {
+    const targetRounds = getPlanLevelRounds(plan.level || "normal");
+    const hasMatchingRoundSchedule = plan.days && plan.days.some(day => day.chapters && day.chapters.some(ch => (ch.round || 1) === targetRounds));
+    if (!hasMatchingRoundSchedule && targetRounds > 1) {
+      rebuildPlanScheduleForLevel(plan, plan.level || "normal");
+    }
+    let completed = 0;
+    plan.days.forEach(day => {
+      day.chapters.forEach(ch => {
+        const checkRoundLog = (rTarget) => {
+          return state.readingLogs.some(l => {
+            const logPlanId = l.plan_id || null;
+            const logPresetKey = l.presetKey || l.preset_key || null;
+            const isPlanMatch =
+              (plan.id && logPlanId && logPlanId === plan.id) ||
+              (plan.presetKey && logPresetKey && logPresetKey === plan.presetKey) ||
+              ((plan.id || plan.presetKey) && !logPlanId && !logPresetKey) ||
+              (!plan.id && !plan.presetKey && !logPlanId && !logPresetKey);
+            const isRoundMatch = (l.round || 1) === rTarget;
+            return l.book === ch.book && Number(l.chapter) === Number(ch.chapter) && isPlanMatch && isRoundMatch;
+          });
+        };
+
+        ch.isReadR1 = checkRoundLog(1);
+        ch.isReadR2 = checkRoundLog(2);
+        ch.isReadR3 = checkRoundLog(3);
+
+        const targetRound = ch.round || plan.currentRound || 1;
+        const isRead = targetRound === 3 ? ch.isReadR3 : (targetRound === 2 ? ch.isReadR2 : ch.isReadR1);
+        ch.isRead = isRead;
+        if (isRead) completed++;
+      });
+    });
+    plan.completedChapters = completed;
+    const firstRoundTotalChapters = plan.days.reduce((sum, day) => {
+      return sum + ((day.chapters || []).filter(ch => (ch.round || 1) === 1).length);
+    }, 0) || plan.totalChapters;
+    const firstRoundCompletedChapters = plan.days.reduce((sum, day) => {
+      return sum + ((day.chapters || []).filter(ch => (ch.round || 1) === 1 && ch.isReadR1).length);
+    }, 0);
+    plan.firstRoundCompletedChapters = firstRoundCompletedChapters;
+    plan.firstRoundTotalChapters = firstRoundTotalChapters;
+    plan.isPlanCompleted = firstRoundTotalChapters > 0 && firstRoundCompletedChapters >= firstRoundTotalChapters;
+
+    // Calculate current round progress dynamically
+    const currentRoundTotal = plan.days.reduce((sum, day) => {
+      return sum + ((day.chapters || []).filter(ch => (ch.round || 1) === plan.currentRound).length);
+    }, 0) || plan.totalChapters;
+    const currentRoundCompleted = plan.days.reduce((sum, day) => {
+      const isCompleted = (ch) => {
+        if (plan.currentRound === 1) return ch.isReadR1 || ch.isRead;
+        if (plan.currentRound === 2) return ch.isReadR2;
+        if (plan.currentRound === 3) return ch.isReadR3;
+        return ch.isRead;
+      };
+      return sum + ((day.chapters || []).filter(ch => (ch.round || 1) === plan.currentRound && isCompleted(ch)).length);
+    }, 0);
+
+    plan.currentRoundTotalChapters = currentRoundTotal;
+    plan.completedChapters = currentRoundCompleted;
+
+    const isCurrentRoundCompleted = currentRoundTotal > 0 && currentRoundCompleted >= currentRoundTotal;
+    plan.progress = isCurrentRoundCompleted
+      ? 100
+      : (Math.round((currentRoundCompleted / currentRoundTotal) * 100) || 0);
+
+    if (!plan.isPlanCompleted) plan.upgradePromptHandled = false;
+
+    // Track second-round completion for the round-2 → round-3 upgrade prompt
+    const secondRoundChapters = plan.days.reduce((sum, day) => {
+      return sum + ((day.chapters || []).filter(ch => (ch.round || 1) === 2).length);
+    }, 0);
+    const secondRoundCompleted = plan.days.reduce((sum, day) => {
+      return sum + ((day.chapters || []).filter(ch => (ch.round || 1) === 2 && ch.isReadR2).length);
+    }, 0);
+    plan.isRound2Completed = secondRoundChapters > 0 && secondRoundCompleted >= secondRoundChapters;
+    if (!plan.isRound2Completed) plan.round2UpgradePromptHandled = false;
+
+    // Clear downgrade lock in memory if the current round is completed
+    if ((plan.currentRound === 1 && plan.isPlanCompleted) || (plan.currentRound === 2 && plan.isRound2Completed)) {
+      plan.wasDowngraded = false;
+      plan.downgradeLockedUntil = null;
+    }
+  });
+
+  if (!state.isSupabaseMode) {
+    localStorage.setItem("active_reading_plans", JSON.stringify(state.activePlans));
+  }
+}
+
+
+
+function getPlanVisibilityKey(plan) {
+  return plan ? String(plan.id || plan.presetKey || plan.globalPlanId || plan.name || '') : '';
+}
+
+function getHiddenPlanKeys() {
+  try {
+    return JSON.parse(localStorage.getItem('hidden_global_plan_keys') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function isPlanHidden(plan) {
+  if (!plan) return false;
+  const hiddenKeys = getHiddenPlanKeys();
+  const keys = [plan.id, plan.presetKey, plan.globalPlanId, plan.name].filter(Boolean).map(String);
+  return Boolean(plan.isHidden || plan.is_hidden || keys.some(key => hiddenKeys.includes(key)));
+}
+
+function canManageHiddenPlans() {
+  const role = (state.currentUser && state.currentUser.role) || 'member';
+  const realRole = state.realRole || role;
+  return role === 'admin' || role === 'senior_pastor' || realRole === 'admin' || realRole === 'senior_pastor';
+}
+
+function getVisiblePlans(plans) {
+  const list = plans || [];
+  if (canManageHiddenPlans()) return list;
+  return list.filter(plan => !isPlanHidden(plan));
+}
+
+window.getPlanLevelRounds = getPlanLevelRounds;
+window.getPlanLevelLabel = getPlanLevelLabel;
+window.getPlanLevelOrder = getPlanLevelOrder;
+window.addDaysIso = addDaysIso;
+window.getDowngradeLockedUntil = getDowngradeLockedUntil;
+window.isPlanUpgradeLocked = isPlanUpgradeLocked;
+window.formatLockDate = formatLockDate;
+window.persistPlanLevelState = persistPlanLevelState;
+window.expandChaptersForLevel = expandChaptersForLevel;
+window.distributeChaptersAcrossDays = distributeChaptersAcrossDays;
+window.rebuildPlanScheduleForLevel = rebuildPlanScheduleForLevel;
+window.generatePlanObject = generatePlanObject;
+window.calculatePlanProgress = calculatePlanProgress;
+window.isPlanStarted = isPlanStarted;
+window.calculateAllPlansProgress = calculateAllPlansProgress;
+window.getHiddenPlanKeys = getHiddenPlanKeys;
+window.isPlanHidden = isPlanHidden;
+window.canManageHiddenPlans = canManageHiddenPlans;
+window.getVisiblePlans = getVisiblePlans;
