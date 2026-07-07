@@ -285,10 +285,15 @@ const appRouter = {
       }
 
       if (state.activePlan && state.planDetailOpen) {
-        state.activePlan = null;
         state.planDetailOpen = false;
-        localStorage.removeItem("selected_plan_key");
-        if (typeof renderPlanView === "function") renderPlanView();
+        // Keep state.activePlan so the plan list shows it as "active";
+        // do NOT null it here - that would break the next back press.
+        if (typeof appRouter !== 'undefined' && appRouter.switchTab !== appRouter.__originalSwitchTab) {
+          // Use the overridden async switchTab in app.js which ensures plan.js is loaded
+          appRouter.switchTab('plan-view');
+        } else if (typeof window.renderPlanView === "function") {
+          window.renderPlanView();
+        }
         this.updateNavigationChrome();
         return;
       }
@@ -354,7 +359,7 @@ const appRouter = {
       if (!options.keepPlanDetail) {
         state.planDetailOpen = false;
       }
-      if (typeof renderPlanView === "function") renderPlanView();
+      if (typeof window.renderPlanView === "function") window.renderPlanView();
     } else if (tabId === "stats-view") {
       if (typeof updateStatsView === "function") updateStatsView();
     } else if (tabId === "profile-view") {

@@ -5187,6 +5187,7 @@ window.initPlanControls = init;
 if (typeof renderPlanView === 'function') {
   window.renderPlanView = renderPlanView;
 }
+export { renderPlanView };
 if (typeof updateStatsView === 'function') {
   window.updateStatsView = updateStatsView;
 }

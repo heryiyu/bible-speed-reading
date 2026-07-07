@@ -104,7 +104,9 @@ appRouter.switchTab = async function (tabId, options = {}) {
       state.planDetailOpen = false;
     }
     const mod = await loadModule('plan', './modules/plan.js');
-    if (typeof window.renderPlanView === 'function') {
+    if (mod && typeof mod.renderPlanView === 'function') {
+      mod.renderPlanView();
+    } else if (typeof window.renderPlanView === 'function') {
       window.renderPlanView();
     }
   } else if (tabId === "stats-view") {
