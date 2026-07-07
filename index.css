@@ -4877,7 +4877,7 @@ button.logout-btn:hover {
   }
 }
 /* Plan detail navigation is managed dynamically in plan.js */
-#plan-detail-subview .plan-detail-tabs {
+.plan-detail-tabs {
   display: none;
 }
 #plan-options-dropdown {

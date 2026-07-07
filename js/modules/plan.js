@@ -10,6 +10,87 @@ let lastTrackerRequestId = 0;
 let dateClickDebounceTimer = null;
 let viewMode = 'card'; // 'card' or 'calendar'
 
+const PLAN_ROUTE = Object.freeze({
+  LIST: "LIST",
+  DETAIL: "DETAIL",
+  GROUP: "GROUP"
+});
+
+window.currentPlanViewState = window.currentPlanViewState || PLAN_ROUTE.LIST;
+
+function getPlanDetailTabs() {
+  return document.querySelector(".plan-detail-tabs");
+}
+
+function forceHidden(el, hidden) {
+  if (!el) return;
+  el.classList.toggle("hidden", hidden);
+  el.hidden = hidden;
+  if (!hidden) el.style.display = "";
+}
+
+function ensurePlanRouteShell() {
+  const planRoot = document.getElementById("plan-view");
+  if (!planRoot) return null;
+
+  const legacyList = document.getElementById("plan-list-subview");
+  const legacyDetail = document.getElementById("plan-detail-subview");
+  if (!legacyList || !legacyDetail) return null;
+
+  let listView = document.getElementById("plan-list-view");
+  if (!listView) {
+    listView = document.createElement("div");
+    listView.id = "plan-list-view";
+    planRoot.insertBefore(listView, legacyList);
+    listView.appendChild(legacyList);
+  }
+
+  let detailView = document.getElementById("plan-detail-view");
+  if (!detailView) {
+    detailView = document.createElement("div");
+    detailView.id = "plan-detail-view";
+    detailView.className = "hidden";
+    planRoot.insertBefore(detailView, legacyDetail);
+    detailView.appendChild(legacyDetail);
+  }
+
+  let groupView = document.getElementById("group-progress-view");
+  if (!groupView) {
+    groupView = document.createElement("div");
+    groupView.id = "group-progress-view";
+    groupView.className = "hidden";
+    detailView.after(groupView);
+  }
+
+  const groupNodes = [
+    getPlanDetailTabs(),
+    document.getElementById("subview-plan-stats"),
+    document.getElementById("subview-plan-ranking"),
+    document.getElementById("subview-plan-members")
+  ].filter(Boolean);
+
+  groupNodes.forEach(node => {
+    if (node.parentElement !== groupView) groupView.appendChild(node);
+  });
+
+  return { listView, detailView, groupView, legacyList, legacyDetail };
+}
+
+function setOnlyPlanRouteVisible(route) {
+  const shell = ensurePlanRouteShell();
+  if (!shell) return null;
+
+  forceHidden(shell.listView, route !== PLAN_ROUTE.LIST);
+  forceHidden(shell.detailView, route !== PLAN_ROUTE.DETAIL);
+  forceHidden(shell.groupView, route !== PLAN_ROUTE.GROUP);
+
+  return shell;
+}
+
+function getCurrentPlanRoute() {
+  return window.currentPlanViewState || PLAN_ROUTE.LIST;
+}
+
 // Reactive state propagation audit
 window.addEventListener("planDataChanged", (e) => {
   console.log('🏗️ [系統審計] 收到資料變更事件通知，強制重新渲染組件，資料版本:', e.detail.dataVersion);
@@ -60,6 +141,7 @@ window.switchStatTab = async function (tab) {
 };
 
 function initPlanControls() {
+  ensurePlanRouteShell();
   renderPresetPlansList();
 
   const goMyProgressBtn = document.getElementById("go-my-progress-btn");
@@ -87,14 +169,9 @@ function initPlanControls() {
       state.activePlan = null;
       if (typeof window.syncActivePlanContext === 'function') window.syncActivePlanContext(null);
       localStorage.removeItem("selected_plan_key");
-      const listSubview = document.getElementById("plan-list-subview");
-      const detailSubview = document.getElementById("plan-detail-subview");
-      if (listSubview) listSubview.classList.remove("hidden");
-      if (detailSubview) detailSubview.classList.add("hidden");
-      renderPlanView();
+      setPlanState(PLAN_ROUTE.LIST);
     });
   }
-
   // Options Dropdown Menu Toggle
   const optionsBtn = document.getElementById("btn-plan-options");
   const dropdown = document.getElementById("plan-options-dropdown");
@@ -154,7 +231,7 @@ function initPlanControls() {
   // Segmented Control (今日讀經 / 小組進度) switcher
   const tabTodayTask = document.getElementById("tab-today-task");
   const tabGroupReport = document.getElementById("tab-group-report");
-  const planDetailTabs = document.querySelector("#plan-detail-subview .plan-detail-tabs");
+  const planDetailTabs = getPlanDetailTabs();
 
   let lastActiveReportTab = tabStats;
   let lastActiveReportSubview = subviewPlanStats;
@@ -375,31 +452,16 @@ async function renderPlanView() {
     renderJoinedPlansList();
     renderPresetPlansList();
 
-    const listSubview = document.getElementById("plan-list-subview");
-    const detailSubview = document.getElementById("plan-detail-subview");
+    ensurePlanRouteShell();
 
     if (state.activePlan && state.planDetailOpen) {
-      if (listSubview) listSubview.classList.add("hidden");
-      if (detailSubview) detailSubview.classList.remove("hidden");
-
-      // Always close/reset inline reader when entering plan view tab to show the checklist directly
-      state.inlineReader.active = false;
-      const inlineReader = document.getElementById("plan-inline-reader");
-      if (inlineReader) inlineReader.classList.add("hidden");
-
-      const carousel = document.getElementById("plan-date-carousel");
-      const planDayHeader = document.getElementById("plan-day-subtitle") ? document.getElementById("plan-day-subtitle").parentElement : null;
-      const taskList = document.getElementById("plan-tasks-list");
-      const readBtn = document.getElementById("plan-start-reading-container");
-      if (carousel) carousel.classList.remove("hidden");
-      if (planDayHeader) planDayHeader.classList.remove("hidden");
-      if (taskList) taskList.classList.remove("hidden");
-      if (readBtn) readBtn.classList.remove("hidden");
-
-      await renderPlanDetailView();
+      if (state.planActiveSubTab === "group" || getCurrentPlanRoute() === PLAN_ROUTE.GROUP) {
+        await setPlanState(PLAN_ROUTE.GROUP);
+      } else {
+        await setPlanState(PLAN_ROUTE.DETAIL);
+      }
     } else {
-      if (listSubview) listSubview.classList.remove("hidden");
-      if (detailSubview) detailSubview.classList.add("hidden");
+      await setPlanState(PLAN_ROUTE.LIST);
     }
 
     // Admin simulation check
@@ -644,7 +706,7 @@ async function renderPlanDetailView() {
     allSubviewsInit.forEach(s => s.classList.add("hidden"));
     if (subviewSchedule) subviewSchedule.classList.remove("hidden");
 
-    const planDetailTabs = document.querySelector("#plan-detail-subview .plan-detail-tabs");
+    const planDetailTabs = getPlanDetailTabs();
     if (planDetailTabs) {
       planDetailTabs.style.display = "none";
     }
@@ -655,7 +717,7 @@ async function renderPlanDetailView() {
     renderPlanScheduleTracker();
   } else {
     // Group Report statistics / ranking mode
-    const planDetailTabs = document.querySelector("#plan-detail-subview .plan-detail-tabs");
+    const planDetailTabs = getPlanDetailTabs();
     if (planDetailTabs) {
       planDetailTabs.style.display = "flex";
     }
@@ -5237,153 +5299,153 @@ if (typeof snapCalendarToToday === 'function') {
   window.snapCalendarToToday = snapCalendarToToday;
 }
 
-// togglePlanDetailSubTab: delegated to the state machine for backward-compat
-window.togglePlanDetailSubTab = function() {
-  if (typeof window.planToggleGroupProgress === 'function') {
-    window.planToggleGroupProgress();
+// Plan route state machine: the plan tab has exactly three mutually exclusive screens.
+async function enterPlanListState() {
+  window.currentPlanViewState = PLAN_ROUTE.LIST;
+  state.planDetailOpen = false;
+  state.planActiveSubTab = "today";
+  setOnlyPlanRouteVisible(PLAN_ROUTE.LIST);
+  renderJoinedPlansList();
+  renderPresetPlansList();
+}
+
+async function enterPlanDetailState() {
+  if (!state.activePlan) {
+    await enterPlanListState();
+    return;
   }
-};
 
-// ══════════════════════════════════════════════════════════════════════
-//  PLAN VIEW STATE MACHINE
-//  Three mutually exclusive visual states: 'list' | 'detail' | 'group'
-//  ALL navigation transitions MUST go through setPlanState().
-//  This guarantees: DOM exclusivity + async data loads finish BEFORE
-//  navigation chrome is updated (eliminates all race conditions).
-// ══════════════════════════════════════════════════════════════════════
+  window.currentPlanViewState = PLAN_ROUTE.DETAIL;
+  state.planDetailOpen = true;
+  state.planActiveSubTab = "today";
+  setOnlyPlanRouteVisible(PLAN_ROUTE.DETAIL);
 
-/**
- * @param {'list'|'detail'|'group'} newState
- */
-window.setPlanState = async function setPlanState(newState) {
-  console.log(`[PlanSM] → setPlanState("${newState}")`);
-  try {
-    const listSubview   = document.getElementById('plan-list-subview');
-    const detailSubview = document.getElementById('plan-detail-subview');
-    if (!listSubview || !detailSubview) {
-      console.error('[PlanSM] Critical: plan subview containers not found.');
-      return;
-    }
+  forceHidden(document.getElementById("subview-plan-schedule"), false);
+  forceHidden(document.getElementById("subview-plan-level"), true);
+  forceHidden(document.getElementById("subview-plan-stats"), true);
+  forceHidden(document.getElementById("subview-plan-ranking"), true);
+  forceHidden(document.getElementById("subview-plan-members"), true);
 
-    // ── State 1: Plan List ─────────────────────────────────────────────
-    if (newState === 'list') {
-      state.planDetailOpen   = false;
-      state.planActiveSubTab = 'today';
+  const tabs = getPlanDetailTabs();
+  if (tabs) tabs.style.display = "none";
 
-      listSubview.classList.remove('hidden');
-      detailSubview.classList.add('hidden');
+  state.inlineReader.active = false;
+  const inlineReader = document.getElementById("plan-inline-reader");
+  if (inlineReader) inlineReader.classList.add("hidden");
 
-      // Refresh list so any recent completion data shows up
-      renderJoinedPlansList();
+  const nextMode = state.planViewMode === "calendar" ? "calendar" : "card";
+  if (typeof setViewMode === "function") setViewMode(nextMode);
+  else if (typeof renderPlanScheduleTracker === "function") renderPlanScheduleTracker();
+}
 
-    // ── State 2: Plan Detail (Today / Calendar) ────────────────────────
-    } else if (newState === 'detail') {
-      if (!state.activePlan) {
-        console.warn('[PlanSM] No activePlan — falling back to list.');
-        return window.setPlanState('list');
-      }
-      state.planDetailOpen   = true;
-      state.planActiveSubTab = 'today';
-
-      listSubview.classList.add('hidden');
-      detailSubview.classList.remove('hidden');
-
-      // Enforce subview exclusivity: hide all inner subviews except schedule
-      ['subview-plan-stats', 'subview-plan-ranking',
-       'subview-plan-members', 'subview-plan-level'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add('hidden');
-      });
-      const scheduleView = document.getElementById('subview-plan-schedule');
-      if (scheduleView) scheduleView.classList.remove('hidden');
-
-      // Hide the inner tab row (only shown in group/stats mode)
-      const planDetailTabs = document.querySelector('#plan-detail-subview .plan-detail-tabs');
-      if (planDetailTabs) planDetailTabs.style.display = 'none';
-
-      // Render the schedule tracker
-      const viewMode = state.planViewMode === 'calendar' ? 'calendar' : 'card';
-      if (typeof setViewMode === 'function') setViewMode(viewMode);
-      if (typeof renderPlanScheduleTracker === 'function') renderPlanScheduleTracker();
-
-    // ── State 3: Group Progress (Stats) ───────────────────────────────
-    } else if (newState === 'group') {
-      if (!state.activePlan) {
-        console.warn('[PlanSM] No activePlan — falling back to list.');
-        return window.setPlanState('list');
-      }
-      state.planDetailOpen   = true;
-      state.planActiveSubTab = 'group';
-
-      listSubview.classList.add('hidden');
-      detailSubview.classList.remove('hidden');
-
-      // Enforce subview exclusivity: hide all inner subviews except stats
-      ['subview-plan-schedule', 'subview-plan-ranking',
-       'subview-plan-members', 'subview-plan-level'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add('hidden');
-      });
-      const statsView = document.getElementById('subview-plan-stats');
-      if (statsView) statsView.classList.remove('hidden');
-
-      // Show the inner stats tab row
-      const planDetailTabs = document.querySelector('#plan-detail-subview .plan-detail-tabs');
-      if (planDetailTabs) planDetailTabs.style.display = 'flex';
-
-      // Default group progress to team stats after personal stats moved to Profile.
-      window._currentStatsTab = 'admin';
-      window._statsTabScope = getDefaultGroupStatsScope();
-      document.querySelectorAll('.stats-inner-tab').forEach(t => {
-        t.classList.toggle('active', t.getAttribute('data-tab') === 'admin');
-      });
-      const adminScopeBar = document.getElementById('stats-admin-scope-bar');
-      if (adminScopeBar) adminScopeBar.classList.remove('hidden');
-      const personalSec = document.getElementById('stats-personal-section');
-      const groupSec    = document.getElementById('stats-group-section');
-      if (personalSec) personalSec.classList.add('hidden');
-      if (groupSec)    groupSec.classList.remove('hidden');
-
-      // AWAIT the stats render to prevent chrome update from racing the data
-      await renderPlanStatsView();
-
-    } else {
-      console.error(`[PlanSM] Unknown state: "${newState}"`);
-      return;
-    }
-
-    // Update top-bar chrome AFTER DOM + data are fully settled
-    if (typeof appRouter !== 'undefined' &&
-        typeof appRouter.updateNavigationChrome === 'function') {
-      appRouter.updateNavigationChrome();
-    }
-    console.log(`[PlanSM] ✓ "${newState}" state active`);
-
-  } catch (err) {
-    console.error(`[PlanSM] ✗ Error in setPlanState("${newState}"):`, err);
+async function fetchGroupRankings(planId) {
+  if (!state.activePlan && planId) {
+    state.activePlan = (state.activePlans || []).find(plan =>
+      plan.id === planId ||
+      plan.globalPlanId === planId ||
+      plan.presetKey === planId
+    ) || null;
+    if (typeof window.syncActivePlanContext === "function") window.syncActivePlanContext(state.activePlan);
   }
-};
 
-/**
- * Context-aware back navigation inside plan-view.
- * group → detail, detail → list.
- */
-window.planGoBack = function planGoBack() {
-  const cur = state.planDetailOpen
-    ? (state.planActiveSubTab === 'group' ? 'group' : 'detail')
-    : 'list';
-  console.log(`[PlanSM] planGoBack() from "${cur}"`);
-  if (cur === 'group')  { window.setPlanState('detail'); return; }
-  if (cur === 'detail') { window.setPlanState('list');   return; }
-};
+  if (!state.activePlan) return;
 
-/**
- * Toggle between today/calendar (detail) and group/stats views.
- */
-window.planToggleGroupProgress = function planToggleGroupProgress() {
-  if (typeof window.syncActivePlanContext === 'function') window.syncActivePlanContext();
-  const cur = state.planActiveSubTab === 'group' ? 'group' : 'detail';
-  console.log(`[PlanSM] planToggleGroupProgress() from "${cur}"`);
-  if (cur === 'group')  { window.setPlanState('detail'); return; }
-  if (cur === 'detail') { window.setPlanState('group');  return; }
-};
+  window._currentStatsTab = "admin";
+  window._statsTabScope = getDefaultGroupStatsScope();
+
+  const tabs = getPlanDetailTabs();
+  if (tabs) tabs.style.display = "flex";
+
+  const tabStats = document.getElementById("tab-plan-stats");
+  const tabRanking = document.getElementById("tab-plan-ranking");
+  const tabMembers = document.getElementById("tab-plan-members");
+  [tabStats, tabRanking, tabMembers].forEach(tab => tab && tab.classList.remove("active"));
+  if (tabStats) tabStats.classList.add("active");
+
+  forceHidden(document.getElementById("subview-plan-stats"), false);
+  forceHidden(document.getElementById("subview-plan-ranking"), true);
+  forceHidden(document.getElementById("subview-plan-members"), true);
+
+  document.querySelectorAll(".stats-inner-tab").forEach(tab => {
+    tab.classList.toggle("active", tab.getAttribute("data-tab") === "admin");
+  });
+
+  const adminScopeBar = document.getElementById("stats-admin-scope-bar");
+  if (adminScopeBar) adminScopeBar.classList.remove("hidden");
+
+  const personalSection = document.getElementById("stats-personal-section");
+  const groupSection = document.getElementById("stats-group-section");
+  if (personalSection) personalSection.classList.add("hidden");
+  if (groupSection) groupSection.classList.remove("hidden");
+
+  await renderPlanStatsView();
+  await renderPlanRankingView();
+
+  const role = (state.currentUser && state.currentUser.role) || "member";
+  const canSeeMembers = ["admin", "senior_pastor", "great_zone_leader", "zone_leader", "group_leader"].includes(role);
+  if (canSeeMembers) await renderPlanMembersView();
+}
+
+async function enterGroupProgressState() {
+  if (!state.activePlan) {
+    await enterPlanListState();
+    return;
+  }
+
+  window.currentPlanViewState = PLAN_ROUTE.GROUP;
+  state.planDetailOpen = true;
+  state.planActiveSubTab = "group";
+  setOnlyPlanRouteVisible(PLAN_ROUTE.GROUP);
+
+  forceHidden(document.getElementById("subview-plan-schedule"), true);
+  forceHidden(document.getElementById("subview-plan-level"), true);
+
+  await fetchGroupRankings(state.activePlan.id || state.activePlan.globalPlanId || state.activePlan.presetKey);
+}
+
+async function setPlanState(newState) {
+  ensurePlanRouteShell();
+
+  const normalized = String(newState || "").toUpperCase();
+  if (normalized === PLAN_ROUTE.LIST || normalized === "LIST") {
+    await enterPlanListState();
+  } else if (normalized === PLAN_ROUTE.DETAIL || normalized === "DETAIL") {
+    await enterPlanDetailState();
+  } else if (normalized === PLAN_ROUTE.GROUP || normalized === "GROUP") {
+    await enterGroupProgressState();
+  } else {
+    console.error(`[PlanSM] Unknown state: ${newState}`);
+    return;
+  }
+
+  if (typeof appRouter !== "undefined" && typeof appRouter.updateNavigationChrome === "function") {
+    appRouter.updateNavigationChrome();
+  }
+}
+
+function planGoBack() {
+  const route = getCurrentPlanRoute();
+  if (route === PLAN_ROUTE.GROUP) {
+    setPlanState(PLAN_ROUTE.DETAIL);
+    return;
+  }
+  if (route === PLAN_ROUTE.DETAIL) {
+    setPlanState(PLAN_ROUTE.LIST);
+  }
+}
+
+function planToggleGroupProgress() {
+  if (typeof window.syncActivePlanContext === "function") window.syncActivePlanContext();
+  const route = getCurrentPlanRoute();
+  if (route === PLAN_ROUTE.GROUP) {
+    setPlanState(PLAN_ROUTE.DETAIL);
+    return;
+  }
+  if (state.activePlan) setPlanState(PLAN_ROUTE.GROUP);
+}
+
+window.fetchGroupRankings = fetchGroupRankings;
+window.setPlanState = setPlanState;
+window.planGoBack = planGoBack;
+window.planToggleGroupProgress = planToggleGroupProgress;
+window.togglePlanDetailSubTab = planToggleGroupProgress;
