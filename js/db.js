@@ -512,6 +512,11 @@ const db = {
           state.supabase.from("reading_plans").select("*").eq("user_id", user.id).order("created_at", { ascending: false })
         ]);
 
+        if (globalPlansResult.error) console.error("❌ global_plans load failed:", globalPlansResult.error);
+        if (profileResult.error) console.error("❌ profile load failed:", profileResult.error);
+        if (logsResult.error) console.error("❌ reading_logs load failed:", logsResult.error);
+        if (plansResult.error) console.error("❌ reading_plans load failed:", plansResult.error);
+
         // 處理 global_plans
         if (globalPlansResult.data) {
           state.globalPlans = globalPlansResult.data.map(dbPlan => ({
