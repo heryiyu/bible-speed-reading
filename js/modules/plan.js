@@ -108,6 +108,8 @@ function setOnlyPlanRouteVisible(route) {
   forceHidden(shell.listView, route !== PLAN_ROUTE.LIST);
   forceHidden(shell.detailView, route === PLAN_ROUTE.LIST);
   forceHidden(shell.groupView, true);
+  forceHidden(shell.legacyList, false);
+  forceHidden(shell.legacyDetail, route === PLAN_ROUTE.LIST);
 
   return shell;
 }
@@ -122,6 +124,7 @@ function ensurePlanPageShell() {
   const shell = ensurePlanRouteShell();
   const detail = shell && shell.legacyDetail;
   if (!detail) return null;
+  forceHidden(detail, false);
   const oldSegmented = document.getElementById("tab-today-task")?.closest(".px-4.py-2");
   if (oldSegmented) oldSegmented.style.display = "none";
   const legacyTabs = getPlanDetailTabs();
@@ -154,7 +157,7 @@ function ensurePlanPageShell() {
   const ranking = document.getElementById("subview-plan-ranking");
   const members = document.getElementById("subview-plan-members");
   if (page0 && schedule && schedule.parentElement !== page0) page0.appendChild(schedule);
-  if (page0 && level && level.parentElement !== page0 && !document.getElementById("plan-settings-modal")?.contains(level)) page0.appendChild(level);
+  if (page0 && level && level.parentElement !== page0) page0.appendChild(level);
   [stats, ranking, members].filter(Boolean).forEach(node => { if (page1 && node.parentElement !== page1) page1.appendChild(node); });
   return { shell, detail, strip, windowEl, wrapper, page0, page1, schedule, level, stats, ranking, members };
 }
@@ -167,20 +170,6 @@ function updatePlanTabIndicator(shell, index) {
     indicator.style.width = `${active.offsetWidth}px`;
     indicator.style.transform = `translateX(${active.offsetLeft}px)`;
   });
-}
-
-function createPlanSettingsModal() {
-  let modal = document.getElementById("plan-settings-modal");
-  if (modal) return modal;
-  modal = document.createElement("div");
-  modal.id = "plan-settings-modal";
-  modal.className = "plan-settings-modal hidden";
-  modal.setAttribute("role", "dialog");
-  modal.setAttribute("aria-modal", "true");
-  modal.innerHTML = `<div class="plan-settings-modal__backdrop" data-plan-settings-close="true"></div><section class="plan-settings-modal__panel" aria-label="調整進度設定"><div class="plan-settings-modal__header"><h3>調整進度設定</h3><button type="button" class="icon-btn" data-plan-settings-close="true" aria-label="關閉設定"><span class="nlc-icon nlc-icon--sm" data-icon="close" aria-hidden="true"></span></button></div><div id="plan-settings-modal-body" class="plan-settings-modal__body"></div></section>`;
-  document.body.appendChild(modal);
-  modal.addEventListener("click", event => { if (event.target.closest("[data-plan-settings-close]")) window.PlanPageController.closeSettingsModal(); });
-  return modal;
 }
 
 window.PlanPageController = {
@@ -228,7 +217,7 @@ window.PlanPageController = {
       ensurePlanViewModeToggle();
       const nextMode = state.planViewMode === "calendar" ? "calendar" : "card";
       if (typeof setViewMode === "function") setViewMode(nextMode);
-      else if (typeof renderPlanScheduleTracker === "function") renderPlanScheduleTracker();
+      if (typeof renderPlanScheduleTracker === "function") await renderPlanScheduleTracker();
     } else {
       forceHidden(shell.stats, false);
       forceHidden(shell.ranking, true);
@@ -242,30 +231,51 @@ window.PlanPageController = {
     }
     if (!options.skipChrome && typeof appRouter !== "undefined" && typeof appRouter.updateNavigationChrome === "function") appRouter.updateNavigationChrome();
   },
-  async openSettingsModal() {
+  async openSettingsPage() {
     if (!state.activePlan) return;
-    await this.switchPage(PLAN_PAGE.READING, { skipChrome: true });
-    this.ensureShell();
-    const modal = createPlanSettingsModal();
-    const body = document.getElementById("plan-settings-modal-body");
+    const shell = this.ensureShell();
+    if (!shell) return;
+
+    this.currentIndex = PLAN_PAGE.READING;
+    state.planDetailOpen = true;
+    state.planActiveSubTab = "settings";
+    window.currentPlanViewState = PLAN_ROUTE.DETAIL;
+
+    forceHidden(shell.strip, true);
+    forceHidden(shell.windowEl, true);
+    forceHidden(shell.schedule, true);
+    forceHidden(shell.stats, true);
+    forceHidden(shell.ranking, true);
+    forceHidden(shell.members, true);
+
     const level = document.getElementById("subview-plan-level");
-    if (body && level && level.parentElement !== body) body.appendChild(level);
+    if (level && level.parentElement !== shell.detail) shell.detail.appendChild(level);
+    if (level) level.classList.add("is-full-page-settings");
     forceHidden(level, false);
-    modal.classList.remove("hidden");
-    modal.style.display = "flex";
     renderPlanLevelEditor();
-    if (typeof hydrateIcons === "function") hydrateIcons(modal);
+
+    if (typeof appRouter !== "undefined" && typeof appRouter.updateNavigationChrome === "function") {
+      appRouter.updateNavigationChrome();
+    }
   },
-  closeSettingsModal() {
-    const modal = document.getElementById("plan-settings-modal");
+
+  async closeSettingsPage() {
     const shell = this.ensureShell();
     const level = document.getElementById("subview-plan-level");
+    if (level) level.classList.remove("is-full-page-settings");
     if (shell?.page0 && level && level.parentElement !== shell.page0) shell.page0.appendChild(level);
     forceHidden(level, true);
-    if (modal) {
-      modal.classList.add("hidden");
-      modal.style.display = "none";
-    }
+    forceHidden(shell?.strip, false);
+    forceHidden(shell?.windowEl, false);
+    await this.switchPage(PLAN_PAGE.READING);
+  },
+
+  async openSettingsModal() {
+    await this.openSettingsPage();
+  },
+
+  closeSettingsModal() {
+    this.closeSettingsPage();
   }
 };
 
@@ -5621,6 +5631,10 @@ async function setPlanState(newState) {
 }
 
 function planGoBack() {
+  if (state.planActiveSubTab === "settings" && window.PlanPageController) {
+    window.PlanPageController.closeSettingsPage();
+    return;
+  }
   if (getCurrentPlanRoute() !== PLAN_ROUTE.LIST) setPlanState(PLAN_ROUTE.LIST);
 }
 

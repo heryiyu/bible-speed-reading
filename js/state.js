@@ -192,14 +192,15 @@ const appRouter = {
         topBarGroupTrigger.classList.add("hidden");
       }
       if (topBarPlanName && state.activePlan) {
-        topBarPlanName.textContent = state.activePlan.name;
+        topBarPlanName.textContent = state.planActiveSubTab === "settings" ? "\u8abf\u6574\u9032\u5ea6\u8a2d\u5b9a" : state.activePlan.name;
         topBarPlanName.style.display = "block";
         topBarPlanName.classList.remove("hidden");
       }
       if (topBarSubMode) topBarSubMode.innerHTML = "";
       if (planSettingsIcon) {
-        planSettingsIcon.style.display = "inline-flex";
-        planSettingsIcon.classList.remove("hidden");
+        const showSettingsIcon = state.planActiveSubTab !== "settings";
+        planSettingsIcon.style.display = showSettingsIcon ? "inline-flex" : "none";
+        planSettingsIcon.classList.toggle("hidden", !showSettingsIcon);
       }
     } else {
       // Show brand mark and normal back button
