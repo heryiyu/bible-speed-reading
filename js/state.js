@@ -174,6 +174,12 @@ const appRouter = {
     const topBarSubMode = document.getElementById("top-bar-sub-mode");
     const planSettingsIcon = document.getElementById("plan-settings-icon");
 
+    // ── 控制主題切換按鈕的顯示 (只在個人分頁顯示) ──
+    const themeToggle = document.getElementById("theme-toggle");
+    if (themeToggle) {
+      themeToggle.classList.toggle("hidden", this.currentTab !== "profile-view");
+    }
+
     const isPlanDetail = this.currentTab === "plan-view" && state.activePlan && state.planDetailOpen;
 
     if (isPlanDetail) {
