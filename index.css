@@ -8886,3 +8886,24 @@ body.dark-theme .plan-calendar .plan-day-cell.active .day-number, body.dark-them
   }
 }
 
+/* Premium Brand Gradient Button */
+.brand-gradient-btn {
+  background: linear-gradient(135deg, var(--color-brand) 0%, var(--color-success) 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(4, 169, 210, 0.2) !important;
+  transition: all 0.3s ease !important;
+}
+
+.brand-gradient-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(4, 169, 210, 0.35) !important;
+  filter: brightness(1.08);
+}
+
+.brand-gradient-btn:active {
+  transform: translateY(1px);
+  filter: brightness(0.95);
+}
+
+

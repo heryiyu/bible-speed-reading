@@ -361,7 +361,7 @@ async function saveDevotionalNote(isAuto) {
       saveBtn.disabled = true;
       saveBtn.style.opacity = "0.6";
       const spanText = saveBtn.querySelector("span:not(.nlc-icon)");
-      if (spanText) spanText.textContent = "分享中...";
+      if (spanText) spanText.textContent = "發佈中...";
     }
   }
 
@@ -395,7 +395,7 @@ async function saveDevotionalNote(isAuto) {
         saveBtn.disabled = false;
         saveBtn.style.opacity = "";
         const spanText = saveBtn.querySelector("span:not(.nlc-icon)");
-        if (spanText) spanText.textContent = "分享金句";
+        if (spanText) spanText.textContent = "發佈";
       }
     }
   }
