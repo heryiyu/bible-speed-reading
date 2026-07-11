@@ -61,6 +61,47 @@ const db = {
     if (btnGoogleGateEarly) {
       btnGoogleGateEarly.style.display = allowGoogleLogin ? "inline-flex" : "none";
       btnGoogleGateEarly.disabled = !allowGoogleLogin;
+      btnGoogleGateEarly.addEventListener("click", async (e) => {
+        e.preventDefault();
+        if (state.supabase) {
+          loader.show("引導至 Google 登入中...");
+          try {
+            const { error } = await state.supabase.auth.signInWithOAuth({
+              provider: 'google',
+              options: {
+                redirectTo: window.location.origin
+              }
+            });
+            if (error) throw error;
+          } catch (err) {
+            alert(`Google 登入失敗: ${err.message || err}`);
+            loader.hide();
+          }
+        } else {
+          alert("Supabase 尚未初始化！");
+        }
+      });
+    }
+
+    const btnDemoGateEarly = document.getElementById("btn-gate-demo-login");
+    if (btnDemoGateEarly) {
+      btnDemoGateEarly.style.display = allowGoogleLogin ? "inline-flex" : "none";
+      btnDemoGateEarly.addEventListener("click", async (e) => {
+        e.preventDefault();
+        loader.show("進入 Demo 模式中...");
+        try {
+          db.setDemoMode();
+          db.updateAuthUI(null);
+          await db.loadUserData(true);
+          // Trigger view update
+          if (typeof updateDashboardView === 'function') updateDashboardView();
+          if (typeof updateHeaderAvatar === 'function') updateHeaderAvatar();
+        } catch (err) {
+          console.error("Demo login failed:", err);
+        } finally {
+          loader.hide();
+        }
+      });
     }
 
     // ── NLC SSO button wiring (always, even before Supabase) ──

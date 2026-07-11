@@ -355,8 +355,9 @@ body.dark-theme {
   flex-shrink: 0;
 }
 .dashboard-stat-strip__value {
-  font-size: 1.05rem;
-  font-weight: var(--type-weight-strong);
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -367,9 +368,24 @@ body.dark-theme {
   justify-content: center;
   gap: 0.25rem;
 }
-.dashboard-stat-strip__value--warning { color: var(--color-warning); }
-.dashboard-stat-strip__value--brand { color: var(--color-brand); }
-.dashboard-stat-strip__value--success { color: var(--color-success-foreground); }
+.dashboard-stat-strip__value--warning {
+  background: linear-gradient(135deg, #FE7615 30%, #F59E0B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.dashboard-stat-strip__value--brand {
+  background: linear-gradient(135deg, #04A9D2 30%, #a855f7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.dashboard-stat-strip__value--success {
+  background: linear-gradient(135deg, var(--color-success-foreground) 30%, #66F78F 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 .dashboard-stat-strip__value .nlc-icon {
   color: inherit;
 }
@@ -910,6 +926,7 @@ body.dark-theme .honor-badge-hex--unlocked::after {
   max-width: 100%;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -8768,3 +8785,104 @@ body.dark-theme .plan-calendar .plan-day-cell.active .day-number, body.dark-them
 #plan-view-mode-toggle {
   display: none !important;
 }
+
+
+/* ============================================================
+   21st.dev Premium Design Upgrades & Bento Grid Effects
+   ============================================================ */
+
+/* 1. Gradient Text Clipping */
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-brand) 30%, var(--color-success-foreground) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+}
+
+.gradient-text-gold {
+  background: linear-gradient(135deg, #FDE68A 30%, #F59E0B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+}
+
+/* 2. Glassmorphic Bento Cards with Glow Shadows */
+.bento-card {
+  position: relative;
+  transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s ease;
+  overflow: hidden;
+}
+
+.bento-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px -10px color-mix(in srgb, var(--color-brand) 20%, rgba(0, 0, 0, 0.3)), 0 4px 12px -5px color-mix(in srgb, var(--color-brand) 10%, rgba(0, 0, 0, 0.15));
+  border-color: color-mix(in srgb, var(--color-brand) 45%, var(--border-card));
+}
+
+/* 3. Border Beam Glow Animation */
+.bento-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--color-brand), var(--color-success), transparent);
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  animation: border-beam-flow 3s linear infinite;
+}
+
+.bento-card:hover::before {
+  opacity: 1;
+}
+
+@keyframes border-beam-flow {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 4. Holographic Shine Effect for Badge Detail Pages */
+.holographic-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.holographic-shine::after {
+  content: "";
+  position: absolute;
+  top: -150%;
+  left: -150%;
+  width: 300%;
+  height: 300%;
+  background: linear-gradient(
+    45deg,
+    transparent 45%,
+    rgba(255, 255, 255, 0.1) 48%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0.1) 52%,
+    transparent 55%
+  );
+  transform: rotate(-15deg);
+  transition: transform 0.8s ease-in-out;
+  pointer-events: none;
+}
+
+.badge-detail-open .holographic-shine::after {
+  animation: holo-shine-sweep 1.8s ease-in-out forwards;
+}
+
+@keyframes holo-shine-sweep {
+  0% {
+    transform: translate(-30%, -30%) rotate(-15deg);
+  }
+  100% {
+    transform: translate(30%, 30%) rotate(-15deg);
+  }
+}
+

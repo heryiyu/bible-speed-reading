@@ -609,8 +609,11 @@ window.openBadgeDetailPage = function(badge, isUnlocked, isDark) {
 
   // Apply Shield styles based on unlock state (theme via CSS)
   if (shield) {
-    shield.classList.remove("badge-shield--unlocked", "badge-shield--locked");
+    shield.classList.remove("badge-shield--unlocked", "badge-shield--locked", "holographic-shine");
     shield.classList.add(isUnlocked ? "badge-shield--unlocked" : "badge-shield--locked");
+    if (isUnlocked) {
+      shield.classList.add("holographic-shine");
+    }
     const hexInner = shield.querySelector(".honor-badge-hex");
     if (hexInner) {
       hexInner.classList.remove("honor-badge-hex--unlocked", "honor-badge-hex--locked");
