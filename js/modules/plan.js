@@ -208,6 +208,8 @@ window.PlanPageController = {
       btn.setAttribute("aria-selected", isActive ? "true" : "false");
     });
     updatePlanTabIndicator(shell, target);
+    const groupTabs = getPlanDetailTabs();
+    if (groupTabs) groupTabs.style.display = target === PLAN_PAGE.GROUP ? "flex" : "none";
     if (target === PLAN_PAGE.READING) {
       forceHidden(shell.schedule, false);
       forceHidden(shell.level, true);
