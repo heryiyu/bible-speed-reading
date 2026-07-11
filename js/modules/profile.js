@@ -798,16 +798,6 @@ export function init() {
     };
   }
 
-  const btnChangeBg = document.getElementById("profile-change-bg-btn");
-  if (btnChangeBg) {
-    btnChangeBg.onclick = (e) => {
-      e.preventDefault();
-      if (typeof window.changeVerseCardBackground === "function") {
-        window.changeVerseCardBackground();
-      }
-    };
-  }
-
   initAvatarDropdown();
 }
 

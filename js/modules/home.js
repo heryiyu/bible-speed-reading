@@ -1425,6 +1425,16 @@ function renderDailyVerse() {
     likeBtn._hasLikeListener = true;
   }
 
+  const changeBgBtn = document.getElementById("btn-change-verse-bg");
+  if (changeBgBtn && !changeBgBtn._hasChangeListener) {
+    changeBgBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.changeVerseCardBackground();
+    });
+    changeBgBtn._hasChangeListener = true;
+  }
+
   const savedBg = localStorage.getItem("verse_card_bg");
   if (!currentVerse) {
     setVerseCardLoading(true);

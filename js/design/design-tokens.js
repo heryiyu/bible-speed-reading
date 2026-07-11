@@ -91,6 +91,7 @@ const NLC_ICON_SIZES = {
   touch: "26px",
   hero: "48px",
   badge: "56px",
+  inline: "1em",
 };
 
 window.NLC_ICON_SIZES = NLC_ICON_SIZES;
