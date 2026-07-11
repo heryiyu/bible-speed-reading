@@ -8906,4 +8906,35 @@ body.dark-theme .plan-calendar .plan-day-cell.active .day-number, body.dark-them
   filter: brightness(0.95);
 }
 
+/* 21st.dev / Shadcn inspired premium action button */
+.premium-action-btn {
+  position: relative;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)) !important;
+  background-color: rgb(24, 24, 27) !important; /* zinc-900 */
+  color: #f4f4f5 !important; /* zinc-100 */
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-top-color: rgba(255, 255, 255, 0.22) !important; /* subtle top border lip highlight */
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.12) !important;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2) !important;
+  outline: none !important;
+}
+
+.premium-action-btn:hover {
+  background-color: rgb(39, 39, 42) !important; /* zinc-800 */
+  border-color: rgba(4, 169, 210, 0.5) !important; /* subtle brand color glow on border */
+  box-shadow: 0 0 12px 1px rgba(4, 169, 210, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-0.5px) !important;
+}
+
+.premium-action-btn:active {
+  background-color: rgb(24, 24, 27) !important;
+  transform: translateY(0.5px) !important;
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
+}
+
 

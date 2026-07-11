@@ -1598,6 +1598,70 @@ async function fetchPastoralVerseWall() {
   }
 }
 
+function renderCommentsTree(commentNodes, noteOwnerId, profileMap, depth = 0) {
+  let html = "";
+  
+  // 依時間先後排序留言
+  commentNodes.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  
+  commentNodes.forEach(c => {
+    const commProfile = profileMap[c.user_id] || { name: "未知組員" };
+    const isOp = c.user_id === noteOwnerId;
+    
+    // 巢狀縮排線與樣式
+    const paddingLeftClass = depth > 0 
+      ? "pl-4 border-l-2 border-slate-200/40 dark:border-zinc-800 ml-2" 
+      : "";
+      
+    // 遞迴渲染子留言
+    const repliesHtml = c.replies && c.replies.length > 0 
+      ? renderCommentsTree(c.replies, noteOwnerId, profileMap, depth + 1)
+      : "";
+      
+    // 動態產生精美的 Dicebear 頭像
+    const commAvatarUrl = `https://api.dicebear.com/8.x/lorelei/svg?seed=${encodeURIComponent(commProfile.name)}`;
+      
+    html += `
+      <div class="comment-node mb-3.5 ${paddingLeftClass}">
+        <div class="p-3 rounded-lg border transition-all duration-200 hover:bg-white/[0.01]" style="background: color-mix(in srgb, var(--text-primary) 1%, var(--bg-card)); border-color: var(--border-card);">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <img src="${commAvatarUrl}" alt="${escapeHTML(commProfile.name)}" class="w-5.5 h-5.5 rounded-full border border-white/10" style="width: 22px; height: 22px; background-color: var(--color-brand-subtle);" />
+              <div class="flex flex-col">
+                <div class="flex items-center space-x-1.5">
+                  <span style="font-weight: var(--type-weight-strong); color: var(--text-primary); font-size: 0.78rem;">${escapeHTML(commProfile.name)}</span>
+                  ${isOp ? `<span class="privacy-badge stat-badge stat-badge--success text-[8px]" style="padding: 1px 4px; font-size: 8px; line-height: 1; border-radius: 9999px;">OP</span>` : ""}
+                </div>
+              </div>
+            </div>
+            <span style="color: var(--text-muted); font-size: 0.68rem;">${new Date(c.created_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+          <p style="margin: 0 0 0.5rem 0; color: var(--text-secondary); font-size: 0.78rem; line-height: 1.4; white-space: pre-wrap; padding-left: 2px;">${escapeHTML(c.content)}</p>
+          
+          <div class="flex items-center space-x-3 text-[10px]" style="padding-left: 2px;">
+            <button type="button" class="flex items-center space-x-1 hover:text-brand transition-colors bg-transparent border-0 cursor-pointer p-0 text-slate-400 dark:text-zinc-500" style="font-size: 0.72rem; font-weight: 500;" onclick="window.showReplyInputBox('${c.id}')">
+              <span class="nlc-icon nlc-icon--inline" data-icon="inbox" style="opacity: 0.8; margin-right: 2px;"></span>
+              <span>回覆</span>
+            </button>
+          </div>
+          
+          <!-- 巢狀回覆輸入框 -->
+          <div id="reply-input-box-${c.id}" class="hidden mt-3 pt-3 border-t border-dashed border-slate-200/10">
+            <div class="flex items-center space-x-2">
+              <input type="text" id="reply-input-${c.id}" placeholder="回覆 ${escapeHTML(commProfile.name)}..." class="form-control" style="font-size: 0.75rem; padding: 0.35rem 1rem; border-radius: 9999px; flex: 1;">
+              <button type="button" class="primary-btn" style="padding: 0.35rem 0.85rem; font-size: 0.72rem; border-radius: 9999px !important; white-space: nowrap; font-weight: 600;" onclick="window.submitDevotionalReply('${c.note_id}', '${c.id}')">發送</button>
+              <button type="button" class="secondary-btn" style="padding: 0.35rem 0.85rem; font-size: 0.72rem; border-radius: 9999px !important; white-space: nowrap;" onclick="window.hideReplyInputBox('${c.id}')">取消</button>
+            </div>
+          </div>
+        </div>
+        ${repliesHtml ? `<div class="replies-container mt-2.5">${repliesHtml}</div>` : ""}
+      </div>
+    `;
+  });
+  
+  return html;
+}
+
 function renderVerseWallCards(notes, profileMap, likes, comments) {
   const container = document.getElementById("home-verse-wall");
   if (!container) return;
@@ -1640,19 +1704,48 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
     const noteComments = comments.filter(c => c.note_id === note.id);
     const hasLiked = currentUserId && noteLikes.some(l => l.user_id === currentUserId);
 
-    let commentsHtml = "";
-    noteComments.forEach(comm => {
-      const commProfile = profileMap[comm.user_id] || { name: "未知組員" };
-      commentsHtml += `
-        <div class="p-2.5 rounded-sm border" style="background: color-mix(in srgb, var(--text-primary) 1%, var(--bg-card)); border-color: var(--border-card); margin-bottom: 0.5rem;">
-          <div class="flex items-center justify-between mb-1">
-            <span style="font-weight: var(--type-weight-strong); color: var(--text-primary); font-size: 0.8rem;">${escapeHTML(commProfile.name)}</span>
-            <span style="color: var(--text-muted); font-size: 0.7rem;">${new Date(comm.created_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-          <p style="margin: 0; color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; white-space: pre-wrap;">${escapeHTML(comm.content)}</p>
-        </div>
-      `;
+    // 💡 關鍵升級：建立巢狀留言樹狀結構
+    const commentMap = {};
+    const rootComments = [];
+
+    noteComments.forEach(c => {
+      let parentId = null;
+      let text = c.content;
+      if (c.content && c.content.startsWith("{")) {
+        try {
+          const obj = JSON.parse(c.content);
+          if (obj && typeof obj.text === "string") {
+            parentId = obj.parent_id;
+            text = obj.text;
+          }
+        } catch (e) { }
+      }
+
+      commentMap[c.id] = {
+        id: c.id,
+        note_id: c.note_id,
+        user_id: c.user_id,
+        created_at: c.created_at,
+        content: text,
+        parent_id: parentId,
+        replies: []
+      };
     });
+
+    noteComments.forEach(c => {
+      const node = commentMap[c.id];
+      if (node) {
+        if (node.parent_id && commentMap[node.parent_id]) {
+          commentMap[node.parent_id].replies.push(node);
+        } else {
+          rootComments.push(node);
+        }
+      }
+    });
+
+    const commentsHtml = rootComments.length > 0
+      ? renderCommentsTree(rootComments, note.user_id, profileMap, 0)
+      : "";
 
     const isExpanded = window.expandedNoteIds.has(note.id);
 
@@ -1717,8 +1810,8 @@ function renderVerseWallCards(notes, profileMap, likes, comments) {
         </div>
 
         <div id="comment-input-container-${note.id}" class="flex items-center space-x-2 mt-2 pt-2" style="border-top: 1px dashed var(--border-card);">
-          <input type="text" id="comment-input-${note.id}" placeholder="寫下你的回覆..." class="form-control" style="font-size: 0.8rem; padding: 0.4rem 0.75rem; border-radius: var(--radius-sm);">
-          <button type="button" class="primary-btn" style="padding: 0.4rem 0.85rem; font-size: 0.75rem; border-radius: var(--radius-sm); white-space: nowrap;" onclick="window.submitDevotionalComment('${note.id}')">發送</button>
+          <input type="text" id="comment-input-${note.id}" placeholder="寫下你的回覆..." class="form-control" style="font-size: 0.8rem; padding: 0.4rem 1.1rem; border-radius: 9999px; flex: 1;">
+          <button type="button" class="primary-btn" style="padding: 0.4rem 1rem; font-size: 0.75rem; border-radius: 9999px !important; white-space: nowrap; font-weight: 600;" onclick="window.submitDevotionalComment('${note.id}')">發送</button>
         </div>
       </div>
     `;
@@ -1769,14 +1862,56 @@ window.toggleCommentInput = function (noteId) {
   }
 };
 
+window.showReplyInputBox = function (commentId) {
+  const el = document.getElementById(`reply-input-box-${commentId}`);
+  if (el) {
+    el.classList.remove("hidden");
+    const input = document.getElementById(`reply-input-${commentId}`);
+    if (input) input.focus();
+  }
+};
+
+window.hideReplyInputBox = function (commentId) {
+  const el = document.getElementById(`reply-input-box-${commentId}`);
+  if (el) {
+    el.classList.add("hidden");
+    const input = document.getElementById(`reply-input-${commentId}`);
+    if (input) input.value = "";
+  }
+};
+
+window.submitDevotionalReply = async function (noteId, parentCommentId) {
+  const input = document.getElementById(`reply-input-${parentCommentId}`);
+  if (!input) return;
+  const content = input.value.trim();
+  if (!content) return;
+
+  const payload = JSON.stringify({ parent_id: parentCommentId, text: content });
+
+  try {
+    await db.addDevotionalComment(noteId, payload);
+    input.value = "";
+
+    window.expandedNoteIds = window.expandedNoteIds || new Set();
+    window.expandedNoteIds.add(noteId);
+
+    await fetchPastoralVerseWall();
+  } catch (err) {
+    console.error("Failed to add reply comment:", err);
+    alert("發送回覆失敗，請稍後再試");
+  }
+};
+
 window.submitDevotionalComment = async function (noteId) {
   const input = document.getElementById(`comment-input-${noteId}`);
   if (!input) return;
   const content = input.value.trim();
   if (!content) return;
 
+  const payload = JSON.stringify({ parent_id: null, text: content });
+
   try {
-    await db.addDevotionalComment(noteId, content);
+    await db.addDevotionalComment(noteId, payload);
     input.value = "";
 
     window.expandedNoteIds = window.expandedNoteIds || new Set();
@@ -1785,7 +1920,7 @@ window.submitDevotionalComment = async function (noteId) {
     await fetchPastoralVerseWall();
   } catch (err) {
     console.error("Failed to add comment:", err);
-    showToast("發送回覆失敗，請稍後再試");
+    alert("發送回覆失敗，請稍後再試");
   }
 };
 
