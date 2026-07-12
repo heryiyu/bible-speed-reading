@@ -1005,38 +1005,46 @@ const db = {
       const existingLog = state.readingLogs.find(isSameChapterLog);
       if (!existingLog) {
         state.readingLogs.push({ book, chapter, read_at: todayISO, plan_id: planId, presetKey: presetKey, round: round });
-
-        if (state.isSupabaseMode && state.supabase && !(state.currentUser && state.currentUser.is_demo)) {
-          const user = await this.getCurrentDbUser();
-          if (user) {
-            const insertResult = await state.supabase.from("reading_logs").insert({
-              user_id: user.id,
-              plan_id: planId,
-              book,
-              chapter,
-              read_at: todayISO,
-              round: round
-            });
-            if (insertResult && insertResult.error) {
-              throw new Error(insertResult.error.message || insertResult.error.error || String(insertResult.error));
-            }
-          }
-        }
       } else {
         existingLog.read_at = todayISO;
         if (!existingLog.plan_id && planId) existingLog.plan_id = planId;
         if (!existingLog.presetKey && presetKey) existingLog.presetKey = presetKey;
-        if (state.isSupabaseMode && state.supabase && !(state.currentUser && state.currentUser.is_demo)) {
-          const user = await this.getCurrentDbUser();
-          if (user) {
-            let query = state.supabase.from("reading_logs").update({ read_at: todayISO }).eq("user_id", user.id).eq("book", book).eq("chapter", chapter).eq("round", round);
-            if (planId) query = query.eq("plan_id", planId);
-            else query = query.is("plan_id", null);
-            const updateResult = await query;
-            if (updateResult && updateResult.error) {
-              throw new Error(updateResult.error.message || updateResult.error.error || String(updateResult.error));
-            }
+      }
+
+      // The plan UI updates state.readingLogs optimistically before this runs.
+      // Always persist independently; local existence does not mean a DB row exists.
+      if (state.isSupabaseMode && state.supabase && !(state.currentUser && state.currentUser.is_demo)) {
+        const user = await this.getCurrentDbUser();
+        if (!user || !user.id) {
+          const authError = new Error("Unable to persist reading progress: authenticated profile unavailable");
+          authError.status = 401;
+          throw authError;
+        }
+
+        const row = {
+          user_id: user.id,
+          plan_id: planId,
+          book,
+          chapter: Number(chapter),
+          read_at: todayISO,
+          round: Number(round)
+        };
+        let writeResult;
+        if (planId) {
+          writeResult = await state.supabase.from("reading_logs").upsert(row, {
+            onConflict: "user_id,plan_id,book,chapter,round"
+          });
+        } else {
+          const deleteResult = await state.supabase.from("reading_logs").delete()
+            .eq("user_id", user.id).eq("book", book).eq("chapter", chapter)
+            .eq("round", round).is("plan_id", null);
+          if (deleteResult && deleteResult.error) {
+            throw new Error(deleteResult.error.message || deleteResult.error.error || String(deleteResult.error));
           }
+          writeResult = await state.supabase.from("reading_logs").insert(row);
+        }
+        if (writeResult && writeResult.error) {
+          throw new Error(writeResult.error.message || writeResult.error.error || String(writeResult.error));
         }
       }
     } else {
