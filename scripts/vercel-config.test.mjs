@@ -38,8 +38,9 @@ describe("vercel.json", () => {
     expect(value).not.toContain("immutable");
   });
 
-  it("marks versioned runtime modules immutable", () => {
+  it("keeps unhashed PWA runtime modules updateable", () => {
     expect(headerFor("/modules/(.*).js")).toContain("immutable");
-    expect(headerFor("/js/pwa/(.*).js")).toContain("immutable");
+    expect(headerFor("/js/pwa/(.*).js")).toContain("no-cache");
+    expect(headerFor("/js/pwa/(.*).js")).not.toContain("immutable");
   });
 });

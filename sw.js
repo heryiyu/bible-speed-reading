@@ -1,7 +1,11 @@
-import { CacheManager } from "./js/pwa/CacheManager.js";
+import { CacheManager } from "./js/pwa/CacheManager.js?v=20260712-3";
 
-const VERSION = "20260712-2";
-const cacheManager = new CacheManager({ prefix: "newlife-bible", version: VERSION });
+const VERSION = "20260712-3";
+const cacheManager = new CacheManager({
+  prefix: "newlife-bible",
+  version: VERSION,
+  fetchImpl: (...args) => globalThis.fetch(...args)
+});
 const APP_SHELL = ["/", "/index.html", "/manifest.json", "/assets/icon-192.png", "/assets/icon-512.png"];
 
 function isSensitiveRequest(request) {
@@ -25,7 +29,10 @@ function isStaticRequest(request) {
 }
 
 self.addEventListener("install", event => {
-  event.waitUntil(cacheManager.precache(APP_SHELL));
+  event.waitUntil((async () => {
+    await cacheManager.precache(APP_SHELL);
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", event => {
