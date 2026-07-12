@@ -1,9 +1,17 @@
 export class CacheManager {
-  constructor({ prefix = "newlife-bible", version = "v1", fetchImpl = fetch, cacheStorage = caches } = {}) {
+  constructor({
+    prefix = "newlife-bible",
+    version = "v1",
+    fetchImpl = globalThis.fetch?.bind(globalThis),
+    cacheStorage = globalThis.caches
+  } = {}) {
     this.prefix = prefix;
     this.version = version;
     this.fetchImpl = fetchImpl;
     this.cacheStorage = cacheStorage;
+
+    if (typeof this.fetchImpl !== "function") throw new TypeError("CacheManager requires a fetch implementation.");
+    if (!this.cacheStorage) throw new TypeError("CacheManager requires CacheStorage.");
   }
 
   get staticCacheName() { return `${this.prefix}-static-${this.version}`; }

@@ -27,6 +27,24 @@ class MemoryDb {
 }
 
 describe("CacheManager", () => {
+  it("binds the platform fetch function to globalThis", async () => {
+    const originalFetch = globalThis.fetch;
+    const receiverAwareFetch = vi.fn(function () {
+      if (this !== globalThis) throw new TypeError("Illegal invocation");
+      return Promise.resolve(new Response("module", { status: 200 }));
+    });
+    globalThis.fetch = receiverAwareFetch;
+
+    try {
+      const storage = new MemoryCacheStorage(receiverAwareFetch.bind(globalThis));
+      const manager = new CacheManager({ cacheStorage: storage });
+      const response = await manager.cacheFirst(new Request("https://example.test/modules/home.js"));
+      expect(await response.text()).toBe("module");
+      expect(receiverAwareFetch).toHaveBeenCalledOnce();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
   it("uses cache-first after the first successful response", async () => {
     const fetchImpl = vi.fn(async () => new Response("network", { status: 200 }));
     const storage = new MemoryCacheStorage(fetchImpl);

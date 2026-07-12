@@ -1,6 +1,6 @@
 import { CacheManager } from "./js/pwa/CacheManager.js";
 
-const VERSION = "20260712-1";
+const VERSION = "20260712-2";
 const cacheManager = new CacheManager({ prefix: "newlife-bible", version: VERSION });
 const APP_SHELL = ["/", "/index.html", "/manifest.json", "/assets/icon-192.png", "/assets/icon-512.png"];
 
