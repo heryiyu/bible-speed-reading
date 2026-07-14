@@ -80,38 +80,24 @@ const CHURCH_PLAN_PRESETS = {
   }
 };
 
-// Dynamically generate the 73 monthly presets
+// Dynamically generate the monthly presets
 SEASON_MONTHS.forEach(mSpec => {
-  const isFirstMonth = (mSpec.year === 2026 && mSpec.month === 8);
   const lastDay = new Date(mSpec.year, mSpec.month, 0).getDate();
   const startDate = `${mSpec.year}-${String(mSpec.month).padStart(2, '0')}-01`;
   const endDate = `${mSpec.year}-${String(mSpec.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   
-  if (isFirstMonth) {
-    const key = `m_2026_08_cat1`;
+  Object.entries(BIBLE_CATEGORIES).forEach(([catKey, catSpec]) => {
+    const key = `m_${mSpec.year}_${String(mSpec.month).padStart(2, '0')}_${catKey}`;
     CHURCH_PLAN_PRESETS[key] = {
-      name: `${mSpec.label}：${BIBLE_CATEGORIES.cat1.name}`,
+      name: `${mSpec.label}：${catSpec.name}`,
       startDate,
       endDate,
-      books: BIBLE_CATEGORIES.cat1.books,
+      books: catSpec.books,
       months: [
-        { name: `${mSpec.label}：${BIBLE_CATEGORIES.cat1.name}`, year: mSpec.year, month: mSpec.month, readingDays: lastDay, books: BIBLE_CATEGORIES.cat1.books }
+        { name: `${mSpec.label}：${catSpec.name}`, year: mSpec.year, month: mSpec.month, readingDays: lastDay, books: catSpec.books }
       ]
     };
-  } else {
-    Object.entries(BIBLE_CATEGORIES).forEach(([catKey, catSpec]) => {
-      const key = `m_${mSpec.year}_${String(mSpec.month).padStart(2, '0')}_${catKey}`;
-      CHURCH_PLAN_PRESETS[key] = {
-        name: `${mSpec.label}：${catSpec.name}`,
-        startDate,
-        endDate,
-        books: catSpec.books,
-        months: [
-          { name: `${mSpec.label}：${catSpec.name}`, year: mSpec.year, month: mSpec.month, readingDays: lastDay, books: catSpec.books }
-        ]
-      };
-    });
-  }
+  });
 });;
 
 // Global Application State

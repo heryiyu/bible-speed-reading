@@ -854,8 +854,15 @@ function renderPresetPlansList() {
       return apYear === mSpec.year && apMonth === mSpec.month;
     });
 
+    targetMonth = mSpec;
+
     if (!hasPlanForMonth) {
-      targetMonth = mSpec;
+      break;
+    }
+
+    // Stop at this month if today is still before the 25th of this month (so September isn't open yet)
+    const mSpecDateLimit = new Date(mSpec.year, mSpec.month - 1, 25);
+    if (today < mSpecDateLimit) {
       break;
     }
   }
@@ -874,17 +881,25 @@ function renderPresetPlansList() {
     let availableCategories = Object.entries(window.BIBLE_CATEGORIES || {})
       .filter(([catKey]) => !joinedCategories.has(catKey));
 
-    // Special constraint: 2026年8月 only allows cat1
-    if (targetMonth.year === 2026 && targetMonth.month === 8) {
-      availableCategories = availableCategories.filter(([catKey]) => catKey === "cat1");
-    }
-
     if (availableCategories.length > 0) {
       monthlySectionRendered = true;
 
-      // Determine if the target month is open
+      // Check if user already has a plan joined for this target month
+      const targetMonthPlan = (state.activePlans || []).find(ap => {
+        if (!ap.startDate) return false;
+        const apParts = ap.startDate.split("-");
+        const apYear = parseInt(apParts[0]);
+        const apMonth = parseInt(apParts[1]);
+        return apYear === targetMonth.year && apMonth === targetMonth.month;
+      });
+
+      const alreadyHasPlan = !!targetMonthPlan;
+      const targetMonthPlanName = targetMonthPlan ? getCleanDisplayName(targetMonthPlan) : "";
+
+      // Determine if the target month is open (if not already joined)
       const monthsDiff = (targetMonth.year - currentYear) * 12 + (targetMonth.month - currentMonth);
-      const isOpen = (monthsDiff === 0) || (monthsDiff === 1 && currentDay >= 25);
+      const isDateOpen = (monthsDiff === 0) || (monthsDiff === 1 && currentDay >= 25);
+      const isOpen = !alreadyHasPlan && isDateOpen;
 
       // Render the target month section
       const section = document.createElement("div");
@@ -904,7 +919,7 @@ function renderPresetPlansList() {
       `;
       header.innerHTML = `
         <span class="nlc-icon" data-icon="calendar" aria-hidden="true" style="color: var(--primary-color);"></span>
-        <span>教會特別計畫 (${targetMonth.label})</span>
+        <span>教會特別計畫</span>
       `;
       section.appendChild(header);
 
@@ -940,7 +955,11 @@ function renderPresetPlansList() {
         `;
 
         card.onclick = async () => {
-          if (!isOpen) {
+          if (alreadyHasPlan) {
+            showToast(`您此月份已加入「${targetMonthPlanName}」特別計畫，無法選取其他類別。`);
+            return;
+          }
+          if (!isDateOpen) {
             showToast(`下月份 (${targetMonth.month}月) 的讀經計畫將於每月 25 號開放選擇。`);
             return;
           }
@@ -950,7 +969,9 @@ function renderPresetPlansList() {
         };
 
         let statusLabel = `+ 點擊加入 ${targetMonth.month} 月份挑戰`;
-        if (!isOpen) {
+        if (alreadyHasPlan) {
+          statusLabel = `🔒 此月已選擇「${targetMonthPlanName}」`;
+        } else if (!isDateOpen) {
           statusLabel = `🔒 尚未開放選取 (每月 25 號開放)`;
         }
 
@@ -1028,7 +1049,7 @@ function renderPresetPlansList() {
     `;
     header.innerHTML = `
       <span class="nlc-icon" data-icon="star" aria-hidden="true" style="color: var(--primary-color);"></span>
-      <span>其他計畫 (自由加入、不固定時間)</span>
+      <span>其他計畫</span>
     `;
     section.appendChild(header);
 
