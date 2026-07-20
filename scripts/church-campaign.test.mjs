@@ -27,6 +27,21 @@ const campaign = context.window.CHURCH_CAMPAIGN;
 const books = context.window.BIBLE_BOOKS;
 
 describe("versioned church Bible campaign", () => {
+  it("splits the campaign into ten independently identified stage plans", () => {
+    const stages = context.window.createChurchCampaignStageDefinitions(campaign);
+    expect(stages).toHaveLength(10);
+    expect(new Set(stages.map(stage => stage.id))).toHaveLength(10);
+    expect(new Set(stages.map(stage => stage.presetKey))).toHaveLength(10);
+    expect(stages.every(stage => stage.planKind === "church_campaign_stage")).toBe(true);
+    expect(stages.every(stage => stage.stages.length === 1 && stage.segments.length > 0)).toBe(true);
+
+    const scheduled = stages.flatMap(stage =>
+      context.window.buildChurchCampaignDays(stage, books).flatMap(day => day.chapters)
+    ).map(chapter => chapter.book + ":" + chapter.chapter);
+    expect(scheduled).toHaveLength(1189);
+    expect(new Set(scheduled)).toHaveLength(1189);
+  });
+
   it("contains the complete 66-book, 1,189-chapter schedule", () => {
     const result = context.window.validateChurchCampaign(campaign, books);
     expect(result.valid).toBe(true);
@@ -95,7 +110,10 @@ describe("versioned church Bible campaign", () => {
 
 describe("campaign data contract and statistics scope", () => {
   const migration = readFileSync(join(root, "supabase", "migrations", "0016_versioned_church_campaign.sql"), "utf8");
+  const stageMigration = readFileSync(join(root, "supabase", "migrations", "0017_church_campaign_stage_plans.sql"), "utf8");
+  const cleanupSql = readFileSync(join(root, "supabase", "scripts", "cleanup_church_campaign_test_data.sql"), "utf8");
   const edge = readFileSync(join(root, "supabase", "functions", "nlc-data", "index.ts"), "utf8");
+  const db = readFileSync(join(root, "js", "db.js"), "utf8");
 
   it("stores versioned editable rules and synchronizes existing enrollments", () => {
     expect(migration).toContain("plan_rule_versions");
@@ -103,6 +121,23 @@ describe("campaign data contract and statistics scope", () => {
     expect(migration).toContain("rule_version");
     expect(migration).toContain("WHERE global_plan_id = p_plan_id");
     expect(migration).toContain("profile.small_group");
+  });
+
+  it("creates separate stage statistics and clears obsolete test participation", () => {
+    expect(stageMigration).toContain("church_campaign_stage");
+    expect(stageMigration.match(/00000000-0000-0000-c026-0000000000\d\d/g)?.length).toBeGreaterThanOrEqual(10);
+    expect(stageMigration).toContain("sync_church_campaign_stage_plans");
+    expect(stageMigration).toContain("TEST ENVIRONMENT: discard obsolete participation");
+    expect(stageMigration).not.toContain("old_plan.reading_days_per_week");
+    expect(stageMigration).toContain("DELETE FROM public.reading_plans");
+    expect(stageMigration).toContain("ON DELETE CASCADE");
+    expect(db).toContain("migrateLocalChurchCampaignToStages");
+    expect(db).toContain("item.books.includes(log.book)");
+    expect(cleanupSql).toContain("TEST ENVIRONMENT ONLY");
+    expect(cleanupSql).toContain("reading_logs are removed automatically");
+    expect(cleanupSql).toContain("participant_count");
+    expect(cleanupSql).toContain("2026-2029 新生生命聖經速讀計畫");
+    expect(cleanupSql).toContain("教會階段規則設定");
   });
 
   it("lets admins read all church participants while keeping non-admin scope filters", () => {
@@ -123,6 +158,10 @@ describe("editable flexible weekly schedules", () => {
     expect(plan).toContain("edit-flexible-schedule-btn");
     expect(plan).toContain("openFlexibleScheduleDialog(plan, { editing: true })");
     expect(plan).toContain("db.updateFlexiblePlanSchedule");
+    expect(plan).toContain("isFixedPlanUpcoming");
+    expect(plan).toContain("已開放預覽與預先加入");
+    expect(plan).toContain("正式開始，敬請期待");
+    expect(plan).toContain('isUpcomingFixed ? "預先加入" : "加入計畫"');
   });
 
   it("persists the weekly schedule and rebuilds chapter distribution", () => {
@@ -138,6 +177,7 @@ describe("joined plan options menu", () => {
   const html = readFileSync(join(root, "index.html"), "utf8");
   const stateSource = readFileSync(join(root, "js", "state.js"), "utf8");
   const planSource = readFileSync(join(root, "js", "modules", "plan.js"), "utf8");
+  const gamification = readFileSync(join(root, "js", "gamification.js"), "utf8");
 
   it("shows plan details and exit actions for every joined plan", () => {
     const details = html.indexOf('id="view-plan-details-btn"');
@@ -147,6 +187,8 @@ describe("joined plan options menu", () => {
     expect(stateSource).toContain('optionsContainer.classList.toggle("hidden", !isPlanDetail)');
     expect(stateSource).toContain('optionsContainer.style.display = isPlanDetail ? "flex" : "none"');
     expect(planSource).toContain("openPlanDetailsDialog(state.activePlan)");
+    expect(planSource).toContain("isLegacyCampaignMaster");
+    expect(planSource).toContain("2026-2029 新生生命聖經速讀計畫");
   });
 
   it("keeps the weekly schedule as a separate action for every plan", () => {
@@ -158,5 +200,34 @@ describe("joined plan options menu", () => {
     expect(html).not.toContain('id="edit-flexible-plan-schedule-btn" style="display:none;"');
     expect(planSource).toContain('if (flexibleScheduleMenuButton) flexibleScheduleMenuButton.style.display = ""');
     expect(planSource).toContain('if (!plan) return;');
+  });
+
+  it("shows stage awards and each monthly chapter range in plan details", () => {
+    expect(planSource).toContain("每月／階段章節安排");
+    expect(planSource).toContain("formatCampaignReadingRange");
+    expect(planSource).toContain("完成本階段可獲得");
+    expect(planSource).toContain("campaignAwardEarned");
+    expect(planSource).toContain('campaignStageNo >= 10 ? "0.88rem"');
+    expect(planSource).toContain("white-space: nowrap");
+    expect(gamification).toContain("CAMPAIGN_STAGE_ACHIEVEMENTS");
+    expect(gamification).toContain("church_stage_award_");
+    expect(gamification).toContain("badge.designVersion = 2");
+    expect(gamification).toContain("badge.maxStars = 5");
+    expect(gamification).toContain("第一遍進行中先顯示一顆未亮星");
+    expect(gamification).not.toContain("badge_cat");
+    expect(planSource).toContain("church_stage_completed_rounds_");
+  });
+
+  it("shows the current round star before lighting it on completion", () => {
+    const utilsSource = readFileSync(join(root, "js", "utils.js"), "utf8");
+    const cssSource = readFileSync(join(root, "index.css"), "utf8");
+    expect(utilsSource).toContain("function getBadgeStarState");
+    expect(utilsSource).toContain("getCampaignStageCurrentRound");
+    expect(utilsSource).toContain("displayedStars = Math.min(maxStars");
+    expect(utilsSource).toContain('index < starState.level ? "badge-star--lit" : "badge-star--unlit"');
+    expect(cssSource).toContain(".badge-star--lit");
+    expect(cssSource).toContain(".badge-star--unlit");
+    expect(cssSource).toContain(".badge-stars--compact");
+
   });
 });

@@ -16,19 +16,27 @@ const BIBLE_CATEGORIES = {
 window.BIBLE_CATEGORIES = BIBLE_CATEGORIES;
 
 const defaultChurchCampaign = window.cloneChurchCampaign();
-const CHURCH_PLAN_PRESETS = {
-  [window.CHURCH_CAMPAIGN_PRESET_KEY]: {
-    id: defaultChurchCampaign.id,
-    name: defaultChurchCampaign.name,
-    description: defaultChurchCampaign.description,
-    startDate: defaultChurchCampaign.startDate,
-    endDate: defaultChurchCampaign.endDate,
-    books: Array.from(new Set(defaultChurchCampaign.segments.flatMap(segment => segment.readings.map(reading => reading.book)))),
-    planKind: "church_campaign",
+const defaultChurchStagePlans = window.createChurchCampaignStageDefinitions(defaultChurchCampaign);
+const CHURCH_PLAN_PRESETS = Object.fromEntries(defaultChurchStagePlans.map(stage => [
+  stage.presetKey,
+  {
+    id: stage.id,
+    parentCampaignId: stage.parentCampaignId,
+    name: stage.name,
+    description: stage.description,
+    startDate: stage.startDate,
+    endDate: stage.endDate,
+    books: stage.books,
+    planKind: "church_campaign_stage",
     isFixed: true,
-    campaignDefinition: defaultChurchCampaign
+    stageNo: stage.stageNo,
+    roundNo: stage.roundNo,
+    phase: stage.phase,
+    awardName: stage.awardName,
+    examDate: stage.examDate,
+    campaignDefinition: stage
   }
-};
+]));
 // Global Application State
 const state = {
   theme: "light",

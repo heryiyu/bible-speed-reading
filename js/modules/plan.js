@@ -690,12 +690,18 @@ function getPlanCoverHtml(plan) {
   const bg = getPlanCoverColor(plan);
   const isCampaign = plan && (
     plan.planKind === "church_campaign"
+    || plan.planKind === "church_campaign_stage"
     || plan.id === window.CHURCH_CAMPAIGN_ID
     || plan.globalPlanId === window.CHURCH_CAMPAIGN_ID
   );
-  const label = isCampaign ? "66卷" : escapeHTML(String(plan && plan.name || "讀經").slice(0, 2));
-  return `<div class="plan-cover-thumbnail" style="width: 72px; height: 72px; border-radius: 12px; background: ${bg}; display: flex; align-items: center; justify-content: center; color: var(--color-black); font-weight: 500; font-size: 0.95rem; flex-shrink: 0; box-shadow: var(--shadow-sm);">${label}</div>`;
-}
+  const campaignStageNo = plan && plan.planKind === "church_campaign_stage"
+    ? Number(plan.stageNo || plan.campaignDefinition && plan.campaignDefinition.stageNo || 0)
+    : 0;
+  const label = campaignStageNo
+    ? "第" + campaignStageNo
+    : (isCampaign ? "66卷" : escapeHTML(String(plan && plan.name || "讀經").slice(0, 2)));
+  const labelFontSize = campaignStageNo >= 10 ? "0.88rem" : "0.95rem";
+  return `<div class="plan-cover-thumbnail" style="width: 72px; height: 72px; border-radius: 12px; background: ${bg}; display: flex; align-items: center; justify-content: center; color: var(--color-black); font-weight: 500; font-size: ${labelFontSize}; line-height: 1; white-space: nowrap; overflow: visible; flex-shrink: 0; box-shadow: var(--shadow-sm);">${label}</div>`;}
 
 function renderJoinedPlansList() {
   try {
@@ -783,8 +789,15 @@ function renderJoinedPlansList() {
 
       const progress = plan.progress || 0;
       const currentRound = plan.currentRound || 1;
-      const isFlexiblePlan = plan.isFixed === false || plan.is_fixed === false;
-      const flexibleScheduleSummary = isFlexiblePlan ? formatFlexibleScheduleSummary(plan) : "";
+      const isCampaignStage = plan.planKind === "church_campaign_stage";
+      const campaignAwardName = plan.awardName || plan.campaignDefinition && plan.campaignDefinition.awardName || "";
+      const campaignAwardEarned = isCampaignStage && (currentRound > 1 || progress >= 100);
+      const campaignAwardHtml = isCampaignStage ? `<div style="margin-top:.25rem;padding:.42rem .6rem;border-radius:10px;background:var(--bg-secondary);color:${campaignAwardEarned ? "var(--color-success-foreground)" : "var(--primary-color)"};font-size:.75rem;font-weight:500;display:flex;align-items:center;gap:.35rem;"><span class="nlc-icon" data-icon="award" aria-hidden="true"></span><span>${campaignAwardEarned ? "已獲得" : "完成可獲得"} ${escapeHTML(campaignAwardName)}</span></div>` : "";
+      const weeklyScheduleSummary = formatFlexibleScheduleSummary(plan);
+      const isUpcomingFixed = isFixedPlanUpcoming(plan);
+      const upcomingJoinedHtml = isUpcomingFixed
+        ? `<div style="margin-top:.25rem;padding:.42rem .6rem;border-radius:10px;background:var(--bg-secondary);color:var(--text-secondary);font-size:.75rem;line-height:1.45;"><span class="nlc-icon" data-icon="hourglass" aria-hidden="true"></span> 已預先加入並開放預覽・${escapeHTML(plan.startDate)} 正式開始，敬請期待</div>`
+        : "";
 
       if (filter === "completed") {
         // Expired plan: show status label instead of progress bar
@@ -799,6 +812,8 @@ function renderJoinedPlansList() {
             <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem;">
               <span class="nlc-icon" data-icon="calendarThirty" aria-hidden="true"></span> <span>${plan.startDate} ~ ${plan.endDate}</span>
             </div>
+            ${upcomingJoinedHtml}
+            ${campaignAwardHtml}
             <div style="font-size: 0.82rem; font-weight: 600; color: ${statusColor}; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
               狀態：${statusText}
             </div>
@@ -806,9 +821,11 @@ function renderJoinedPlansList() {
         `;
       } else {
         // Normal active plan: show progress bar
-        const progressText = currentRound > 1
-          ? `已完成第 ${currentRound - 1} 遍 👑<br>第 ${currentRound} 遍：已讀 ${progress}% (${plan.completedChapters} / ${plan.currentRoundTotalChapters || plan.totalChapters} 章)`
-          : `已讀 ${progress}% (${plan.completedChapters} / ${plan.currentRoundTotalChapters || plan.totalChapters} 章)`;
+        const progressText = isUpcomingFixed
+          ? "可先查看計畫內容與每週安排"
+          : (currentRound > 1
+            ? `已完成第 ${currentRound - 1} 遍 👑<br>第 ${currentRound} 遍：已讀 ${progress}% (${plan.completedChapters} / ${plan.currentRoundTotalChapters || plan.totalChapters} 章)`
+            : `已讀 ${progress}% (${plan.completedChapters} / ${plan.currentRoundTotalChapters || plan.totalChapters} 章)`);
 
         card.innerHTML = `
           ${getPlanCoverHtml(plan)}
@@ -817,19 +834,19 @@ function renderJoinedPlansList() {
             <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem;">
               <span class="nlc-icon" data-icon="calendarThirty" aria-hidden="true"></span> <span>${plan.startDate} ~ ${plan.endDate}</span>
             </div>
+            ${upcomingJoinedHtml}
+            ${campaignAwardHtml}
             <div class="plan-progress-wrapper plan-progress-wrapper--compact">
               <div class="plan-progress-bar" style="width: ${progress}%;"></div>
             </div>
             <div style="font-size: 0.76rem; font-weight: 500; color: var(--text-secondary); margin-top: 0.1rem; line-height: 1.35;">
               ${progressText}
             </div>
-            ${isFlexiblePlan ? `
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:.65rem;margin-top:.35rem;">
-                <span style="font-size:.74rem;color:var(--text-muted);">${escapeHTML(flexibleScheduleSummary)}</span>
-                <button type="button" class="edit-flexible-schedule-btn btn-secondary"
-                  style="padding:.38rem .58rem;font-size:.72rem;white-space:nowrap;">調整每週安排</button>
-              </div>
-            ` : ""}
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.65rem;margin-top:.35rem;">
+              <span style="font-size:.74rem;color:var(--text-muted);">${escapeHTML(weeklyScheduleSummary)}</span>
+              <button type="button" class="edit-flexible-schedule-btn btn-secondary"
+                style="padding:.38rem .58rem;font-size:.72rem;white-space:nowrap;">調整每週安排</button>
+            </div>
           </div>
         `;
       }
@@ -861,46 +878,61 @@ function renderJoinedPlansList() {
 }
 
 
+function formatCampaignReadingRange(reading) {
+  const book = (window.BIBLE_BOOKS || []).find(item => item.name === reading.book);
+  const from = Number(reading.from || 1);
+  const to = Number(reading.to || book && book.chapters || from);
+  return reading.book + " " + (from === to ? from : from + "–" + to) + "章";
+}
+
 function openPlanDetailsDialog(plan) {
   if (!plan) return;
   const existing = document.getElementById("plan-details-dialog");
   if (existing) existing.remove();
 
   const isFlexible = plan.isFixed === false || plan.is_fixed === false;
-  const books = plan.target_books || plan.targetBooks || [];
-  const scheduleText = isFlexible
-    ? formatFlexibleScheduleSummary(plan)
-    : (plan.startDate + " ～ " + plan.endDate);
-  const stageCount = Array.isArray(plan.campaignStages) ? plan.campaignStages.length : 0;
+  const definition = plan.campaignDefinition || null;
+  const isCampaignStage = plan.planKind === "church_campaign_stage" && definition;
+  const books = plan.target_books || plan.targetBooks || plan.books || [];
+  const scheduleText = (plan.startDate + " ～ " + plan.endDate) + "；" + formatFlexibleScheduleSummary(plan);
+  const segments = isCampaignStage && Array.isArray(definition.segments) ? definition.segments : [];
+  const awardName = isCampaignStage ? (plan.awardName || definition.awardName || "") : "";
+  const awardEarned = isCampaignStage && ((plan.currentRound || 1) > 1 || Number(plan.progress || 0) >= 100);
+  const segmentHtml = segments.map(segment => `
+    <section style="padding:.9rem;border:1px solid var(--border-card);border-radius:12px;background:var(--bg-secondary);">
+      <div style="display:flex;justify-content:space-between;gap:.75rem;align-items:flex-start;">
+        <strong style="font-size:.84rem;font-weight:500;color:var(--text-primary);">${escapeHTML(segment.label)}</strong>
+        <span style="font-size:.7rem;color:var(--text-muted);white-space:nowrap;">${escapeHTML(segment.startDate)} ～ ${escapeHTML(segment.endDate)}</span>
+      </div>
+      <div style="margin-top:.5rem;font-size:.8rem;line-height:1.65;color:var(--text-secondary);">${(segment.readings || []).map(formatCampaignReadingRange).map(escapeHTML).join("、")}</div>
+    </section>
+  `).join("");
+
   const overlay = document.createElement("div");
   overlay.id = "plan-details-dialog";
   overlay.className = "modal-overlay";
   overlay.style.cssText = "position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.58);display:flex;align-items:center;justify-content:center;padding:1rem;";
   overlay.innerHTML = `
     <div class="glass-card" role="dialog" aria-modal="true" aria-labelledby="plan-details-title"
-      style="width:min(440px,100%);height:auto!important;max-height:80vh;overflow:auto;padding:1.5rem;background:var(--bg-card);border:1px solid var(--border-card);box-shadow:var(--shadow-lg);">
+      style="width:min(520px,100%);height:auto!important;max-height:84vh;overflow:auto;padding:1.5rem;background:var(--bg-card);border:1px solid var(--border-card);box-shadow:var(--shadow-lg);">
       <h3 id="plan-details-title" style="margin:0 0 1rem;font-size:1.15rem;font-weight:500;color:var(--text-primary);">${escapeHTML(plan.name || "讀經計畫")}</h3>
+      ${isCampaignStage ? `<div style="display:flex;align-items:center;gap:.75rem;padding:.9rem;margin-bottom:1rem;border-radius:14px;background:var(--bg-secondary);border:1px solid var(--border-card);"><div style="width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--primary-color);color:white;"><span class="nlc-icon" data-icon="award" aria-hidden="true"></span></div><div><div style="font-size:.72rem;color:var(--text-muted);">${awardEarned ? "已完成並獲得" : "完成本階段可獲得"}</div><strong style="font-size:1rem;color:var(--text-primary);">${escapeHTML(awardName)}</strong></div></div>` : ""}
       ${plan.description ? `<p style="margin:0 0 1rem;font-size:.84rem;line-height:1.6;color:var(--text-secondary);">${escapeHTML(plan.description)}</p>` : ""}
       <dl style="display:grid;grid-template-columns:auto 1fr;gap:.65rem .9rem;margin:0;font-size:.82rem;">
-        <dt style="color:var(--text-muted);">計畫類型</dt>
-        <dd style="margin:0;color:var(--text-primary);">${isFlexible ? "非固定日期" : "固定日期"}</dd>
-        <dt style="color:var(--text-muted);">日期／安排</dt>
-        <dd style="margin:0;color:var(--text-primary);">${escapeHTML(scheduleText)}</dd>
-        ${stageCount ? `<dt style="color:var(--text-muted);">獎勵階段</dt><dd style="margin:0;color:var(--text-primary);">${stageCount} 個階段</dd>` : ""}
-        <dt style="color:var(--text-muted);">閱讀經卷</dt>
-        <dd style="margin:0;color:var(--text-primary);line-height:1.55;">${books.length ? escapeHTML(books.join("、")) : "依計畫排程"}</dd>
+        <dt style="color:var(--text-muted);">計畫類型</dt><dd style="margin:0;color:var(--text-primary);">${isCampaignStage ? "教會分階段計畫" : (isFlexible ? "非固定日期" : "固定日期")}</dd>
+        <dt style="color:var(--text-muted);">日期／安排</dt><dd style="margin:0;color:var(--text-primary);">${escapeHTML(scheduleText)}</dd>
+        ${isCampaignStage ? `<dt style="color:var(--text-muted);">階段／輪次</dt><dd style="margin:0;color:var(--text-primary);">第 ${Number(definition.stageNo)} 階段・第 ${Number(definition.roundNo)} 輪</dd>${definition.examDate ? `<dt style="color:var(--text-muted);">考試日期</dt><dd style="margin:0;color:var(--text-primary);">${escapeHTML(definition.examDate)}</dd>` : ""}` : ""}
+        <dt style="color:var(--text-muted);">閱讀經卷</dt><dd style="margin:0;color:var(--text-primary);line-height:1.55;">${books.length ? escapeHTML(books.join("、")) : "依計畫排程"}</dd>
       </dl>
-      <div style="display:flex;justify-content:flex-end;margin-top:1.35rem;">
-        <button type="button" id="plan-details-close" class="btn-primary">關閉</button>
-      </div>
+      ${segmentHtml ? `<h4 style="margin:1.25rem 0 .7rem;font-size:.92rem;font-weight:500;color:var(--text-primary);">每月／階段章節安排</h4><div style="display:grid;gap:.65rem;">${segmentHtml}</div>` : ""}
+      <div style="display:flex;justify-content:flex-end;margin-top:1.35rem;"><button type="button" id="plan-details-close" class="btn-primary">關閉</button></div>
     </div>
   `;
   document.body.appendChild(overlay);
+  if (typeof hydrateIcons === "function") hydrateIcons(overlay);
   const close = () => overlay.remove();
   overlay.querySelector("#plan-details-close").addEventListener("click", close);
-  overlay.addEventListener("click", event => {
-    if (event.target === overlay) close();
-  });
+  overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
 }
 
 function formatFlexibleScheduleSummary(plan) {
@@ -914,6 +946,15 @@ function formatFlexibleScheduleSummary(plan) {
     : "每週 7 天；沒有固定休息日";
 }
 
+function isFixedPlanUpcoming(plan) {
+  if (!plan || plan.isFixed === false || plan.is_fixed === false || !plan.startDate) return false;
+  if (typeof isPlanStarted === "function") return !isPlanStarted(plan);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(plan.startDate + "T00:00:00");
+  return !Number.isNaN(start.getTime()) && today < start;
+}
+
 function openFlexibleScheduleDialog(plan, options = {}) {
   return new Promise(resolve => {
     const existing = document.getElementById("flexible-schedule-dialog");
@@ -925,6 +966,13 @@ function openFlexibleScheduleDialog(plan, options = {}) {
       : [0, 6];
     const initialReadingDays = Number(plan && (plan.readingDaysPerWeek || plan.reading_days_per_week)) || (7 - initialRestDays.length);
     const isEditing = options.editing === true;
+    const isFixed = plan && plan.isFixed !== false && plan.is_fixed !== false;
+    const isUpcomingFixed = isFixedPlanUpcoming(plan);
+    const scheduleIntro = isUpcomingFixed
+      ? `已開放預覽與預先加入，將於 ${plan.startDate} 正式開始，敬請期待。`
+      : (isFixed
+        ? `這是固定日期計畫，章節會依 ${plan.startDate} ～ ${plan.endDate} 與您選擇的讀經日安排。`
+        : `${(plan && plan.name) || "非固定日期計畫"}會從今天開始，章節只會分配在您選擇的讀經日。`);
     const overlay = document.createElement("div");
     overlay.id = "flexible-schedule-dialog";
     overlay.className = "modal-overlay";
@@ -934,7 +982,7 @@ function openFlexibleScheduleDialog(plan, options = {}) {
         style="width:min(420px,100%);height:auto!important;padding:1.5rem;background:var(--bg-card);border:1px solid var(--border-card);box-shadow:var(--shadow-lg);">
         <h3 id="flexible-schedule-title" style="margin:0 0 .35rem;font-size:1.15rem;font-weight:500;color:var(--text-primary);">\u8a2d\u5b9a\u6bcf\u9031\u8b80\u7d93\u5b89\u6392</h3>
         <p style="margin:0 0 1.25rem;font-size:.82rem;line-height:1.55;color:var(--text-secondary);">
-          ${escapeHTML((plan && plan.name) || "\u975e\u56fa\u5b9a\u65e5\u671f\u8a08\u756b")}\u6703\u5f9e\u4eca\u5929\u958b\u59cb\uff0c\u7ae0\u7bc0\u53ea\u6703\u5206\u914d\u5728\u60a8\u9078\u64c7\u7684\u8b80\u7d93\u65e5\u3002
+          ${escapeHTML(scheduleIntro)}
         </p>
         <label for="flexible-reading-days" style="display:block;margin-bottom:.45rem;font-size:.85rem;font-weight:500;color:var(--text-primary);">\u4e00\u9031\u60f3\u8b80\u7d93\u5e7e\u5929</label>
         <select id="flexible-reading-days" class="form-control" style="width:100%;margin-bottom:1.1rem;">
@@ -955,7 +1003,7 @@ function openFlexibleScheduleDialog(plan, options = {}) {
         <p id="flexible-schedule-error" role="alert" style="display:none;margin:.55rem 0 0;font-size:.78rem;color:var(--color-danger);"></p>
         <div style="display:flex;justify-content:flex-end;gap:.65rem;margin-top:1.25rem;">
           <button type="button" id="flexible-schedule-cancel" class="btn-secondary">\u53d6\u6d88</button>
-          <button type="button" id="flexible-schedule-confirm" class="btn-primary">${isEditing ? "儲存安排" : "加入計畫"}</button>
+          <button type="button" id="flexible-schedule-confirm" class="btn-primary">${isEditing ? "儲存安排" : (isUpcomingFixed ? "預先加入" : "加入計畫")}</button>
         </div>
       </div>
     `;
@@ -1011,9 +1059,10 @@ function openFlexibleScheduleDialog(plan, options = {}) {
       const durationDays = Math.max(1, Math.ceil((templateEnd - templateStart) / 86400000) + 1);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const validationStart = isFixed && !Number.isNaN(templateStart.getTime()) ? templateStart : today;
       const hasReadingDay = Array.from({ length: durationDays }, (_, offset) => {
-        const date = new Date(today);
-        date.setDate(today.getDate() + offset);
+        const date = new Date(validationStart);
+        date.setDate(validationStart.getDate() + offset);
         return date;
       }).some(date => !restWeekdays.includes(date.getDay()));
 
@@ -1058,8 +1107,17 @@ function renderPresetPlansList() {
     plan.name
   ].filter(Boolean).map(String)));
 
+  const isLegacyCampaignMaster = plan => {
+    const identifiers = [plan && plan.id, plan && plan.globalPlanId, plan && plan.presetKey].filter(Boolean).map(String);
+    const normalizedName = String(plan && plan.name || "").replace(/[–—]/g, "-").replace(/\s+/g, " ").trim();
+    return plan && (plan.planKind === "church_campaign"
+      || identifiers.includes(String(window.CHURCH_CAMPAIGN_ID))
+      || identifiers.includes(String(window.CHURCH_CAMPAIGN_PRESET_KEY))
+      || normalizedName === "2026-2029 新生生命聖經速讀計畫");
+  };
+
   const visiblePlans = sourcePlans.filter(plan => {
-    if (!plan || isLegacyChoicePlan(plan)) return false;
+    if (!plan || isLegacyChoicePlan(plan) || isLegacyCampaignMaster(plan)) return false;
     if (isPlanHidden(plan) && !canManageHiddenPlans()) return false;
     return ![plan.id, plan.globalPlanId, plan.presetKey, plan.name]
       .filter(Boolean)
@@ -1085,16 +1143,17 @@ function renderPresetPlansList() {
 
   visiblePlans.forEach(plan => {
     const key = plan.id || plan.presetKey;
-    const isCampaign = plan.planKind === "church_campaign"
-      || key === window.CHURCH_CAMPAIGN_ID
-      || key === window.CHURCH_CAMPAIGN_PRESET_KEY;
-    const isFixed = isCampaign || (plan.isFixed !== false && plan.is_fixed !== false);
-    const scheduleLabel = isCampaign
-      ? "全教會統一進度・八輪十階段"
+    const isCampaignStage = plan.planKind === "church_campaign_stage";
+    const isFixed = plan.isFixed !== false && plan.is_fixed !== false;
+    const scheduleLabel = isCampaignStage
+      ? `第 ${Number(plan.stageNo || plan.campaignDefinition && plan.campaignDefinition.stageNo)} 階段・第 ${Number(plan.roundNo || plan.campaignDefinition && plan.campaignDefinition.roundNo)} 輪`
       : (isFixed ? getDurationLabel(plan.startDate, plan.endDate) : `彈性開始・${getDurationLabel(plan.startDate, plan.endDate)}`);
-    const description = isCampaign
-      ? "加入一次即可跟隨 2026 年 8 月至 2029 年 8 月的完整讀經進度；小組依會員基本資料自動分隊。"
-      : (plan.description || "");
+    const description = plan.description || "";
+    const awardName = plan.awardName || plan.campaignDefinition && plan.campaignDefinition.awardName || "";
+    const isUpcomingFixed = isFixed && isFixedPlanUpcoming(plan);
+    const upcomingNotice = isUpcomingFixed
+      ? `已開放預覽與預先加入・${plan.startDate} 正式開始，敬請期待`
+      : "";
 
     const card = document.createElement("div");
     card.className = "joined-plan-item-card";
@@ -1108,21 +1167,16 @@ function renderPresetPlansList() {
           <span>${escapeHTML(scheduleLabel)}</span>
         </div>
         ${description ? `<p style="margin:.15rem 0 0;font-size:.76rem;line-height:1.45;color:var(--text-secondary);">${escapeHTML(description)}</p>` : ""}
-        <div style="font-size:.76rem;font-weight:500;color:var(--primary-color);margin-top:.15rem;">+ 加入計畫</div>
+        ${isCampaignStage ? `<div style="font-size:.76rem;font-weight:500;color:var(--primary-color);"><span class="nlc-icon" data-icon="award" aria-hidden="true"></span> 完成獲得 ${escapeHTML(awardName)}</div>` : ""}
+        ${upcomingNotice ? `<div style="padding:.42rem .58rem;border-radius:9px;background:var(--bg-secondary);font-size:.74rem;line-height:1.45;color:var(--text-secondary);"><span class="nlc-icon" data-icon="hourglass" aria-hidden="true"></span> ${escapeHTML(upcomingNotice)}</div>` : ""}
+        <div style="font-size:.76rem;font-weight:500;color:var(--primary-color);margin-top:.15rem;">+ ${isUpcomingFixed ? "預先加入計畫" : "加入計畫"}</div>
       </div>
     `;
 
     card.onclick = async () => {
-      if (!isFixed) {
-        const scheduleSettings = await openFlexibleScheduleDialog(plan);
-        if (!scheduleSettings) return;
-        await db.joinPresetPlan(key, scheduleSettings);
-        return;
-      }
-      const message = isCampaign
-        ? "確定加入全教會聖經速讀計畫嗎？加入後不需要每月重新選擇。"
-        : `確定加入「${plan.name}」嗎？`;
-      if (confirm(message)) await db.joinPresetPlan(key);
+      const scheduleSettings = await openFlexibleScheduleDialog(plan);
+      if (!scheduleSettings) return;
+      await db.joinPresetPlan(key, scheduleSettings);
     };
 
     container.appendChild(card);
@@ -1935,31 +1989,25 @@ window.triggerPlanUpgradeFlow = async function() {
   const nextRound = currentRound + 1;
 
   // 記錄此類別完成的遍數，並觸發勳章解鎖檢查
-  const pk = plan.presetKey || "";
-  const planParts = pk.split("_");
-  if (planParts.length >= 4) {
-    const catKey = planParts[3]; // e.g. cat1
-    const prevMax = parseInt(localStorage.getItem(`cat_completed_rounds_${catKey}`) || "0");
-    if (currentRound > prevMax) {
-      localStorage.setItem(`cat_completed_rounds_${catKey}`, currentRound.toString());
-    }
-    
-    // 解鎖或更新該類別勳章
-    const badgeId = `badge_${catKey}`;
-    const unlockedBadges = JSON.parse(localStorage.getItem("unlocked_badges") || "[]");
-    if (!unlockedBadges.includes(badgeId)) {
-      unlockedBadges.push(badgeId);
-      localStorage.setItem("unlocked_badges", JSON.stringify(unlockedBadges));
-      const unlockDateKey = `date_unlocked_${badgeId}_lvl_1`; // round 1 unlock date
-      if (!localStorage.getItem(unlockDateKey)) {
-        localStorage.setItem(unlockDateKey, `${new Date().getFullYear()}年${new Date().getMonth() + 1}月${new Date().getDate()}日`);
+  if (plan.planKind === "church_campaign_stage") {
+    const stageNo = Number(plan.stageNo || (plan.campaignDefinition && plan.campaignDefinition.stageNo) || 0);
+    if (stageNo > 0) {
+      const completedRoundsKey = `church_stage_completed_rounds_${stageNo}`;
+      const previousCompletedRounds = Number(localStorage.getItem(completedRoundsKey) || 0);
+      localStorage.setItem(completedRoundsKey, String(Math.max(previousCompletedRounds, currentRound)));
+
+      const badgeId = `church_stage_award_${stageNo}`;
+      const unlockedBadges = JSON.parse(localStorage.getItem("unlocked_badges") || "[]");
+      if (!unlockedBadges.includes(badgeId)) {
+        unlockedBadges.push(badgeId);
+        localStorage.setItem("unlocked_badges", JSON.stringify(unlockedBadges));
       }
-    }
-    
-    // 記錄該遍完成的解鎖日期（供勳章詳細頁的時間軸展示）
-    const roundUnlockDateKey = `date_unlocked_${badgeId}_lvl_${currentRound}`;
-    if (!localStorage.getItem(roundUnlockDateKey)) {
-      localStorage.setItem(roundUnlockDateKey, `${new Date().getFullYear()}年${new Date().getMonth() + 1}月${new Date().getDate()}日`);
+
+      const today = new Date();
+      const roundUnlockDateKey = `date_unlocked_${badgeId}_lvl_${currentRound}`;
+      if (!localStorage.getItem(roundUnlockDateKey)) {
+        localStorage.setItem(roundUnlockDateKey, `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`);
+      }
     }
   }
 
@@ -2268,6 +2316,7 @@ async function renderAdminPlanManagement() {
       const hidden = isPlanHidden(plan);
       const isFixed = plan.isFixed !== false && plan.is_fixed !== false;
       const isCampaign = plan.planKind === "church_campaign" || plan.id === window.CHURCH_CAMPAIGN_ID;
+      const isCampaignStage = plan.planKind === "church_campaign_stage";
 
       let timeColHtml = "";
       if (isFixed) {
@@ -2305,6 +2354,10 @@ async function renderAdminPlanManagement() {
       const campaignRulesBtn = tr.querySelector(".admin-campaign-rules-btn");
       if (isCampaign) {
         campaignRulesBtn.onclick = () => window.openCampaignRuleEditor(plan);
+        tr.querySelector(".admin-edit-plan-btn").style.display = "none";
+        tr.querySelector(".admin-delete-plan-btn").style.display = "none";
+      } else if (isCampaignStage) {
+        campaignRulesBtn.remove();
         tr.querySelector(".admin-edit-plan-btn").style.display = "none";
         tr.querySelector(".admin-delete-plan-btn").style.display = "none";
       } else {

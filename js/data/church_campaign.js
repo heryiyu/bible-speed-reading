@@ -85,6 +85,48 @@ function cloneChurchCampaign(definition = CHURCH_CAMPAIGN) {
   return JSON.parse(JSON.stringify(definition));
 }
 
+
+function getChurchCampaignStageId(stageNo) {
+  return "00000000-0000-0000-c026-" + String(Number(stageNo) || 0).padStart(12, "0");
+}
+
+function getChurchCampaignStagePresetKey(stageNo) {
+  return "church_stage_" + String(Number(stageNo) || 0).padStart(2, "0");
+}
+
+function createChurchCampaignStageDefinitions(definition = CHURCH_CAMPAIGN) {
+  return (definition.stages || []).map(stage => {
+    const segments = (definition.segments || []).filter(segment => Number(segment.stageNo) === Number(stage.stageNo));
+    const books = Array.from(new Set(segments.flatMap(segment => segment.readings.map(reading => reading.book))));
+    return {
+      id: getChurchCampaignStageId(stage.stageNo),
+      parentCampaignId: definition.id,
+      presetKey: getChurchCampaignStagePresetKey(stage.stageNo),
+      planKind: "church_campaign_stage",
+      name: "第" + stage.stageNo + "階段｜" + stage.name,
+      description: stage.name + "，完成本階段可獲得「" + stage.awardName + "」。",
+      startDate: stage.startDate,
+      endDate: stage.endDate,
+      isFixed: true,
+      version: definition.version,
+      stageNo: Number(stage.stageNo),
+      roundNo: Number(stage.roundNo),
+      phase: stage.phase,
+      awardName: stage.awardName,
+      examDate: stage.examDate,
+      rules: cloneChurchCampaign(definition.rules),
+      stages: [cloneChurchCampaign(stage)],
+      segments: cloneChurchCampaign(segments),
+      books
+    };
+  });
+}
+
+function getChurchCampaignStageDefinition(stageNo, definition = CHURCH_CAMPAIGN) {
+  return createChurchCampaignStageDefinitions(definition)
+    .find(stage => Number(stage.stageNo) === Number(stageNo)) || null;
+}
+
 function parseCampaignDate(value) {
   const date = new Date(value + "T00:00:00");
   return Number.isNaN(date.getTime()) ? null : date;
@@ -247,6 +289,10 @@ function getChurchCampaignTeamStatus(type, members, definition = CHURCH_CAMPAIGN
 window.CHURCH_CAMPAIGN_ID = CHURCH_CAMPAIGN_ID;
 window.CHURCH_CAMPAIGN_PRESET_KEY = CHURCH_CAMPAIGN_PRESET_KEY;
 window.CHURCH_CAMPAIGN = CHURCH_CAMPAIGN;
+window.getChurchCampaignStageId = getChurchCampaignStageId;
+window.getChurchCampaignStagePresetKey = getChurchCampaignStagePresetKey;
+window.createChurchCampaignStageDefinitions = createChurchCampaignStageDefinitions;
+window.getChurchCampaignStageDefinition = getChurchCampaignStageDefinition;
 window.cloneChurchCampaign = cloneChurchCampaign;
 window.validateChurchCampaign = validateChurchCampaign;
 window.buildChurchCampaignDays = buildChurchCampaignDays;

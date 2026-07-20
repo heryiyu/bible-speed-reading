@@ -934,6 +934,53 @@ body.dark-theme .honor-badge-hex--unlocked::after {
 .honor-badge-item.unlocked .honor-badge-item__title { color: var(--text-primary); }
 .honor-badge-item.locked .honor-badge-item__title { color: var(--text-muted); }
 
+.badge-stars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  min-height: 0.875rem;
+  margin-top: -0.25rem;
+}
+
+.badge-star {
+  display: inline-flex;
+  color: var(--color-icon-muted);
+  opacity: 0.52;
+}
+
+.badge-star .nlc-icon {
+  --nlc-icon-size: 0.8125rem;
+  width: var(--nlc-icon-size);
+  height: var(--nlc-icon-size);
+  color: inherit;
+  fill: currentColor;
+}
+
+.badge-star--lit {
+  color: var(--color-achievement);
+  opacity: 1;
+}
+
+.badge-star--unlit {
+  color: var(--color-icon-muted);
+}
+
+.badge-stars--compact {
+  gap: 0.0625rem;
+  min-height: 0.625rem;
+  margin-top: 0.125rem;
+}
+
+.badge-stars--compact .nlc-icon {
+  --nlc-icon-size: 0.5625rem;
+}
+
+.honor-badge-hex__level-pill.is-unlit {
+  background: color-mix(in srgb, var(--color-icon-muted) 72%, transparent);
+  color: var(--bg-card);
+}
+
 /* Compact badge strip (dashboard / plan stats) */
 .badge-strip-card {
   margin-bottom: 1.5rem;
@@ -968,6 +1015,7 @@ body.dark-theme .honor-badge-hex--unlocked::after {
 .badge-strip__item {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   width: auto;

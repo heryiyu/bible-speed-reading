@@ -70,34 +70,92 @@ function getPlanFilterAliases(filterValue) {
 }
 
 function mapGlobalPlanRecord(dbPlan) {
-  const isCampaign = dbPlan.plan_kind === "church_campaign"
+  const isCampaignMaster = dbPlan.plan_kind === "church_campaign"
     || dbPlan.id === window.CHURCH_CAMPAIGN_ID;
+  const isCampaignStage = dbPlan.plan_kind === "church_campaign_stage";
   let campaignDefinition = null;
-  if (isCampaign) {
+
+  if (isCampaignMaster) {
     const stored = dbPlan.rules && Array.isArray(dbPlan.rules.stages) && Array.isArray(dbPlan.rules.segments)
       ? dbPlan.rules
       : window.CHURCH_CAMPAIGN;
     campaignDefinition = window.cloneChurchCampaign(stored);
+  } else if (isCampaignStage) {
+    const storedStageNo = Number(dbPlan.rules && dbPlan.rules.stageNo)
+      || Number(String(dbPlan.id || "").slice(-12));
+    const stored = dbPlan.rules && Array.isArray(dbPlan.rules.stages) && Array.isArray(dbPlan.rules.segments)
+      ? dbPlan.rules
+      : window.getChurchCampaignStageDefinition(storedStageNo);
+    if (stored) campaignDefinition = window.cloneChurchCampaign(stored);
   }
+
   const campaignBooks = campaignDefinition
     ? Array.from(new Set(campaignDefinition.segments.flatMap(segment => segment.readings.map(reading => reading.book))))
     : [];
   return {
     id: dbPlan.id,
-    name: campaignDefinition ? campaignDefinition.name : dbPlan.name,
+    globalPlanId: dbPlan.id,
+    parentCampaignId: campaignDefinition && campaignDefinition.parentCampaignId,
+    name: isCampaignMaster ? "教會階段規則設定" : (campaignDefinition ? campaignDefinition.name : dbPlan.name),
     description: campaignDefinition ? campaignDefinition.description : dbPlan.description,
     startDate: campaignDefinition ? campaignDefinition.startDate : dbPlan.start_date,
     endDate: campaignDefinition ? campaignDefinition.endDate : dbPlan.end_date,
     books: Array.isArray(dbPlan.target_books) && dbPlan.target_books.length > 0 ? dbPlan.target_books : campaignBooks,
-    presetKey: dbPlan.id,
+    presetKey: campaignDefinition && campaignDefinition.presetKey ? campaignDefinition.presetKey : dbPlan.id,
     isHidden: Boolean(dbPlan.is_hidden),
     isFixed: dbPlan.is_fixed !== false,
     is_fixed: dbPlan.is_fixed !== false,
-    planKind: isCampaign ? "church_campaign" : (dbPlan.plan_kind || "standard"),
-    ruleVersion: Number(dbPlan.rule_version || 1),
+    planKind: isCampaignMaster ? "church_campaign" : (isCampaignStage ? "church_campaign_stage" : (dbPlan.plan_kind || "standard")),
+    stageNo: campaignDefinition && Number(campaignDefinition.stageNo),
+    roundNo: campaignDefinition && Number(campaignDefinition.roundNo),
+    phase: campaignDefinition && campaignDefinition.phase,
+    awardName: campaignDefinition && campaignDefinition.awardName,
+    examDate: campaignDefinition && campaignDefinition.examDate,
+    ruleVersion: Number(dbPlan.rule_version || campaignDefinition && campaignDefinition.version || 1),
     publishedAt: dbPlan.published_at || null,
     campaignDefinition
   };
+}
+
+function migrateLocalChurchCampaignToStages(plans, logs) {
+  const list = Array.isArray(plans) ? plans : [];
+  const legacyPlans = list.filter(plan =>
+    plan && (plan.planKind === "church_campaign"
+      || plan.presetKey === window.CHURCH_CAMPAIGN_PRESET_KEY
+      || plan.id === window.CHURCH_CAMPAIGN_ID
+      || plan.globalPlanId === window.CHURCH_CAMPAIGN_ID
+      || String(plan.name || "").replace(/[–—]/g, "-").trim() === "2026-2029 新生生命聖經速讀計畫")
+  );
+  if (legacyPlans.length === 0) return { plans: list, logs: Array.isArray(logs) ? logs : [], migrated: false };
+
+  const sourceDefinition = legacyPlans.find(plan => plan.campaignDefinition && Array.isArray(plan.campaignDefinition.stages));
+  const masterDefinition = sourceDefinition ? sourceDefinition.campaignDefinition : window.CHURCH_CAMPAIGN;
+  const stages = window.createChurchCampaignStageDefinitions(masterDefinition);
+  const legacyIdentifiers = new Set(legacyPlans.flatMap(plan => [plan.id, plan.globalPlanId, plan.presetKey, plan.name]).filter(Boolean).map(String));
+  const retainedPlans = list.filter(plan => !legacyPlans.includes(plan));
+  const existingStageKeys = new Set(retainedPlans.flatMap(plan => [plan.id, plan.globalPlanId, plan.presetKey]).filter(Boolean).map(String));
+  const scheduleSource = legacyPlans[0] || {};
+
+  stages.forEach(stage => {
+    if ([stage.id, stage.presetKey].some(key => existingStageKeys.has(String(key)))) return;
+    const stagePlan = generatePlanObject(stage.name, stage.startDate, stage.endDate, stage.books, stage.presetKey, "normal", true, {
+      readingDaysPerWeek: scheduleSource.readingDaysPerWeek || scheduleSource.reading_days_per_week,
+      restWeekdays: scheduleSource.restWeekdays || scheduleSource.rest_weekdays
+    });
+    stagePlan.id = stage.id;
+    stagePlan.globalPlanId = stage.id;
+    stagePlan.presetKey = stage.presetKey;
+    retainedPlans.push(stagePlan);
+  });
+
+  const migratedLogs = (Array.isArray(logs) ? logs : []).map(log => {
+    const belongsToLegacy = [log.plan_id, log.presetKey].filter(Boolean).map(String).some(value => legacyIdentifiers.has(value));
+    if (!belongsToLegacy) return log;
+    const stage = stages.find(item => item.books.includes(log.book));
+    return stage ? { ...log, plan_id: stage.id, presetKey: stage.presetKey } : log;
+  });
+
+  return { plans: retainedPlans, logs: migratedLogs, migrated: true };
 }
 
 function getPlanStorageKey(plan) {
@@ -840,6 +898,12 @@ const db = {
       const localPlans = localStorage.getItem("active_reading_plans");
       if (localPlans) {
         state.activePlans = JSON.parse(localPlans);
+        const localCampaignMigration = migrateLocalChurchCampaignToStages(state.activePlans, state.readingLogs);
+        state.activePlans = localCampaignMigration.plans;
+        if (localCampaignMigration.migrated) {
+          state.readingLogs = localCampaignMigration.logs;
+          localStorage.setItem("reading_logs", JSON.stringify(state.readingLogs));
+        }
         state.activePlans.forEach(plan => {
           if (!plan.presetKey) {
             plan.presetKey = getPresetKeyByName(plan.name);
@@ -913,13 +977,17 @@ const db = {
       localStorage.setItem("user_profile", JSON.stringify(state.currentUser));
       state.realRole = "admin";
 
-      state.activePlan = generatePlanObject(CHURCH_PLAN_PRESETS[window.CHURCH_CAMPAIGN_PRESET_KEY].name, CHURCH_PLAN_PRESETS[window.CHURCH_CAMPAIGN_PRESET_KEY].startDate, CHURCH_PLAN_PRESETS[window.CHURCH_CAMPAIGN_PRESET_KEY].endDate, CHURCH_PLAN_PRESETS[window.CHURCH_CAMPAIGN_PRESET_KEY].books, window.CHURCH_CAMPAIGN_PRESET_KEY);
+      const defaultDemoPresetKey = Object.keys(CHURCH_PLAN_PRESETS)[0];
+      const defaultDemoPreset = CHURCH_PLAN_PRESETS[defaultDemoPresetKey];
+
+
+      state.activePlan = generatePlanObject(defaultDemoPreset.name, defaultDemoPreset.startDate, defaultDemoPreset.endDate, defaultDemoPreset.books, defaultDemoPresetKey);
       state.activePlan.progress = 72;
       state.activePlan.completedChapters = Math.round((state.activePlan.totalChapters * 72) / 100);
       state.activePlans = [state.activePlan];
 
       localStorage.setItem("active_reading_plans", JSON.stringify(state.activePlans));
-      localStorage.setItem("selected_plan_key", "q1");
+      localStorage.setItem("selected_plan_key", defaultDemoPresetKey);
 
       // Fill in simulated logs
       const completedList = [];
@@ -1762,11 +1830,14 @@ const db = {
     };
 
     // Setup mock active plan to match their plan_progress
-    state.activePlan = generatePlanObject(CHURCH_PLAN_PRESETS[window.CHURCH_CAMPAIGN_PRESET_KEY].name, CHURCH_PLAN_PRESETS[window.CHURCH_CAMPAIGN_PRESET_KEY].startDate, CHURCH_PLAN_PRESETS[window.CHURCH_CAMPAIGN_PRESET_KEY].endDate, CHURCH_PLAN_PRESETS[window.CHURCH_CAMPAIGN_PRESET_KEY].books, window.CHURCH_CAMPAIGN_PRESET_KEY);
+    const defaultDemoPresetKey = Object.keys(CHURCH_PLAN_PRESETS)[0];
+      const defaultDemoPreset = CHURCH_PLAN_PRESETS[defaultDemoPresetKey];
+
+    state.activePlan = generatePlanObject(defaultDemoPreset.name, defaultDemoPreset.startDate, defaultDemoPreset.endDate, defaultDemoPreset.books, defaultDemoPresetKey);
     state.activePlan.progress = mockUser.plan_progress;
     state.activePlan.completedChapters = Math.round((state.activePlan.totalChapters * mockUser.plan_progress) / 100);
     state.activePlans = [state.activePlan];
-    localStorage.setItem("selected_plan_key", "q1");
+    localStorage.setItem("selected_plan_key", defaultDemoPresetKey);
 
     const completedList = [];
     let count = 0;
@@ -2324,11 +2395,13 @@ const db = {
     const mergeWithPresets = (loadedList) => {
       const presetKeys = Object.keys(CHURCH_PLAN_PRESETS);
       const presetPlans = Object.entries(CHURCH_PLAN_PRESETS).map(([key, originalPreset]) => {
-        const p = originalPreset.planKind === "church_campaign" && localCampaignOverride
-          ? { ...originalPreset, name: localCampaignOverride.name, description: localCampaignOverride.description, startDate: localCampaignOverride.startDate, endDate: localCampaignOverride.endDate, campaignDefinition: localCampaignOverride, ruleVersion: localCampaignOverride.version }
-          : originalPreset;
+        const overrideStage = localCampaignOverride && originalPreset.planKind === "church_campaign_stage"
+          ? window.getChurchCampaignStageDefinition(originalPreset.stageNo, localCampaignOverride)
+          : null;
+        const p = overrideStage ? { ...originalPreset, ...overrideStage, campaignDefinition: overrideStage, ruleVersion: localCampaignOverride.version } : originalPreset;
         return ({
-        id: key,
+        id: p.id || key,
+        globalPlanId: p.id || key,
         name: p.name,
         startDate: p.startDate,
         endDate: p.endDate,
@@ -2338,6 +2411,12 @@ const db = {
         isFixed: p.isFixed !== false,
         is_fixed: p.isFixed !== false,
         planKind: p.planKind || "standard",
+        parentCampaignId: p.parentCampaignId || null,
+        stageNo: p.stageNo || null,
+        roundNo: p.roundNo || null,
+        phase: p.phase || null,
+        awardName: p.awardName || null,
+        examDate: p.examDate || null,
         ruleVersion: Number(p.ruleVersion || 1),
         description: p.description || "",
         campaignDefinition: p.campaignDefinition ? window.cloneChurchCampaign(p.campaignDefinition) : null
@@ -2345,7 +2424,17 @@ const db = {
       });
       // 自訂計畫：排除掉 presetKey 為 q1~q4 的項目避免重複
       const customPlans = loadedList.filter(p => !presetKeys.includes(p.presetKey) && !presetKeys.includes(p.id));
-      return [...presetPlans, ...customPlans].map(plan => ({
+      const masterDefinition = localCampaignOverride || window.CHURCH_CAMPAIGN;
+      const masterPlan = {
+        id: window.CHURCH_CAMPAIGN_ID, globalPlanId: window.CHURCH_CAMPAIGN_ID,
+        presetKey: window.CHURCH_CAMPAIGN_PRESET_KEY, planKind: "church_campaign",
+        name: "教會階段規則設定", description: "僅供管理員編輯階段規則，不是可加入的讀經計畫。",
+        startDate: masterDefinition.startDate, endDate: masterDefinition.endDate,
+        books: Array.from(new Set(masterDefinition.segments.flatMap(segment => segment.readings.map(reading => reading.book)))),
+        isHidden: true, isFixed: true, is_fixed: true,
+        ruleVersion: Number(masterDefinition.version || 1), campaignDefinition: window.cloneChurchCampaign(masterDefinition)
+      };
+      return [masterPlan, ...presetPlans, ...customPlans].map(plan => ({
         ...plan,
         isHidden: Boolean(plan.isHidden || plan.is_hidden),
         isFixed: plan.isFixed !== false,
@@ -2393,14 +2482,9 @@ const db = {
       nextDefinition.version = Number(plan.ruleVersion || 1) + 1;
       localStorage.setItem("church_campaign_override", JSON.stringify(nextDefinition));
       window.CHURCH_CAMPAIGN = window.cloneChurchCampaign(nextDefinition);
-      const preset = CHURCH_PLAN_PRESETS[window.CHURCH_CAMPAIGN_PRESET_KEY];
-      Object.assign(preset, {
-        name: nextDefinition.name,
-        description: nextDefinition.description,
-        startDate: nextDefinition.startDate,
-        endDate: nextDefinition.endDate,
-        books: Array.from(new Set(nextDefinition.segments.flatMap(segment => segment.readings.map(reading => reading.book)))),
-        campaignDefinition: window.cloneChurchCampaign(nextDefinition)
+      window.createChurchCampaignStageDefinitions(nextDefinition).forEach(stage => {
+        const preset = CHURCH_PLAN_PRESETS[stage.presetKey];
+        if (preset) Object.assign(preset, stage, { campaignDefinition: window.cloneChurchCampaign(stage) });
       });
     }
 

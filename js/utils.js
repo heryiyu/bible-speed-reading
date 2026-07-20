@@ -321,85 +321,75 @@ function buildHeatmapGrid(containerId, logsByDate, teamSize = 1, label = "章", 
 }
 
 const BADGE_UNLOCK_TARGETS = {
-  subscribe_plan: 1,
-  streak_30: 30,
-  complete_plan: 1,
-  share_verse: 1,
-  read_all_bible: 1189
+  subscribe_plan: 1, streak_30: 1, complete_plan: 1, share_verse: 1, read_all_bible: 10
 };
 
-function getBadgeMilestoneConfig(badgeId) {
-  if (badgeId && badgeId.startsWith("badge_cat")) {
-    const catKey = badgeId.replace("badge_cat", "cat");
-    return {
-      levels: [10, 5, 3, 2, 1],
-      unit: "遍",
-      getValue: () => (typeof window.getCategoryCompletedRounds === "function" ? window.getCategoryCompletedRounds(catKey) : 0)
-    };
-  }
+function getCampaignStageCompletedRounds(stageNo) {
+  const target = Number(stageNo || 0);
+  let completedRounds = Number(localStorage.getItem(`church_stage_completed_rounds_${target}`) || 0);
+  (state.activePlans || []).forEach(plan => {
+    const planStageNo = Number(plan.stageNo || (plan.campaignDefinition && plan.campaignDefinition.stageNo) || 0);
+    if (plan.planKind !== "church_campaign_stage" || planStageNo !== target) return;
+    const currentRound = Math.max(1, Number(plan.currentRound || 1));
+    const completed = Number(plan.progress || 0) >= 100 ? currentRound : currentRound - 1;
+    completedRounds = Math.max(completedRounds, completed);
+  });
+  return completedRounds;
+}
 
-  const milestoneConfig = {
-    "badge-subscribe": { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.subscribedPlans ? state.subscribedPlans.length : 0) },
-    subscribe_plan: { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.subscribedPlans ? state.subscribedPlans.length : 0) },
-    "badge-streak": { levels: [30, 15, 7, 1], unit: "天打卡", getValue: () => (state.currentUser ? state.currentUser.streak || 0 : 0) },
-    streak_30: { levels: [30, 15, 7, 1], unit: "天打卡", getValue: () => (state.currentUser ? state.currentUser.streak || 0 : 0) },
-    "badge-complete": { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.completedPlans ? state.completedPlans.length : 0) },
-    complete_plan: { levels: [5, 3, 1], unit: "個計畫", getValue: () => (state.completedPlans ? state.completedPlans.length : 0) },
-    "badge-share": { levels: [50, 10, 5, 1], unit: "次分享", getValue: () => (localStorage.getItem("has_shared_verse") === "true" ? 1 : 0) },
-    share_verse: { levels: [50, 10, 5, 1], unit: "次分享", getValue: () => (localStorage.getItem("has_shared_verse") === "true" ? 1 : 0) },
-    "badge-bible": { levels: [1189, 500, 100, 10], unit: "章經文", getValue: () => {
-      const uniqueChapters = new Set();
-      if (state.readingLogs) {
-        state.readingLogs.forEach(l => uniqueChapters.add(`${l.book}_${l.chapter}`));
-      }
-      return uniqueChapters.size;
-    }},
-    read_all_bible: { levels: [1189, 500, 100, 10], unit: "章經文", getValue: () => {
-      const uniqueChapters = new Set();
-      if (state.readingLogs) {
-        state.readingLogs.forEach(l => uniqueChapters.add(`${l.book}_${l.chapter}`));
-      }
+function getCampaignStageCurrentRound(stageNo) {
+  const target = Number(stageNo || 0);
+  return (state.activePlans || []).reduce((maxRound, plan) => {
+    const planStageNo = Number(plan.stageNo || (plan.campaignDefinition && plan.campaignDefinition.stageNo) || 0);
+    if (plan.planKind !== "church_campaign_stage" || planStageNo !== target) return maxRound;
+    return Math.max(maxRound, Number(plan.currentRound || 1));
+  }, 1);
+}
+
+function getBadgeMilestoneConfig(badgeId) {
+  if (badgeId && badgeId.startsWith("church_stage_award_")) {
+    const stageNo = Number(badgeId.replace("church_stage_award_", ""));
+    return { levels: [5, 4, 3, 2, 1], unit: "遍", getValue: () => getCampaignStageCompletedRounds(stageNo) };
+  }
+  const activePlanCount = () => (state.activePlans || []).length;
+  const completedPlanCount = () => (state.activePlans || []).filter(plan => Number(plan.progress || 0) >= 100 || Number(plan.currentRound || 1) > 1).length;
+  const config = {
+    subscribe_plan: { levels: [5, 4, 3, 2, 1], unit: "個計畫", getValue: activePlanCount },
+    streak_30: { levels: [30, 21, 14, 7, 1], unit: "天", getValue: () => Number((state.currentUser && state.currentUser.streak) || 0) },
+    complete_plan: { levels: [5, 4, 3, 2, 1], unit: "個計畫", getValue: completedPlanCount },
+    share_verse: { levels: [50, 25, 10, 5, 1], unit: "次分享", getValue: () => Number(localStorage.getItem("verse_share_count") || (localStorage.getItem("has_shared_verse") === "true" ? 1 : 0)) },
+    read_all_bible: { levels: [1189, 800, 500, 100, 10], unit: "章", getValue: () => {
+      const uniqueChapters = new Set((state.readingLogs || []).map(log => `${log.book}_${log.chapter}`));
       return uniqueChapters.size;
     }}
   };
-  return milestoneConfig[badgeId] || { levels: [1], unit: "次", getValue: () => 0 };
+  return config[badgeId] || { levels: [5, 4, 3, 2, 1], unit: "次", getValue: () => 0 };
 }
 
 function getBadgeProgressValue(badgeId) {
-  if (badgeId && badgeId.startsWith("badge_cat")) {
-    const catKey = badgeId.replace("badge_cat", "cat");
-    return typeof window.getCategoryCompletedRounds === "function" ? window.getCategoryCompletedRounds(catKey) : 0;
-  }
-
-  if (badgeId === "subscribe_plan") {
-    return state.activePlan ? 1 : 0;
-  }
-  if (badgeId === "streak_30") {
-    return (state.currentUser && state.currentUser.streak) || 0;
-  }
-  if (badgeId === "complete_plan") {
-    if (state.completedPlans && state.completedPlans.length > 0) return 1;
-    if (state.activePlan && state.activePlan.days) {
-      const allDone = state.activePlan.days.every(d => d.chapters.every(ch => ch.isRead));
-      return allDone ? 1 : 0;
-    }
-    return 0;
-  }
-  if (badgeId === "share_verse") {
-    return localStorage.getItem("has_shared_verse") === "true" ||
-      localStorage.getItem("badge_share_verse_unlocked") === "true"
-      ? 1
-      : 0;
-  }
-  if (badgeId === "read_all_bible") {
-    const uniqueChapters = new Set();
-    if (state.readingLogs) {
-      state.readingLogs.forEach(l => uniqueChapters.add(`${l.book}_${l.chapter}`));
-    }
-    return uniqueChapters.size;
-  }
   const conf = getBadgeMilestoneConfig(badgeId);
-  return typeof conf.getValue === "function" ? conf.getValue() : 0;
+  return typeof conf.getValue === "function" ? Number(conf.getValue() || 0) : 0;
+}
+
+function getBadgeStarState(badge) {
+  const conf = getBadgeMilestoneConfig(badge && badge.id);
+  const currentValue = getBadgeProgressValue(badge && badge.id);
+  const ascendingLevels = [...conf.levels].sort((a, b) => a - b);
+  const maxStars = Math.max(1, Math.min(Number((badge && badge.maxStars) || 5), ascendingLevels.length));
+  const achievedStars = Math.min(maxStars, ascendingLevels.filter(level => currentValue >= level).length);
+  let displayedStars = Math.max(1, achievedStars);
+  if (badge && badge.campaignStageNo) {
+    displayedStars = Math.min(maxStars, Math.max(1, getCampaignStageCurrentRound(badge.campaignStageNo)));
+  }
+  return { level: achievedStars, displayedStars, currentValue, levels: ascendingLevels, unit: conf.unit };
+}
+
+function renderBadgeStars(badge, compact = false) {
+  const starState = getBadgeStarState(badge);
+  const stars = Array.from({ length: starState.displayedStars }, (_, index) =>
+    `<span class="badge-star ${index < starState.level ? "badge-star--lit" : "badge-star--unlit"}"><span class="nlc-icon" data-icon="star" aria-hidden="true"></span></span>`
+  ).join("");
+  return `<span class="badge-stars ${compact ? "badge-stars--compact" : ""}" aria-label="已點亮 ${starState.level} 顆，共顯示 ${starState.displayedStars} 顆">${stars}</span>`;
 }
 
 function updateBadgeWallSummary(unlockedCount, total) {
@@ -445,54 +435,33 @@ function attachBadgeOpenHandlers(element, badge, isUnlocked) {
 };
 
 function renderBadgeWall(containerId) {
-  if (typeof window.syncRoundBadges === "function") {
-    window.syncRoundBadges();
-  }
   const container = document.getElementById("badges-grid") || document.getElementById(containerId);
   if (!container) return;
-
   container.innerHTML = "";
 
-  const ACHIEVEMENTS_LIST = window.ACHIEVEMENTS || (typeof ACHIEVEMENTS !== "undefined" ? ACHIEVEMENTS : null);
-  if (!ACHIEVEMENTS_LIST) {
-    container.innerHTML = `<div class="badge-wall__empty">暫無解鎖勳章</div>`;
+  const list = window.ACHIEVEMENTS || (typeof ACHIEVEMENTS !== "undefined" ? ACHIEVEMENTS : null);
+  if (!list) {
+    container.innerHTML = `<div class="badge-wall__empty">暫無徽章</div>`;
     return;
   }
-
-  const unlocked = JSON.parse(localStorage.getItem("unlocked_badges") || "[]");
   if (container.id === "badges-grid") {
-    const actualUnlockedCount = ACHIEVEMENTS_LIST.filter(badge => unlocked.includes(badge.id)).length;
-    updateBadgeWallSummary(actualUnlockedCount, ACHIEVEMENTS_LIST.length);
+    updateBadgeWallSummary(list.filter(badge => getBadgeStarState(badge).level > 0).length, list.length);
   }
-
-  const getBadgeClasses = typeof getHonorBadgeItemClasses === "function"
+  const getClasses = typeof getHonorBadgeItemClasses === "function"
     ? getHonorBadgeItemClasses
-    : (isUnlocked) => (isUnlocked ? "honor-badge-item unlocked" : "honor-badge-item locked");
+    : unlocked => (unlocked ? "honor-badge-item unlocked" : "honor-badge-item locked");
 
-  ACHIEVEMENTS_LIST.forEach(function (badge) {
-    const isUnlocked = unlocked.includes(badge.id);
+  list.forEach(badge => {
+    const starState = getBadgeStarState(badge);
+    const isUnlocked = starState.level > 0;
     const badgeItem = document.createElement("div");
-    badgeItem.className = getBadgeClasses(isUnlocked) + " honor-badge-item--tile";
+    badgeItem.className = getClasses(isUnlocked) + " honor-badge-item--tile";
     badgeItem.setAttribute("role", "button");
     badgeItem.setAttribute("tabindex", "0");
-    badgeItem.setAttribute("aria-label", (isUnlocked ? "已解鎖：" : "尚未解鎖：") + badge.title);
-
+    badgeItem.setAttribute("aria-label", (isUnlocked ? "已點亮：" : "尚未點亮：") + badge.title);
     const safeTitle = typeof escapeHTML === "function" ? escapeHTML(badge.title) : badge.title;
     const hexState = isUnlocked ? "honor-badge-hex--unlocked" : "honor-badge-hex--locked";
-    let starsHtml = "";
-    let tierClass = "";
-    if (isUnlocked && badge.categoryKey) {
-      const starsCount = typeof window.getCategoryCompletedRounds === "function"
-        ? window.getCategoryCompletedRounds(badge.categoryKey)
-        : 1;
-      if (starsCount > 0) {
-        starsHtml = `<div class="badge-item-stars" style="display: flex; gap: 2px; justify-content: center; margin-top: 4px; color: #fbbf24; font-size: 0.8rem; text-shadow: 0 1px 3px rgba(0,0,0,0.3);">${"★".repeat(starsCount)}</div>`;
-        if (typeof window.getBadgeTierClass === "function") {
-          tierClass = window.getBadgeTierClass(starsCount);
-        }
-      }
-    }
-
+    const tierClass = typeof window.getBadgeTierClass === "function" ? window.getBadgeTierClass(starState.level) : "";
     badgeItem.innerHTML = `
       ${!isUnlocked ? `<div class="honor-badge-item__lock"><span class="nlc-icon nlc-icon--sm" data-icon="lock" aria-hidden="true"></span></div>` : ""}
       <div class="honor-badge-item__icon-wrap honor-badge-hex-shell">
@@ -502,54 +471,32 @@ function renderBadgeWall(containerId) {
         ${isUnlocked ? `<span class="honor-badge-hex__check" aria-hidden="true"><span class="nlc-icon nlc-icon--sm" data-icon="checkCircle"></span></span>` : ""}
       </div>
       <span class="honor-badge-item__title">${safeTitle}</span>
-      ${starsHtml}
+      ${renderBadgeStars(badge)}
     `;
-
     attachBadgeOpenHandlers(badgeItem, badge, isUnlocked);
     container.appendChild(badgeItem);
   });
-
-  if (typeof hydrateIcons === "function") {
-    hydrateIcons(container);
-  }
-
+  if (typeof hydrateIcons === "function") hydrateIcons(container);
   bindBadgeDetailControls();
 }
 
 function renderBadgeStrip(containerId, options) {
-  if (typeof window.syncRoundBadges === "function") {
-    window.syncRoundBadges();
-  }
   const container = document.getElementById(containerId);
   if (!container) return;
-
   const opts = options || {};
   container.innerHTML = "";
+  const list = window.ACHIEVEMENTS || (typeof ACHIEVEMENTS !== "undefined" ? ACHIEVEMENTS : null);
+  if (!list) return;
+  if (opts.linkToProfile) bindBadgeStripProfileLink();
 
-  const ACHIEVEMENTS_LIST = window.ACHIEVEMENTS || (typeof ACHIEVEMENTS !== "undefined" ? ACHIEVEMENTS : null);
-  if (!ACHIEVEMENTS_LIST) return;
-
-  if (opts.linkToProfile) {
-    bindBadgeStripProfileLink();
-  }
-
-  const unlocked = JSON.parse(localStorage.getItem("unlocked_badges") || "[]");
-
-  ACHIEVEMENTS_LIST.forEach(function (badge) {
-    const isUnlocked = unlocked.includes(badge.id);
+  list.forEach(badge => {
+    const starState = getBadgeStarState(badge);
+    const isUnlocked = starState.level > 0;
     const item = document.createElement("button");
     item.type = "button";
     item.className = "badge-strip__item " + (isUnlocked ? "unlocked" : "locked");
-    item.setAttribute("aria-label", (isUnlocked ? "已解鎖：" : "尚未解鎖：") + badge.title);
-    let tierClass = "";
-    if (isUnlocked && badge.categoryKey) {
-      const starsCount = typeof window.getCategoryCompletedRounds === "function"
-        ? window.getCategoryCompletedRounds(badge.categoryKey)
-        : 1;
-      if (starsCount > 0 && typeof window.getBadgeTierClass === "function") {
-        tierClass = window.getBadgeTierClass(starsCount);
-      }
-    }
+    item.setAttribute("aria-label", (isUnlocked ? "已點亮：" : "尚未點亮：") + badge.title);
+    const tierClass = typeof window.getBadgeTierClass === "function" ? window.getBadgeTierClass(starState.level) : "";
     const hexState = isUnlocked ? "honor-badge-hex--unlocked" : "honor-badge-hex--locked";
     item.innerHTML = `
       <span class="honor-badge-hex-shell honor-badge-hex-shell--sm">
@@ -559,14 +506,12 @@ function renderBadgeStrip(containerId, options) {
         ${!isUnlocked ? `<span class="honor-badge-hex__lock" aria-hidden="true"><span class="nlc-icon nlc-icon--sm" data-icon="lock"></span></span>` : ""}
         ${isUnlocked ? `<span class="honor-badge-hex__check" aria-hidden="true"><span class="nlc-icon nlc-icon--sm" data-icon="checkCircle"></span></span>` : ""}
       </span>
+      ${renderBadgeStars(badge, true)}
     `;
     attachBadgeOpenHandlers(item, badge, isUnlocked);
     container.appendChild(item);
   });
-
-  if (typeof hydrateIcons === "function") {
-    hydrateIcons(container);
-  }
+  if (typeof hydrateIcons === "function") hydrateIcons(container);
 }
 
 window.navigateToBadgeWall = function () {
@@ -585,6 +530,10 @@ window.renderBadgeStrip = renderBadgeStrip;
 
 window.getBadgeMilestoneConfig = getBadgeMilestoneConfig;
 window.getBadgeProgressValue = getBadgeProgressValue;
+window.getCampaignStageCompletedRounds = getCampaignStageCompletedRounds;
+window.getCampaignStageCurrentRound = getCampaignStageCurrentRound;
+window.getBadgeStarState = getBadgeStarState;
+window.renderBadgeStars = renderBadgeStars;
 
 // YouVersion high-grade full-screen detail subpage controller
 function closeBadgeDetailPage() {
@@ -623,6 +572,9 @@ window.openBadgeDetailPage = function(badge, isUnlocked, isDark) {
   if (!page) return;
   bindBadgeDetailControls();
 
+  const badgeStarState = getBadgeStarState(badge);
+  isUnlocked = badgeStarState.level > 0;
+
   page.style.background = "";
   page.style.color = "";
   page.style.borderColor = "";
@@ -633,17 +585,11 @@ window.openBadgeDetailPage = function(badge, isUnlocked, isDark) {
   }
 
   // Render text contents
-  let starsText = "";
-  if (isUnlocked && badge.categoryKey) {
-    const starsCount = typeof window.getCategoryCompletedRounds === "function"
-      ? window.getCategoryCompletedRounds(badge.categoryKey)
-      : 1;
-    if (starsCount > 0) {
-      starsText = ` (已讀 ${starsCount} 遍 ${"★".repeat(starsCount)})`;
-    }
-  }
+  const starsText = badgeStarState.level > 0
+    ? `（${badgeStarState.level} 顆星）`
+    : "（第一顆星待點亮）";
   title.textContent = badge.title + starsText;
-  desc.textContent = badge.description.split("：").pop();
+  desc.textContent = badge.description;
 
   const triggerEl = document.getElementById("detail-trigger-text");
   const triggerCard = document.getElementById("detail-trigger-card");
@@ -675,14 +621,9 @@ window.openBadgeDetailPage = function(badge, isUnlocked, isDark) {
     if (hexInner) {
       hexInner.classList.remove("honor-badge-hex--unlocked", "honor-badge-hex--locked", "tier-bronze", "tier-silver", "tier-gold", "tier-platinum", "tier-legendary");
       hexInner.classList.add(isUnlocked ? "honor-badge-hex--unlocked" : "honor-badge-hex--locked");
-      if (isUnlocked && badge.categoryKey) {
-        const starsCount = typeof window.getCategoryCompletedRounds === "function"
-          ? window.getCategoryCompletedRounds(badge.categoryKey)
-          : 1;
-        if (starsCount > 0 && typeof window.getBadgeTierClass === "function") {
-          const tierClass = window.getBadgeTierClass(starsCount);
-          if (tierClass) hexInner.classList.add(tierClass);
-        }
+      if (isUnlocked && typeof window.getBadgeTierClass === "function") {
+        const tierClass = window.getBadgeTierClass(badgeStarState.level);
+        if (tierClass) hexInner.classList.add(tierClass);
       }
     }
     shield.style.background = "";
@@ -708,14 +649,11 @@ window.openBadgeDetailPage = function(badge, isUnlocked, isDark) {
     }
   });
 
-  // Update level display count pill
+  // Update star-level display pill
   if (levelPill) {
-    if (highestUnlockedLevel > 0) {
-      levelPill.textContent = highestUnlockedLevel;
-      levelPill.style.display = "block";
-    } else {
-      levelPill.style.display = "none";
-    }
+    levelPill.textContent = `★ ${Math.max(1, badgeStarState.level)}`;
+    levelPill.style.display = "block";
+    levelPill.classList.toggle("is-unlit", badgeStarState.level === 0);
   }
 
   // Populate milestone items dynamically
@@ -1278,16 +1216,24 @@ function rebuildPlanScheduleForLevel(plan, level) {
 function resolveChurchCampaignDefinition(presetKey, name) {
   const globalPlan = (state.globalPlans || []).find(plan =>
     plan.id === presetKey
+    || plan.globalPlanId === presetKey
     || plan.presetKey === presetKey
-    || (plan.planKind === "church_campaign" && plan.name === name)
+    || (["church_campaign", "church_campaign_stage"].includes(plan.planKind) && plan.name === name)
   );
-  if (globalPlan && globalPlan.planKind === "church_campaign") {
+  if (globalPlan && ["church_campaign", "church_campaign_stage"].includes(globalPlan.planKind)) {
     return window.cloneChurchCampaign(globalPlan.campaignDefinition || window.CHURCH_CAMPAIGN);
   }
   if (presetKey === window.CHURCH_CAMPAIGN_PRESET_KEY || presetKey === window.CHURCH_CAMPAIGN_ID) {
     return window.cloneChurchCampaign();
   }
-  return null;
+  const preset = presetKey && CHURCH_PLAN_PRESETS[presetKey];
+  if (preset && preset.planKind === "church_campaign_stage") {
+    return window.cloneChurchCampaign(preset.campaignDefinition);
+  }
+  const stage = window.createChurchCampaignStageDefinitions().find(item =>
+    item.id === presetKey || item.presetKey === presetKey || item.name === name
+  );
+  return stage ? window.cloneChurchCampaign(stage) : null;
 }
 
 function generateChurchCampaignPlanObject(definition, presetKey, scheduleSettings = null) {
