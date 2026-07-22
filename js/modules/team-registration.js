@@ -22,6 +22,8 @@
     const overlay = document.createElement("div");
     overlay.id = id;
     overlay.className = "modal-overlay reading-team-overlay";
+    // Critical positioning is inline so a stale optional stylesheet can never place the dialog inside page flow.
+    overlay.style.cssText = "position:fixed;inset:0;display:flex;z-index:var(--z-modal,700);";
     overlay.innerHTML = `<section class="reading-team-dialog glass-card" role="dialog" aria-modal="true" aria-labelledby="${labelledBy}"></section>`;
     document.body.classList.add("reading-team-modal-open");
     document.body.appendChild(overlay);

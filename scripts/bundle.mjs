@@ -50,8 +50,8 @@ const CSS_RE = /<link\s+rel="stylesheet"\s+href="(?!https?:|\/\/)([^"?#]+)(?:[?#
 
 export function resolveLocalAssets(html) {
   const scripts = [...html.matchAll(SCRIPT_RE)].map((m) => m[1]);
-  const cssMatch = [...html.matchAll(CSS_RE)].map((m) => m[1]);
-  return { scripts, stylesheet: cssMatch[0] ?? null };
+  const stylesheets = [...html.matchAll(CSS_RE)].map((m) => m[1]);
+  return { scripts, stylesheets, stylesheet: stylesheets[0] ?? null };
 }
 
 export function concatScripts(paths, readFile) {
@@ -74,8 +74,8 @@ export function emitBundle({ root, outDir }) {
   const indexPath = join(root, "index.html");
   if (!existsSync(indexPath)) throw new Error(`bundle: missing ${indexPath}`);
   const html = readFileSync(indexPath, "utf8");
-  const { scripts, stylesheet } = resolveLocalAssets(html);
-  if (!stylesheet) throw new Error("bundle: no local stylesheet <link> found in index.html");
+  const { scripts, stylesheets } = resolveLocalAssets(html);
+  if (!stylesheets.length) throw new Error("bundle: no local stylesheet <link> found in index.html");
 
   const readSource = (rel) => {
     const abs = join(root, rel);
@@ -108,9 +108,9 @@ export function emitBundle({ root, outDir }) {
   assertParses(bundleJs);
   console.log("DEBUG: assertParses success!");
 
-  console.log("DEBUG: Reading stylesheet source: " + stylesheet);
-  const cssContent = readSource(stylesheet);
-  console.log("DEBUG: stylesheet read success, length = " + cssContent.length);
+  console.log("DEBUG: Reading stylesheet sources: " + stylesheets.join(", "));
+  const cssContent = stylesheets.map((stylesheet) => readSource(stylesheet)).join("\n\n");
+  console.log("DEBUG: stylesheets read success, length = " + cssContent.length);
 
   // 💡 一勞永逸的快取清除法：動態產生當次建置版號，並替換程式中的 placeholder 欄位
   const buildVer = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
@@ -138,7 +138,11 @@ export function emitBundle({ root, outDir }) {
     seen += 1;
     return seen === total ? `<script type="module" src="/${jsFile}"></script>` : "";
   });
-  outHtml = outHtml.replace(CSS_RE, `<link rel="stylesheet" href="/${cssFile}">`);
+  let seenStylesheet = 0;
+  outHtml = outHtml.replace(CSS_RE, () => {
+    seenStylesheet += 1;
+    return seenStylesheet === 1 ? `<link rel="stylesheet" href="/${cssFile}">` : "";
+  });
   console.log("DEBUG: Writing index.html...");
   writeFileSync(join(outDir, "index.html"), outHtml, "utf8");
   console.log("DEBUG: index.html written!");

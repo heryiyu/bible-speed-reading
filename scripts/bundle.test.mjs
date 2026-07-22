@@ -14,12 +14,14 @@ describe("resolveLocalAssets", () => {
     const html = `
       <link rel="stylesheet" href="https://cdn/x.css">
       <link rel="stylesheet" href="index.css?v=abc">
+      <link rel="stylesheet" href="css/team-registration.css?v=def">
       <script src="https://cdn/lib.js"></script>
       <script src="config.js?v=1"></script>
       <script src="js/state.js?v=2"></script>`;
     const out = resolveLocalAssets(html);
     expect(out.scripts).toEqual(["config.js", "js/state.js"]);
     expect(out.stylesheet).toBe("index.css");
+    expect(out.stylesheets).toEqual(["index.css", "css/team-registration.css"]);
   });
 
   it("extracts src regardless of attribute order, still excluding external and inline", () => {
@@ -37,7 +39,7 @@ describe("resolveLocalAssets", () => {
 
   it("resolves the real index.html to the exact 1-file order", () => {
     const html = readFileSync(join(root, "index.html"), "utf8");
-    const { scripts } = resolveLocalAssets(html);
+    const { scripts, stylesheets } = resolveLocalAssets(html);
     expect(scripts).toEqual([
       "js/app.js"
     ]);
@@ -106,6 +108,10 @@ describe("emitBundle (integration, real repo)", () => {
       expect(html).not.toMatch(/<script\s+src="js\//);
       expect(html).not.toMatch(/<script\s+src="config\.js/);
       expect(html).toContain(`href="/${cssFile}"`);
+      expect((html.match(new RegExp(`href="/${cssFile}"`, "g")) || []).length).toBe(1);
+      const bundledCss = rf(join(out, cssFile), "utf8");
+      expect(bundledCss).toContain(".reading-team-overlay");
+      expect(bundledCss).toContain(".reading-team-admin-summary");
       // assets copied
       expect(existsSync(join(out, "manifest.json"))).toBe(true);
       expect(existsSync(join(out, "sw.js"))).toBe(true);
