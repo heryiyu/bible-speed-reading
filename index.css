@@ -1863,8 +1863,13 @@ vercel-live-feedback,
 
 .primary-btn:active,
 .secondary-btn:active,
-.danger-btn:active {
-  transform: scale(0.98);
+.danger-btn:active,
+.tab-btn:active,
+.mobile-nav-btn:active,
+.reading-team-choice:active,
+.reading-team-remind-btn:active {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
 }
 
 .primary-btn:disabled,
@@ -5856,6 +5861,7 @@ button:active,
 .date-card:active,
 .mobile-nav-btn:active {
   transform: scale(0.96);
+  transition: transform 0.08s ease !important;
 }
 
 button:focus,
@@ -9837,3 +9843,90 @@ body.dark-theme .plan-calendar .plan-day-cell.active .day-number, body.dark-them
   margin: -0.25rem 0 0;
   color: var(--color-danger);
 }
+
+/* ── Custom App Confirm Dialog ────────────────────────────── */
+.custom-confirm-overlay {
+  background: rgba(15, 15, 15, 0.46);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.dark-theme .custom-confirm-overlay {
+  background: rgba(0, 0, 0, 0.64);
+}
+.custom-confirm-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 340px;
+  padding: 24px;
+  box-shadow: 0 16px 40px rgb(0 0 0 / 22%);
+  transform: scale(0.9);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.22s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: left;
+}
+.custom-confirm-overlay.active .custom-confirm-card {
+  transform: scale(1);
+}
+.custom-confirm-title {
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+.custom-confirm-desc {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.custom-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+.custom-confirm-actions button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.1s ease, background-color 0.18s ease, border-color 0.18s ease;
+}
+.custom-confirm-actions button:active {
+  transform: scale(0.97);
+}
+
+/* ── Custom Elegant Scrollbars (App-like) ────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-primary) 22%, transparent);
+}
+@media (max-width: 640px) {
+  /* Hide scrollbars on mobile layout for cleaner App appearance */
+  ::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+  }
+}
+

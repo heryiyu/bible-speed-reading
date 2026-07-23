@@ -48,6 +48,77 @@ function showToast(message, duration = 2500) {
   }, duration);
 }
 
+// ── App-style Confirmation Dialog ──────────────────────────
+/**
+ * Show a premium app-like custom confirmation dialog.
+ * @param {object} options - Options object
+ * @param {string} options.title - Dialog title
+ * @param {string} options.message - Dialog body message
+ * @param {string} [options.confirmText="確認"] - Confirm button text
+ * @param {string} [options.cancelText="取消"] - Cancel button text
+ * @param {boolean} [options.isDestructive=false] - Whether it is a destructive action
+ * @returns {Promise<boolean>} Resolves to true if confirmed, false if cancelled
+ */
+function showConfirmDialog({ title, message, confirmText = "確認", cancelText = "取消", isDestructive = false } = {}) {
+  return new Promise((resolve) => {
+    let overlay = document.getElementById("app-custom-confirm-overlay");
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement("div");
+    overlay.id = "app-custom-confirm-overlay";
+    overlay.className = "custom-confirm-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:var(--z-critical,900);padding:20px;opacity:0;transition:opacity 0.2s ease;";
+
+    const safeEscape = (str) => typeof escapeHTML === "function" ? escapeHTML(str) : String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+    overlay.innerHTML = `
+      <div class="custom-confirm-card" role="dialog" aria-modal="true">
+        <div class="custom-confirm-content">
+          <h3 class="custom-confirm-title">${safeEscape(title)}</h3>
+          <p class="custom-confirm-desc">${safeEscape(message)}</p>
+        </div>
+        <div class="custom-confirm-actions">
+          <button type="button" class="custom-confirm-btn-cancel secondary-btn">${safeEscape(cancelText)}</button>
+          <button type="button" class="custom-confirm-btn-confirm ${isDestructive ? 'danger-btn' : 'primary-btn'}">${safeEscape(confirmText)}</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Force style recalculation for animations
+    overlay.offsetWidth;
+
+    overlay.style.opacity = "1";
+    overlay.classList.add("active");
+
+    const cleanup = (value) => {
+      overlay.style.opacity = "0";
+      overlay.classList.remove("active");
+      setTimeout(() => {
+        overlay.remove();
+        resolve(value);
+      }, 200);
+    };
+
+    overlay.querySelector(".custom-confirm-btn-cancel").onclick = () => cleanup(false);
+    overlay.querySelector(".custom-confirm-btn-confirm").onclick = () => cleanup(true);
+
+    overlay.onclick = (e) => {
+      if (e.target === overlay) cleanup(false);
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        cleanup(false);
+        document.removeEventListener("keydown", handleKeyDown);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+  });
+}
+window.showConfirmDialog = showConfirmDialog;
+
 // ── User Avatar (shadcn-inspired: image + initials fallback) ──
 
 function getUserAvatarInitial(name) {

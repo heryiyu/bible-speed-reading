@@ -748,25 +748,33 @@ window.checkAndPromptTodayCompletion = async function () {
         }, 4000);
       }
     } else {
-      if (confirm("🎉 恭喜完成今日速讀！是否前往「首頁」記錄你最印象深刻的今日金句並分享給小組？")) {
-        appRouter.switchTab("dashboard-view");
-        setTimeout(() => {
-          const dc = document.getElementById("devotional-content");
-          if (dc) {
-            dc.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            dc.focus();
-            const dcCard = dc.closest(".devotional-card");
-            if (dcCard) {
-              dcCard.style.outline = "2.5px solid var(--color-brand)";
-              dcCard.style.boxShadow = "var(--shadow-focus-ring)";
-              setTimeout(() => {
-                dcCard.style.outline = "";
-                dcCard.style.boxShadow = "";
-              }, 4000);
+      (async () => {
+        const confirmed = await window.showConfirmDialog({
+          title: "🎉 恭喜完成今日速讀！",
+          message: "是否前往「首頁」記錄你最印象深刻的今日金句並分享給小組？",
+          confirmText: "前往分享",
+          cancelText: "留在讀經"
+        });
+        if (confirmed) {
+          appRouter.switchTab("dashboard-view");
+          setTimeout(() => {
+            const dc = document.getElementById("devotional-content");
+            if (dc) {
+              dc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              dc.focus();
+              const dcCard = dc.closest(".devotional-card");
+              if (dcCard) {
+                dcCard.style.outline = "2.5px solid var(--color-brand)";
+                dcCard.style.boxShadow = "var(--shadow-focus-ring)";
+                setTimeout(() => {
+                  dcCard.style.outline = "";
+                  dcCard.style.boxShadow = "";
+                }, 4000);
+              }
             }
-          }
-        }, 300);
-      }
+          }, 300);
+        }
+      })();
     }
   }, 1000);
 };
@@ -1287,7 +1295,14 @@ window.saveAnnouncement = async function () {
 };
 
 window.deleteAnnouncement = async function (id) {
-  if (!confirm("確定要刪除此公告嗎？此動作將無法復原。")) return;
+  const confirmed = await window.showConfirmDialog({
+    title: "確定要刪除此公告嗎？",
+    message: "此動作將會立即刪除公告且無法復原。",
+    confirmText: "確認刪除",
+    cancelText: "取消",
+    isDestructive: true
+  });
+  if (!confirmed) return;
 
   const success = await db.deleteAnnouncement(id);
 
@@ -2450,7 +2465,14 @@ window.toggleDevotionalOptions = function (noteId) {
 };
 
 window.deleteDevotionalNote = async function (noteId) {
-  if (!confirm("確定要刪除此則靈修分享嗎？")) return;
+  const confirmed = await window.showConfirmDialog({
+    title: "確定要刪除此則靈修分享嗎？",
+    message: "刪除後此條靈修紀錄將不再對其他人公開。",
+    confirmText: "確認刪除",
+    cancelText: "取消",
+    isDestructive: true
+  });
+  if (!confirmed) return;
 
   try {
     await db.deleteDevotionalNote(noteId);

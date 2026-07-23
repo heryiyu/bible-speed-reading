@@ -216,8 +216,8 @@ export async function renderProfileView() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '::1' || window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.') || window.location.hostname.startsWith('172.') || window.location.hostname.endsWith('.local');
-  const forceOfflineDemo = isLocalhost && (urlParams.get("demo") === "true" || urlParams.get("offline") === "true");
-  const showDemoData = (forceOfflineDemo && typeof MockStatsService !== 'undefined' && MockStatsService !== null) || (state.currentUser && !!state.currentUser.is_demo);
+  const forceOfflineDemo = false;
+  const showDemoData = false;
 
   let greatRegionsList = (state.orgStructure && state.orgStructure.regions && state.orgStructure.regions.length > 0) 
     ? state.orgStructure.regions 
@@ -340,11 +340,7 @@ export async function renderProfileView() {
       db.saveLocalUserStats();
 
       if (isSupabase) {
-        if (saveInfo && saveInfo.aborted && saveInfo.reason === "demo") {
-          showToast("個人資料已儲存 (Demo 模擬模式)");
-        } else {
-          showToast("個人基本資料已儲存成功！");
-        }
+        showToast("個人基本資料已儲存成功！");
       } else {
         showToast("個人資料已儲存至本機 (離線模式)");
       }
@@ -363,26 +359,7 @@ export async function renderProfileView() {
     }
   };
 
-  const demoRoleCard = document.querySelector(".demo-role-card");
-  if (demoRoleCard) {
-    if (!state.isSupabaseMode || isLocalhost) {
-      demoRoleCard.classList.remove("hidden");
-    } else {
-      demoRoleCard.classList.add("hidden");
-    }
-  }
 
-  const demoRoleSelect = document.getElementById("demo-role-select");
-  if (demoRoleSelect) {
-    if (state.isSupabaseMode) {
-      demoRoleSelect.value = "real_user";
-    } else {
-      demoRoleSelect.value = state.currentUser.role || "member";
-    }
-    demoRoleSelect.onchange = async (e) => {
-      await db.switchDemoRole(e.target.value);
-    };
-  }
 
   if (typeof updateAdminNavVisibility === 'function') {
     updateAdminNavVisibility();
@@ -403,21 +380,11 @@ async function renderCareReminders() {
   const _isLocalhost = _hostname === 'localhost' || _hostname === '127.0.0.1' || _hostname === '::1' ||
                        _hostname.startsWith('192.168.') || _hostname.startsWith('10.') ||
                        _hostname.startsWith('172.') || _hostname.endsWith('.local');
-  const isDemoMode = state.currentUser && !!state.currentUser.is_demo;
-  const isSupabaseLive = state.isSupabaseMode && state.supabase && !isDemoMode;
+  const isDemoMode = false;
+  const isSupabaseLive = state.isSupabaseMode && state.supabase;
 
   // Only proceed if: (a) localhost demo mode, OR (b) live Supabase with real user
   if (isDemoMode && !_isLocalhost) return;
-
-  // 等待 mock_stats.js 動態載入完成（最多 2 秒）
-  // mock_stats.js 是非同步插入的 <script>，可能在 renderCareReminders 被呼叫時還沒載入
-  if (isDemoMode && _isLocalhost) {
-    let waited = 0;
-    while (!window.__mockStatsLoaded && waited < 2000) {
-      await new Promise(r => setTimeout(r, 100));
-      waited += 100;
-    }
-  }
 
   const { data: reminders, error } = await db.fetchCareReminders();
   if (!error && typeof window.updateCareReminderBadge === "function") {
@@ -528,8 +495,8 @@ function populateProfileZones(greatRegion, autoSelect = true) {
 
   const urlParams = new URLSearchParams(window.location.search);
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');
-  const forceOfflineDemo = isLocalhost && (urlParams.get("demo") === "true" || urlParams.get("offline") === "true");
-  const showDemoData = (forceOfflineDemo && typeof MockStatsService !== 'undefined' && MockStatsService !== null) || (state.currentUser && !!state.currentUser.is_demo);
+  const forceOfflineDemo = false;
+  const showDemoData = false;
 
   let predefinedZones = (state.orgStructure && state.orgStructure.zones && state.orgStructure.zones[greatRegion] && state.orgStructure.zones[greatRegion].length > 0) 
     ? state.orgStructure.zones[greatRegion] 
@@ -591,8 +558,8 @@ function populateProfileGroupSelector(autoSelect = true) {
 
   const urlParams = new URLSearchParams(window.location.search);
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');
-  const forceOfflineDemo = isLocalhost && (urlParams.get("demo") === "true" || urlParams.get("offline") === "true");
-  const showDemoData = (forceOfflineDemo && typeof MockStatsService !== 'undefined' && MockStatsService !== null) || (state.currentUser && !!state.currentUser.is_demo);
+  const forceOfflineDemo = false;
+  const showDemoData = false;
 
   let predefinedGroups = (state.orgStructure && state.orgStructure.groups && state.orgStructure.groups[zone] && state.orgStructure.groups[zone].length > 0) 
     ? state.orgStructure.groups[zone] 
@@ -688,18 +655,18 @@ export function updateHeaderAvatar() {
         if (user) {
           if (emailEl) emailEl.textContent = user.email || "教會系統登入中";
         } else if (emailEl) {
-          emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
+          emailEl.textContent = "未登入";
         }
         if (typeof refreshUserAvatars === "function") refreshUserAvatars();
       }).catch(() => {
-        if (emailEl) emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
+        if (emailEl) emailEl.textContent = "未登入";
         if (typeof refreshUserAvatars === "function") refreshUserAvatars();
       });
       return;
     }
   }
 
-  if (emailEl) emailEl.textContent = (window.APP_COPY && window.APP_COPY.auth.demoMode) || "Demo 模式";
+  if (emailEl) emailEl.textContent = "未登入";
   if (typeof refreshUserAvatars === "function") refreshUserAvatars();
 }
 

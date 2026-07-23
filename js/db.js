@@ -199,7 +199,7 @@ const db = {
                         hostname.startsWith('10.') || 
                         hostname.startsWith('172.') || 
                         hostname.endsWith('.local');
-    const forceOfflineDemo = isLocalhost && (urlParams.get("demo") === "true" || urlParams.get("offline") === "true");
+    const forceOfflineDemo = false;
 
     const sbUrl = forceOfflineDemo ? "" : (typeof SUPABASE_CONFIG !== 'undefined' && SUPABASE_CONFIG.url ? SUPABASE_CONFIG.url.trim() : "");
     const sbKey = forceOfflineDemo ? "" : (typeof SUPABASE_CONFIG !== 'undefined' && SUPABASE_CONFIG.anonKey ? SUPABASE_CONFIG.anonKey.trim() : "");
@@ -233,26 +233,7 @@ const db = {
       });
     }
 
-    const btnDemoGateEarly = document.getElementById("btn-gate-demo-login");
-    if (btnDemoGateEarly) {
-      btnDemoGateEarly.style.display = allowGoogleLogin ? "inline-flex" : "none";
-      btnDemoGateEarly.addEventListener("click", async (e) => {
-        e.preventDefault();
-        loader.show("進入 Demo 模式中...");
-        try {
-          db.setDemoMode();
-          db.updateAuthUI(null);
-          await db.loadUserData(true);
-          // Trigger view update
-          if (typeof updateDashboardView === 'function') updateDashboardView();
-          if (typeof updateHeaderAvatar === 'function') updateHeaderAvatar();
-        } catch (err) {
-          console.error("Demo login failed:", err);
-        } finally {
-          loader.hide();
-        }
-      });
-    }
+
 
     // ── NLC SSO button wiring (always, even before Supabase) ──
     const btnNlcGate = document.getElementById("btn-gate-nlc-login");
@@ -624,24 +605,7 @@ const db = {
   },
 
   setDemoMode() {
-    state.isSupabaseMode = false;
-    const statusBadge = document.getElementById("connection-status");
-    const authSection = document.getElementById("sb-auth-section");
-    const placeholder = document.getElementById("sb-disconnected-placeholder");
-
-    const profileCardCol = document.getElementById("profile-card-col");
-
-    statusBadge.className = "status-badge offline";
-    statusBadge.querySelector(".status-text").textContent = "Demo 模式";
-    if (authSection) {
-      authSection.classList.add("hidden");
-      authSection.className = "card-col span-12 hidden";
-    }
-    if (placeholder) placeholder.classList.remove("hidden");
-
-    if (profileCardCol) {
-      profileCardCol.className = "card-col span-12";
-    }
+    // Deprecated and disabled
   },
 
   // Handle Supabase Auth UI Switches
@@ -1762,120 +1726,8 @@ const db = {
   },
 
   async switchDemoRole(role) {
-    loader.show("切換模擬角色中...");
-
-    if (role === "real_user") {
-      // 恢復線上連線狀態
-      state.isSupabaseMode = true;
-      const statusBadge = document.getElementById("connection-status");
-      if (statusBadge) {
-        statusBadge.className = "status-badge online";
-        statusBadge.querySelector(".status-text").textContent = "線上模式";
-      }
-      const placeholder = document.getElementById("sb-disconnected-placeholder");
-
-      if (placeholder) placeholder.classList.add("hidden");
-      
-      const authSection = document.getElementById("sb-auth-section");
-      if (authSection) {
-        authSection.classList.remove("hidden");
-        authSection.className = "card-col span-12";
-      }
-
-      window._cachedAllUsersList = null;
-      await this.loadUserData();
-      await this.loadOrgStructure(); // Re-fetch org structure from Supabase
-      
-      loader.hide();
-      return;
-    }
-
-    // 只要切換非 real_user 的模擬角色，就強制進入本機 Demo 模式沙盒
-    state.isSupabaseMode = false;
-    this.setDemoMode();
-
-    let mockUser = MOCK_USERS_DATA.find(u => u.role === role);
-    if (!mockUser) {
-      mockUser = {
-        name: "模擬組員",
-        great_region: "東區",
-        pastoral_zone: "大安1",
-        small_group: "馬鈴",
-        role: "member",
-        chapters_read: 50,
-        plan_progress: 10,
-        streak: 1,
-        last_read: new Date().toISOString()
-      };
-    }
-
-    // Override currentUser state
-    state.currentUser = {
-      name: mockUser.name,
-      great_region: mockUser.great_region,
-      pastoral_zone: mockUser.pastoral_zone,
-      small_group: mockUser.small_group,
-      role: mockUser.role,
-      is_demo: true,
-      chapters_read: mockUser.chapters_read,
-      plan_progress: mockUser.plan_progress,
-      streak: mockUser.streak,
-      last_read: mockUser.last_read
-    };
-
-    // Setup mock active plan to match their plan_progress
-    const defaultDemoPresetKey = Object.keys(CHURCH_PLAN_PRESETS)[0];
-      const defaultDemoPreset = CHURCH_PLAN_PRESETS[defaultDemoPresetKey];
-
-    state.activePlan = generatePlanObject(defaultDemoPreset.name, defaultDemoPreset.startDate, defaultDemoPreset.endDate, defaultDemoPreset.books, defaultDemoPresetKey);
-    state.activePlan.progress = mockUser.plan_progress;
-    state.activePlan.completedChapters = Math.round((state.activePlan.totalChapters * mockUser.plan_progress) / 100);
-    state.activePlans = [state.activePlan];
-    localStorage.setItem("selected_plan_key", defaultDemoPresetKey);
-
-    const completedList = [];
-    let count = 0;
-    for (const day of state.activePlan.days) {
-      for (const ch of day.chapters) {
-        if (count < state.activePlan.completedChapters) {
-          completedList.push({
-            book: ch.book,
-            chapter: ch.chapter,
-            read_at: new Date(state.activePlan.startDate).toISOString(),
-            presetKey: defaultDemoPresetKey
-          });
-          count++;
-        } else {
-          break;
-        }
-      }
-      if (count >= state.activePlan.completedChapters) break;
-    }
-    state.readingLogs = completedList;
-
-    window._cachedAllUsersList = null;
-    this.saveLocalUserStats();
-
-    if (typeof updateAdminNavVisibility === 'function') {
-      updateAdminNavVisibility();
-    }
-
-    // Refresh views
-    updateDashboardView();
-    if (appRouter.currentTab === "stats-view") {
-      await updateStatsView();
-    } else if (appRouter.currentTab === "profile-view") {
-      await (window.renderProfileView || renderProfileView)();
-    } else if (appRouter.currentTab === "admin-view") {
-      const isSimulatedAdmin = state.currentUser.role === "admin";
-      if (!isSimulatedAdmin) {
-        appRouter.switchTab("profile-view");
-      } else {
-        renderAdminUserManagement();
-      }
-    }
-
-    loader.hide();
+    // Deprecated and disabled
+    console.warn("switchDemoRole is deprecated and disabled.");
   },
 
   async getDevotionalNote(date) {

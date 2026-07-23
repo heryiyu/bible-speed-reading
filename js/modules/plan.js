@@ -706,9 +706,14 @@ function initPlanControls() {
     deleteBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
       if (!state.activePlan) return;
-      if (!confirm("確定要放棄目前的讀經計畫嗎？已讀章節紀錄仍會保留。")) {
-        return;
-      }
+      const confirmed = await window.showConfirmDialog({
+        title: "確定要放棄目前的讀經計畫嗎？",
+        message: "您的已讀進度紀錄仍會保留，之後您可以隨時重新加入。",
+        confirmText: "確定放棄",
+        cancelText: "保留計畫",
+        isDestructive: true
+      });
+      if (!confirmed) return;
       await db.leavePlan(state.activePlan.id, state.activePlan.presetKey);
     });
   }
@@ -2661,16 +2666,23 @@ async function renderAdminPlanManagement() {
 
       // Bind delete event
       tr.querySelector(".admin-delete-plan-btn").onclick = async () => {
-        if (confirm(`您確定要刪除 ${plan.name} 嗎？這將使其他會友無法再從列表「加入」此計畫，但已加入該計畫之會友仍可照常閱讀及打卡。`)) {
-          loader.show("刪除計畫中...");
-          const success = await db.deleteGlobalPlan(plan.id);
-          loader.hide();
-          if (success) {
-            alert("計畫已成功刪除！");
-            renderAdminPlanManagement();
-            if (typeof renderPresetPlansList === 'function') {
-              renderPresetPlansList();
-            }
+        const confirmed = await window.showConfirmDialog({
+          title: "確定要刪除此計畫嗎？",
+          message: `您確定要刪除「${plan.name}」嗎？這將使其他會友無法再從列表「加入」此計畫，但已加入的會友仍可照常閱讀打卡。`,
+          confirmText: "確認刪除",
+          cancelText: "取消",
+          isDestructive: true
+        });
+        if (!confirmed) return;
+
+        loader.show("刪除計畫中...");
+        const success = await db.deleteGlobalPlan(plan.id);
+        loader.hide();
+        if (success) {
+          showToast("計畫已成功刪除！");
+          renderAdminPlanManagement();
+          if (typeof renderPresetPlansList === 'function') {
+            renderPresetPlansList();
           }
         }
       };
@@ -5518,8 +5530,8 @@ function renderMonthlyHallOfFame() {
 
   const urlParams = new URLSearchParams(window.location.search);
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');
-  const forceOfflineDemo = isLocalhost && (urlParams.get("demo") === "true" || urlParams.get("offline") === "true");
-  const showDemoData = (forceOfflineDemo && typeof MockStatsService !== 'undefined' && MockStatsService !== null) || (state.currentUser && !!state.currentUser.is_demo);
+  const forceOfflineDemo = false;
+  const showDemoData = false;
   if (!showDemoData) {
     const placeholder = document.createElement("div");
     placeholder.style.cssText = "grid-column: span 3; text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.9rem;";
@@ -6505,10 +6517,10 @@ window.openCareReminderDialog = function(member) {
       sendBtn.innerHTML = `<span class="nlc-icon nlc-icon--sm" data-icon="send" aria-hidden="true"></span> 傳送關心`;
       if (typeof hydrateIcons === "function") hydrateIcons(sendBtn);
 
-      const isDemoOrNoId = !member.id || (state.currentUser && state.currentUser.is_demo);
+      const isDemoOrNoId = !member.id;
       if (isDemoOrNoId) {
         overlay.remove();
-        if (typeof showToast === "function") showToast(`(Demo) 已模擬傳送關心提醒給 ${member.name} 💛`);
+        if (typeof showToast === "function") showToast(`已模擬傳送關心提醒給 ${member.name} 💛`);
       } else {
         errorEl.textContent = `傳送失敗：${err.message || "請稍後再試"}`;
         errorEl.style.display = "block";

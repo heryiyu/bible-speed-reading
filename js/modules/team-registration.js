@@ -395,16 +395,34 @@
         preferredDivision = Number(team.division) === 3 ? 6 : 3;
         renderEmpty(allContexts);
       });
-      panel.querySelector("[data-copy-team-code]")?.addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(team.inviteCode);
-          showToast("邀請碼已複製。");
-        } catch (_) {
-          showToast(`邀請碼：${team.inviteCode}`);
-        }
-      });
+      const copyBtn = panel.querySelector("[data-copy-team-code]");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(team.inviteCode);
+            const originalHtml = copyBtn.innerHTML;
+            copyBtn.innerHTML = `<span class="nlc-icon nlc-icon--sm" data-icon="checkCircle" aria-hidden="true"></span>已複製`;
+            hydrate(copyBtn);
+            copyBtn.disabled = true;
+            setTimeout(() => {
+              copyBtn.innerHTML = originalHtml;
+              hydrate(copyBtn);
+              copyBtn.disabled = false;
+            }, 2000);
+          } catch (_) {
+            showToast(`邀請碼：${team.inviteCode}`);
+          }
+        });
+      }
       panel.querySelector("[data-leave-team]")?.addEventListener("click", async () => {
-        if (!confirm("確定退出這支隊伍嗎？退出後可使用其他邀請碼重新組隊。")) return;
+        const confirmed = await window.showConfirmDialog({
+          title: "確定退出這支隊伍嗎？",
+          message: "退出後您可使用其他邀請碼重新組隊，但目前隊伍的夥伴會少一人。",
+          confirmText: "確認退出",
+          cancelText: "返回",
+          isDestructive: true
+        });
+        if (!confirmed) return;
         const result = await db.leaveReadingTeam(team.id);
         if (!result.success) {
           const error = panel.querySelector("[data-team-error]");
@@ -415,7 +433,14 @@
         await refresh();
       });
       panel.querySelector("[data-disband-team]")?.addEventListener("click", async () => {
-        if (!confirm("確定解散這支隊伍嗎？所有隊員都會回到尚未組隊狀態。")) return;
+        const confirmed = await window.showConfirmDialog({
+          title: "確定解散這支隊伍嗎？",
+          message: "解散後所有隊員都會回到尚未組隊狀態，邀請碼將會失效。",
+          confirmText: "解散隊伍",
+          cancelText: "返回",
+          isDestructive: true
+        });
+        if (!confirmed) return;
         const result = await db.disbandReadingTeam(team.id);
         if (!result.success) {
           const error = panel.querySelector("[data-team-error]");
