@@ -65,7 +65,11 @@ function forceHidden(el, hidden) {
   if (!el) return;
   el.classList.toggle("hidden", hidden);
   el.hidden = hidden;
-  if (!hidden) el.style.display = "";
+  if (hidden) {
+    el.style.setProperty("display", "none", "important");
+  } else {
+    el.style.display = "";
+  }
 }
 
 function ensurePlanRouteShell() {

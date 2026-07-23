@@ -3,12 +3,42 @@
 (function () {
   const getPlanId = plan => {
     if (!plan) return "";
+    if (plan.globalPlanId && /^[0-9a-f-]{36}$/i.test(plan.globalPlanId)) {
+      return String(plan.globalPlanId);
+    }
     const linked = (state.globalPlans || []).find(item =>
       item.id === plan.globalPlanId || item.presetKey === plan.presetKey || item.name === plan.name
     );
-    return String(plan.globalPlanId || linked && (linked.globalPlanId || linked.id) || "");
+    if (linked) {
+      const idVal = linked.globalPlanId || linked.id;
+      if (idVal && /^[0-9a-f-]{36}$/i.test(idVal)) return String(idVal);
+    }
+    if (plan.presetKey && typeof CHURCH_PLAN_PRESETS !== "undefined" && CHURCH_PLAN_PRESETS[plan.presetKey]) {
+      const preset = CHURCH_PLAN_PRESETS[plan.presetKey];
+      if (preset.id && /^[0-9a-f-]{36}$/i.test(preset.id)) return String(preset.id);
+    }
+    let stageNo = plan.stageNo;
+    if (!stageNo && plan.presetKey) {
+      const m = plan.presetKey.match(/\d+/);
+      if (m) stageNo = Number(m[0]);
+    }
+    if (!stageNo && plan.name) {
+      if (plan.name.includes("第一輪") || plan.name.includes("第1階段") || plan.name.includes("第一階段")) stageNo = 1;
+      else if (plan.name.includes("第二輪") || plan.name.includes("第2階段") || plan.name.includes("第二階段")) stageNo = 2;
+    }
+    if (stageNo) {
+      return "00000000-0000-0000-c026-" + String(Number(stageNo) || 0).padStart(12, "0");
+    }
+    return String(plan.id || "");
   };
-  const isSupportedPlan = plan => !!plan && plan.planKind === "church_campaign_stage" && /^[0-9a-f-]{36}$/i.test(getPlanId(plan));
+
+  const isSupportedPlan = plan => {
+    if (!plan) return false;
+    const isCampaign = plan.planKind === "church_campaign_stage" ||
+      (plan.presetKey && (plan.presetKey.startsWith("church_stage_") || plan.presetKey.startsWith("preset-stage-"))) ||
+      (plan.name && (plan.name.includes("熱身賽") || plan.name.includes("第一輪") || plan.name.includes("第二輪")));
+    return !!isCampaign && /^[0-9a-f-]{36}$/i.test(getPlanId(plan));
+  };
   const getTeamContexts = context => {
     if (Array.isArray(context && context.teams)) {
       return context.teams
