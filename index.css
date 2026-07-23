@@ -3904,6 +3904,72 @@ button.logout-btn:hover {
   transform: scale(1.05);
 }
 
+.plan-search-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 48px;
+  margin: 0 0 0.35rem;
+  padding: 0.45rem 0.75rem;
+  box-sizing: border-box;
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  background: var(--bg-input);
+  box-shadow: var(--shadow-sm);
+}
+
+.plan-search-panel.hidden {
+  display: none;
+}
+
+.plan-search-panel:focus-within {
+  border-color: var(--color-brand-border);
+  box-shadow: var(--shadow-focus-ring);
+}
+
+.plan-search-panel__icon {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+#plan-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+#plan-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+#plan-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.plan-search-panel__clear {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.plan-search-panel__clear.hidden {
+  display: none;
+}
+
 /* Plan thematic cover banner */
 .plan-cover-card {
   width: 100%;

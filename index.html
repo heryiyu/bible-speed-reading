@@ -21,7 +21,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="index.css?v=20260720_round_editor">
+  <link rel="stylesheet" href="index.css?v=20260723_plan_search">
   <link rel="stylesheet" href="css/team-registration.css?v=20260723_adaptive_surfaces">
   <link rel="stylesheet" href="css/team-admin-stats.css?v=20260722_reading_teams">
   <!-- Supabase JS Client library -->
@@ -545,8 +545,19 @@
             <h2
               style="font-size: 2.2rem; font-weight: 500; color: var(--text-primary); margin: 0; font-family: 'Outfit', sans-serif;">
               計畫</h2>
-            <button class="circular-action-btn" title="搜尋計畫">
+            <button class="circular-action-btn" id="btn-toggle-plan-search" type="button" title="搜尋計畫"
+              aria-label="搜尋計畫" aria-expanded="false" aria-controls="plan-search-panel">
               <span class="nlc-icon nlc-icon--sm" data-icon="search" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <div class="card-col span-12 plan-search-panel hidden" id="plan-search-panel">
+            <label class="sr-only" for="plan-search-input">搜尋讀經計畫</label>
+            <span class="nlc-icon nlc-icon--sm plan-search-panel__icon" data-icon="search" aria-hidden="true"></span>
+            <input id="plan-search-input" type="search" inputmode="search" maxlength="80"
+              placeholder="搜尋計畫名稱、階段或獎項" autocomplete="off">
+            <button id="btn-clear-plan-search" class="plan-search-panel__clear hidden" type="button" aria-label="清除搜尋">
+              <span class="nlc-icon nlc-icon--sm" data-icon="close" aria-hidden="true"></span>
             </button>
           </div>
 
@@ -1933,7 +1944,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260723_personal_progress_first"></script>
+  <script type="module" src="js/app.js?v=20260723_plan_search_card_background"></script>
 </body>
 
 </html>

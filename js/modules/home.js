@@ -1379,7 +1379,7 @@ const CURATED_IMAGE_POOL = [
 
 const VERSE_CARD_FALLBACK_IMAGE = CURATED_IMAGE_POOL[0];
 
-function setVerseCardLoading(loading) {
+function setVerseCardLoading(loading, options = {}) {
   const card = document.getElementById("verse-card");
   const skeleton = document.getElementById("verse-card-skeleton");
   const body = document.getElementById("verse-card-body");
@@ -1393,7 +1393,7 @@ function setVerseCardLoading(loading) {
       ComponentSkeletonLoader.fill("verse-card", skeleton);
     }
     if (body) body.setAttribute("aria-hidden", "true");
-    if (bgImgEl) bgImgEl.style.opacity = "0";
+    if (bgImgEl && !options.preserveBackground) bgImgEl.style.opacity = "0";
   } else if (body) {
     body.removeAttribute("aria-hidden");
     body.style.pointerEvents = "";
@@ -1453,7 +1453,13 @@ function applyVerseCardContent(verseData, imageUrl) {
   }
 }
 
-async function fetchRandomVerse(event) {
+function getDisplayedVerseCardImageUrl() {
+  const bgImgEl = document.getElementById("card-bg");
+  const displayedUrl = bgImgEl && bgImgEl.getAttribute("src");
+  return displayedUrl || localStorage.getItem("verse_card_bg") || "";
+}
+
+async function fetchRandomVerse(event, options = {}) {
   if (event) {
     if (event.target.closest(".social-toolbar") || event.target.closest("#share-card-btn")) {
       return;
@@ -1475,7 +1481,7 @@ async function fetchRandomVerse(event) {
     checkAchievements();
   }
 
-  setVerseCardLoading(true);
+  setVerseCardLoading(true, options);
 
   if (!state.verseCardMode) {
     state.verseCardMode = 'verse';
@@ -1494,9 +1500,13 @@ async function fetchRandomVerse(event) {
     cardSource = randomLocal.source;
   }
 
-  const randomImgUrl = CURATED_IMAGE_POOL[Math.floor(Math.random() * CURATED_IMAGE_POOL.length)];
-  localStorage.setItem("verse_card_bg", randomImgUrl);
-  const imgPromise = preloadVerseCardImage(randomImgUrl);
+  const preservedImageUrl = options.preserveBackground ? getDisplayedVerseCardImageUrl() : "";
+  const nextImageUrl = preservedImageUrl
+    || CURATED_IMAGE_POOL[Math.floor(Math.random() * CURATED_IMAGE_POOL.length)];
+  if (!preservedImageUrl) {
+    localStorage.setItem("verse_card_bg", nextImageUrl);
+  }
+  const imgPromise = preloadVerseCardImage(nextImageUrl);
 
   const fetchPromise = (async () => {
     if (isBlessingMode) {
@@ -1755,7 +1765,7 @@ async function toggleVerseLike(e) {
   }
 }
 
-function renderDailyVerse() {
+function renderDailyVerse(options = {}) {
   const shareBtn = document.getElementById("share-card-btn");
   if (shareBtn && !shareBtn._hasShareListener) {
     shareBtn.addEventListener("click", shareAsImage);
@@ -1840,7 +1850,7 @@ function renderDailyVerse() {
       if (state.verseCardMode === 'blessing') return;
       state.verseCardMode = 'blessing';
       updateModeUI();
-      renderDailyVerse();
+      renderDailyVerse({ preserveBackground: true });
     });
     btnModeBlessing._hasModeListener = true;
   }
@@ -1850,10 +1860,10 @@ function renderDailyVerse() {
   const currentData = activeMode === 'blessing' ? currentBlessing : currentVerse;
 
   if (!currentData) {
-    setVerseCardLoading(true);
-    fetchRandomVerse();
+    setVerseCardLoading(true, options);
+    fetchRandomVerse(null, options);
   } else {
-    setVerseCardLoading(true);
+    setVerseCardLoading(true, options);
     const imageUrl = savedBg || currentData.imageUrl || CURATED_IMAGE_POOL[(new Date().getDate() - 1) % CURATED_IMAGE_POOL.length];
     preloadVerseCardImage(imageUrl).then((loadedUrl) => {
       applyVerseCardContent(

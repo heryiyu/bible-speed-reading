@@ -9,6 +9,7 @@ window._statsTabScope = null;
 let lastTrackerRequestId = 0;
 let dateClickDebounceTimer = null;
 let viewMode = 'calendar'; // Today reading always shows calendar + chapter list
+let planSearchQuery = '';
 
 const PLAN_ROUTE = Object.freeze({
   LIST: "LIST",
@@ -432,6 +433,61 @@ function initPlanControls() {
   ensurePlanRouteShell();
   renderPresetPlansList();
 
+  const planSearchToggle = document.getElementById("btn-toggle-plan-search");
+  const planSearchPanel = document.getElementById("plan-search-panel");
+  const planSearchInput = document.getElementById("plan-search-input");
+  const planSearchClear = document.getElementById("btn-clear-plan-search");
+
+  const refreshPlanSearchResults = () => {
+    renderJoinedPlansList();
+    renderPresetPlansList();
+  };
+
+  const updatePlanSearchQuery = value => {
+    planSearchQuery = normalizePlanSearchValue(value);
+    if (planSearchClear) planSearchClear.classList.toggle("hidden", !planSearchQuery);
+    refreshPlanSearchResults();
+  };
+
+  const closePlanSearch = () => {
+    if (!planSearchPanel) return;
+    planSearchPanel.classList.add("hidden");
+    planSearchToggle?.setAttribute("aria-expanded", "false");
+    if (planSearchInput && (planSearchInput.value || planSearchQuery)) {
+      planSearchInput.value = "";
+      updatePlanSearchQuery("");
+    }
+  };
+
+  if (planSearchToggle && planSearchPanel && planSearchInput && !planSearchToggle._hasPlanSearchListener) {
+    planSearchToggle.addEventListener("click", event => {
+      event.preventDefault();
+      const isOpening = planSearchPanel.classList.contains("hidden");
+      if (!isOpening) {
+        closePlanSearch();
+        return;
+      }
+      planSearchPanel.classList.remove("hidden");
+      planSearchToggle.setAttribute("aria-expanded", "true");
+      requestAnimationFrame(() => planSearchInput.focus());
+    });
+    planSearchToggle._hasPlanSearchListener = true;
+
+    planSearchInput.addEventListener("input", () => updatePlanSearchQuery(planSearchInput.value));
+    planSearchInput.addEventListener("keydown", event => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closePlanSearch();
+      planSearchToggle.focus();
+    });
+
+    planSearchClear?.addEventListener("click", () => {
+      planSearchInput.value = "";
+      updatePlanSearchQuery("");
+      planSearchInput.focus();
+    });
+  }
+
   const goMyProgressBtn = document.getElementById("go-my-progress-btn");
   if (goMyProgressBtn) {
     goMyProgressBtn.addEventListener("click", (e) => {
@@ -733,6 +789,37 @@ function getPlanCoverHtml(plan) {
   const labelFontSize = campaignStageNo >= 10 ? "0.88rem" : "0.95rem";
   return `<div class="plan-cover-thumbnail" style="width: 72px; height: 72px; border-radius: 12px; background: ${bg}; display: flex; align-items: center; justify-content: center; color: var(--color-black); font-weight: 500; font-size: ${labelFontSize}; line-height: 1; white-space: nowrap; overflow: visible; flex-shrink: 0; box-shadow: var(--shadow-sm);">${label}</div>`;}
 
+function normalizePlanSearchValue(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("zh-Hant")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getPlanSearchText(plan) {
+  if (!plan) return "";
+  const stageNo = Number(plan.stageNo || plan.campaignDefinition && plan.campaignDefinition.stageNo || 0);
+  const roundNo = Number(plan.roundNo || plan.campaignDefinition && plan.campaignDefinition.roundNo || 0);
+  const bookNames = Array.isArray(plan.books)
+    ? plan.books.map(book => typeof book === "string" ? book : book && (book.name || book.book)).filter(Boolean)
+    : [];
+  return normalizePlanSearchValue([
+    plan.name,
+    plan.description,
+    plan.awardName,
+    plan.presetKey,
+    stageNo ? `第${stageNo}階段 ${stageNo}階段` : "",
+    roundNo ? `第${roundNo}輪 ${roundNo}輪` : "",
+    ...bookNames
+  ].filter(Boolean).join(" "));
+}
+
+function matchesPlanSearch(plan) {
+  if (!planSearchQuery) return true;
+  return getPlanSearchText(plan).includes(planSearchQuery);
+}
+
 function renderJoinedPlansList() {
   try {
     const container = document.getElementById("joined-plans-list");
@@ -763,6 +850,18 @@ function renderJoinedPlansList() {
       plansToRender = (state.activePlans || []).filter(p => !isExpired(p));
     } else if (filter === "completed") {
       plansToRender = (state.activePlans || []).filter(p => isExpired(p));
+    }
+
+    plansToRender = plansToRender.filter(matchesPlanSearch);
+
+    if (plansToRender.length === 0 && planSearchQuery) {
+      container.innerHTML = `
+        <div class="empty-state" style="text-align:center;padding:3rem 1rem;width:100%;">
+          <p style="color:var(--text-secondary);margin:0 0 .5rem;font-weight:500;">找不到符合「${escapeHTML(planSearchQuery)}」的計畫</p>
+          <p style="font-size:.82rem;color:var(--text-muted);margin:0;">請嘗試其他計畫名稱、階段或獎項。</p>
+        </div>
+      `;
+      return;
     }
 
     if (plansToRender.length === 0) {
@@ -1129,6 +1228,7 @@ function renderPresetPlansList() {
   const visiblePlans = sourcePlans.filter(plan => {
     if (!plan || isLegacyChoicePlan(plan) || isLegacyCampaignMaster(plan)) return false;
     if (isPlanHidden(plan) && !canManageHiddenPlans()) return false;
+    if (!matchesPlanSearch(plan)) return false;
     return ![plan.id, plan.globalPlanId, plan.presetKey, plan.name]
       .filter(Boolean)
       .some(value => joinedKeys.has(String(value)));
@@ -1137,7 +1237,9 @@ function renderPresetPlansList() {
   if (visiblePlans.length === 0) {
     container.innerHTML = `
       <div class="empty-state" style="text-align:center;padding:2.5rem 1rem;">
-        <p style="color:var(--text-secondary);margin:0;">目前沒有其他可加入的讀經計畫。</p>
+        <p style="color:var(--text-secondary);margin:0;">${planSearchQuery
+          ? `找不到符合「${escapeHTML(planSearchQuery)}」的計畫。`
+          : "目前沒有其他可加入的讀經計畫。"}</p>
       </div>
     `;
     return;

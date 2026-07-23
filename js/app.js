@@ -21,7 +21,7 @@ import { initializePwa } from './pwa/PwaCoordinator.js';
 import { IndexedDbClient } from './pwa/IndexedDbClient.js';
 import { SupabaseRepository } from './pwa/SupabaseRepository.js';
 
-const buildVersion = "__BUILD_VERSION__" + "_silent_achievements";
+const buildVersion = "__BUILD_VERSION__" + "_plan_search_card_background";
 const moduleCache = {};
 
 async function loadModule(name, path) {
