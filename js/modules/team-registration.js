@@ -9,6 +9,14 @@
     return String(plan.globalPlanId || linked && (linked.globalPlanId || linked.id) || "");
   };
   const isSupportedPlan = plan => !!plan && plan.planKind === "church_campaign_stage" && /^[0-9a-f-]{36}$/i.test(getPlanId(plan));
+  const getTeamContexts = context => {
+    if (Array.isArray(context && context.teams)) {
+      return context.teams
+        .filter(item => item && item.team)
+        .sort((left, right) => Number(left.team.division) - Number(right.team.division));
+    }
+    return context && context.team ? [context] : [];
+  };
 
   function removeOverlay(overlay) {
     overlay?.remove();
@@ -118,13 +126,16 @@
       hydrate(panel);
     };
 
-    const renderEmpty = () => {
+    const renderEmpty = (joinedContexts = []) => {
+      const joinedDivisions = new Set(joinedContexts.map(context => Number(context.team.division)));
+      const availableDivisions = [3, 6].filter(division => !joinedDivisions.has(division));
+      if (!availableDivisions.includes(preferredDivision)) preferredDivision = availableDivisions[0] || 3;
       panel.innerHTML = `
         <header class="reading-team-dialog__header">
           <div><p class="reading-team-eyebrow">${escapeHTML(plan.name || "教會讀經計畫")}</p><h3 id="reading-team-dialog-title">我的團隊</h3></div>
           <button type="button" class="reading-team-close" data-team-close aria-label="關閉"><span class="nlc-icon nlc-icon--sm" data-icon="close" aria-hidden="true"></span></button>
         </header>
-        <p class="reading-team-dialog__intro">你尚未加入團隊。可以建立 3 人或 6 人團隊並取得邀請碼，也可以輸入隊長分享的邀請碼加入。</p>
+        <p class="reading-team-dialog__intro">${joinedContexts.length ? `你已加入 ${Array.from(joinedDivisions).join("、")} 人團隊，還可以加入另一種人數的團隊。` : "你可以同時參加一支 3 人團隊與一支 6 人團隊。建立團隊或輸入邀請碼即可加入。"}</p>
         <div class="reading-team-registration-tabs" role="tablist" aria-label="團隊報名方式">
           <button type="button" role="tab" data-registration-mode="create" aria-selected="true" aria-controls="reading-team-create-form">建立團隊</button>
           <button type="button" role="tab" data-registration-mode="join" aria-selected="false" aria-controls="reading-team-join-form">輸入邀請碼</button>
@@ -136,8 +147,7 @@
           </div>
           <span class="reading-team-field-label">團隊人數</span>
           <div class="reading-team-division-switch" role="radiogroup" aria-label="選擇團隊組別">
-            <button type="button" role="radio" data-division="3" aria-checked="${preferredDivision === 3}">3 人團隊</button>
-            <button type="button" role="radio" data-division="6" aria-checked="${preferredDivision === 6}">6 人團隊</button>
+            ${availableDivisions.map(division => `<button type="button" role="radio" data-division="${division}" aria-checked="${preferredDivision === division}">${division} 人團隊</button>`).join("")}
           </div>
           <label for="reading-team-name">團隊名稱</label>
           <input id="reading-team-name" class="form-control" maxlength="40" required placeholder="例如：恩典同行隊">
@@ -152,7 +162,7 @@
           <label for="reading-team-code">團隊邀請碼</label>
           <input id="reading-team-code" class="form-control reading-team-code-input" maxlength="16" required autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="輸入邀請碼">
           <button type="submit" class="primary-btn reading-team-submit">使用邀請碼加入團隊</button>
-          <span class="reading-team-form-hint">邀請碼不分大小寫；每個階段只能加入一支團隊。</span>
+          <span class="reading-team-form-hint">邀請碼不分大小寫；每個階段可各加入一支 3 人與 6 人團隊。</span>
         </form>
         <p class="reading-team-registration-privacy">加入後，你可以查看自己的團隊與夥伴進度；其他隊伍的資料不會顯示。</p>
         <p class="reading-team-form-error" data-team-error role="alert" hidden></p>`;
@@ -197,7 +207,7 @@
       hydrate(panel);
     };
 
-    const renderTeam = context => {
+    const renderTeam = (context, allContexts = [context]) => {
       const team = context.team;
       const members = Array.isArray(context.members) ? context.members : [];
       const totalChapters = Number(plan.currentRoundTotalChapters || plan.totalChapters || 0);
@@ -211,6 +221,7 @@
           <div><p class="reading-team-eyebrow">${escapeHTML(plan.name || "教會讀經計畫")}</p><h3 id="reading-team-dialog-title">${escapeHTML(team.name)}</h3></div>
           <button type="button" class="reading-team-close" data-team-close aria-label="關閉"><span class="nlc-icon nlc-icon--sm" data-icon="close" aria-hidden="true"></span></button>
         </header>
+        ${allContexts.length > 1 ? `<div class="reading-team-registration-tabs" role="tablist" aria-label="切換我的團隊">${allContexts.map(item => `<button type="button" role="tab" data-team-view-division="${Number(item.team.division)}" aria-selected="${item === context}">${Number(item.team.division)} 人團隊</button>`).join("")}</div>` : ""}
         <div class="reading-team-summary">
           <div><span class="stat-badge stat-badge--brand">${Number(team.division)} 人組</span><strong>${Number(team.memberCount)} / ${Number(team.capacity)} 人</strong><span>${isReady ? "隊伍已完成" : "等待隊員加入"}</span></div>
           <div class="reading-team-summary__progress"><span>團隊平均進度</span><strong>${averageProgress}%</strong></div>
@@ -224,11 +235,22 @@
           ${!isReady ? (isCaptain
             ? '<button type="button" class="reading-team-danger-link" data-disband-team>解散隊伍</button>'
             : '<button type="button" class="reading-team-danger-link" data-leave-team>退出隊伍</button>') : ""}
+          ${allContexts.length < 2 ? `<button type="button" class="secondary-btn" data-add-other-team>加入另一個 ${Number(team.division) === 3 ? 6 : 3} 人團隊</button>` : ""}
           <button type="button" class="primary-btn" data-team-close-footer>完成</button>
         </footer>
         <p class="reading-team-form-error" data-team-error role="alert" hidden></p>`;
       panel.querySelector("[data-team-close]").onclick = close;
       panel.querySelector("[data-team-close-footer]").onclick = close;
+      panel.querySelectorAll("[data-team-view-division]").forEach(button => {
+        button.onclick = () => {
+          const selected = allContexts.find(item => Number(item.team.division) === Number(button.dataset.teamViewDivision));
+          if (selected) renderTeam(selected, allContexts);
+        };
+      });
+      panel.querySelector("[data-add-other-team]")?.addEventListener("click", () => {
+        preferredDivision = Number(team.division) === 3 ? 6 : 3;
+        renderEmpty(allContexts);
+      });
       panel.querySelector("[data-copy-team-code]")?.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(team.inviteCode);
@@ -273,7 +295,8 @@
         hydrate(panel);
         return;
       }
-      if (result.context && result.context.team) renderTeam(result.context);
+      const contexts = getTeamContexts(result.context);
+      if (contexts.length) renderTeam(contexts[0], contexts);
       else renderEmpty();
     };
 
@@ -302,7 +325,7 @@
         <span class="stat-badge stat-badge--brand">${mode === "stats" ? "團隊統計" : "組員狀況"}</span>
       </div>
       ${summary}
-      <section class="reading-team-members" aria-label="競賽團隊成員">
+      <section class="reading-team-members" aria-label="團隊成員">
         <div class="reading-team-member-list">${members.map(member => renderMember(member, totalChapters)).join("")}</div>
       </section>`;
     hydrate(container);

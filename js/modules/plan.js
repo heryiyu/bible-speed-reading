@@ -437,6 +437,15 @@ function setReadingTeamSubviewElementHidden(element, hidden) {
   element.style.display = hidden ? "none" : element.dataset.readingTeamOriginalDisplay;
 }
 
+function getJoinedReadingTeamContexts(context) {
+  if (Array.isArray(context && context.teams)) {
+    return context.teams
+      .filter(item => item && item.team)
+      .sort((left, right) => Number(left.team.division) - Number(right.team.division));
+  }
+  return context && context.team ? [context] : [];
+}
+
 async function prepareReadingTeamSubview(mode) {
   const isStats = mode === "stats";
   const switcher = document.getElementById(isStats ? "stats-team-view-switch" : "members-team-view-switch");
@@ -457,11 +466,14 @@ async function prepareReadingTeamSubview(mode) {
 
   const supported = typeof window.isReadingTeamPlan === "function" && window.isReadingTeamPlan(state.activePlan);
   const result = supported ? await db.getMyReadingTeam(state.activePlan) : null;
-  const context = result && result.success && result.context && result.context.team ? result.context : null;
-  let teamOption = select.querySelector('option[value="reading-team"]');
+  const contexts = result && result.success ? getJoinedReadingTeamContexts(result.context) : [];
+  const activeDivisions = new Set(contexts.map(context => Number(context.team.division)));
 
-  if (!context) {
-    teamOption?.remove();
+  select.querySelectorAll('option[data-reading-team-division]').forEach(option => {
+    if (!activeDivisions.has(Number(option.dataset.readingTeamDivision))) option.remove();
+  });
+
+  if (contexts.length === 0) {
     select.value = "organization";
     delete select.dataset.readingTeamDefaultPlan;
     switcher.classList.add("hidden");
@@ -470,12 +482,19 @@ async function prepareReadingTeamSubview(mode) {
     return true;
   }
 
-  if (!teamOption) {
-    teamOption = document.createElement("option");
-    teamOption.value = "reading-team";
-    select.appendChild(teamOption);
-  }
-  teamOption.textContent = `我的 ${Number(context.team.division)} 人團隊`;
+  contexts.forEach(context => {
+    const division = Number(context.team.division);
+    const value = `reading-team-${division}`;
+    let option = select.querySelector(`option[value="${value}"]`);
+    if (!option) {
+      option = document.createElement("option");
+      option.value = value;
+      option.dataset.readingTeamDivision = String(division);
+      select.appendChild(option);
+    }
+    option.textContent = `我的 ${division} 人團隊`;
+  });
+
   const activePlanKey = String(
     state.activePlan.globalPlanId
       || state.activePlan.id
@@ -485,7 +504,7 @@ async function prepareReadingTeamSubview(mode) {
   );
   if (select.dataset.readingTeamDefaultPlan !== activePlanKey) {
     select.dataset.readingTeamDefaultPlan = activePlanKey;
-    select.value = "reading-team";
+    select.value = `reading-team-${Number(contexts[0].team.division)}`;
   }
   switcher.classList.remove("hidden");
 
@@ -497,11 +516,13 @@ async function prepareReadingTeamSubview(mode) {
     });
   }
 
-  const showTeam = select.value === "reading-team";
+  const selectedDivision = Number(String(select.value).replace("reading-team-", ""));
+  const selectedContext = contexts.find(context => Number(context.team.division) === selectedDivision) || null;
+  const showTeam = !!selectedContext;
   organizationElements.forEach(element => setReadingTeamSubviewElementHidden(element, showTeam));
   inline.classList.toggle("hidden", !showTeam);
   if (showTeam && typeof window.renderMyReadingTeamInline === "function") {
-    window.renderMyReadingTeamInline(inline, state.activePlan, context, mode);
+    window.renderMyReadingTeamInline(inline, state.activePlan, selectedContext, mode);
   }
   return !showTeam;
 }

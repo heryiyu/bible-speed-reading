@@ -2070,7 +2070,8 @@ const db = {
       team_statistics_admin_required: "目前無法查看這項團隊資料。",
       invalid_team_division: "團隊只能選擇 3 人組或 6 人組。",
       invalid_team_name: "請輸入 1 至 40 字的團隊名稱。",
-      already_in_plan_team: "你在這個計畫已加入一個團隊。",
+      already_in_plan_team: "你已加入這個人數組別的團隊。",
+      already_in_plan_division: "你已加入這個人數組別的團隊；仍可參加另一種人數的團隊。",
       team_invite_not_found: "找不到這組邀請碼，請向隊長確認。",
       reading_team_full: "這個團隊已額滿。",
       ready_team_roster_locked: "團隊已額滿，名單目前不能調整。",
@@ -2101,7 +2102,7 @@ const db = {
     const planId = this._readingTeamPlanId(plan);
     if (!planId) return { success: false, message: "這個計畫目前未開放團隊報名。" };
     const result = await this._callReadingTeamRpc("get_my_reading_team", { p_global_plan_id: planId });
-    return result.success ? { success: true, context: result.data || { team: null, members: [] } } : result;
+    return result.success ? { success: true, context: result.data || { teams: [], team: null, members: [] } } : result;
   },
 
   async getReadingTeamStatistics(plan) {

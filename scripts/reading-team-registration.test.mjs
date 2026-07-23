@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const migration = read("supabase/migrations/0019_reading_team_registration.sql");
 const forwardMigration = read("supabase/migrations/0021_enforce_reading_team_uuid_links.sql");
+const dualDivisionMigration = read("supabase/migrations/0022_allow_both_team_divisions.sql");
 const edge = read("supabase/functions/nlc-data/index.ts");
 const db = read("js/db.js");
 const plan = read("js/modules/plan.js");
@@ -14,7 +15,7 @@ const html = read("index.html");
 describe("reading competition team schema", () => {
   it("keeps 3-person and 6-person teams separate from organisation groups", () => {
     expect(migration).toContain("division IN (3, 6)");
-    expect(migration).toContain("UNIQUE (global_plan_id, user_id)");
+    expect(migration).toContain("UNIQUE (global_plan_id, user_id)"); // upgraded by 0022
     expect(migration).toContain("user_id UUID NOT NULL REFERENCES public.profiles(id)");
     expect(migration).toContain("FOREIGN KEY (team_id, global_plan_id)");
     expect(migration).toContain("REFERENCES public.reading_teams(id, global_plan_id)");
@@ -23,10 +24,12 @@ describe("reading competition team schema", () => {
     expect(migration).not.toMatch(/ALTER\s+TABLE\s+public\.(small_groups|pastoral_zones)/i);
   });
 
-  it("can safely upgrade a database that already applied an earlier team migration", () => {
+  it("can safely upgrade a database that already applied earlier team migrations", () => {
     expect(forwardMigration).toContain("IF NOT EXISTS");
-    expect(forwardMigration).toContain("reading_team_members_team_plan_fk");
-    expect(forwardMigration).toContain("FOREIGN KEY (team_id, global_plan_id)");
+    expect(dualDivisionMigration).toContain("ADD COLUMN IF NOT EXISTS division SMALLINT");
+    expect(dualDivisionMigration).toContain("UNIQUE (global_plan_id, user_id, division)");
+    expect(dualDivisionMigration).toContain("FOREIGN KEY (team_id, global_plan_id, division)");
+    expect(dualDivisionMigration).toContain("already_in_plan_division");
   });
 
   it("locks concurrent joins and freezes a completed roster", () => {
@@ -44,11 +47,11 @@ describe("reading competition team schema", () => {
     expect(memberPolicy).not.toContain("FROM public.reading_team_members");
   });
 
-  it("returns only the caller's joined team through the user RPC", () => {
-    expect(migration).toMatch(/get_my_reading_team[\s\S]*membership\.user_id = actor_id/);
-    expect(migration).toMatch(/WHERE membership\.team_id = selected_team\.id/);
-    expect(migration).not.toContain("get_all_reading_teams");
-    expect(migration).toContain("membership.user_id = actor_id");
+  it("returns both of the caller's joined team divisions through the user RPC", () => {
+    expect(dualDivisionMigration).toMatch(/get_my_reading_team[\s\S]*own_membership\.user_id = actor_id/);
+    expect(dualDivisionMigration).toContain("'teams', team_contexts");
+    expect(dualDivisionMigration).toContain("ORDER BY division");
+    expect(dualDivisionMigration).not.toContain("get_all_reading_teams");
   });
 });
 
@@ -72,6 +75,7 @@ describe("NLC and browser integration", () => {
 
   it("keeps personal progress primary and offers optional 3-person or 6-person teams", () => {
     expect(teamUi).toContain("計畫已加入");
+    expect(teamUi).toContain("你可以同時參加一支 3 人團隊與一支 6 人團隊");
     expect(teamUi).toContain("章節進度只需勾選一次");
     expect(teamUi).toContain("data-team-skip");
     expect(teamUi).toContain('data-team-division="3"');
@@ -122,12 +126,16 @@ describe("NLC and browser integration", () => {
     expect(plan).toContain("async function prepareReadingTeamSubview");
     expect(plan).toContain('prepareReadingTeamSubview("stats")');
     expect(plan).toContain('prepareReadingTeamSubview("members")');
-    expect(plan).toContain('select.value = "reading-team"');
+    expect(plan).toContain('reading-team-');
+    expect(plan).toContain('data-reading-team-division');
     expect(plan).toContain('readingTeamDefaultPlan');
     expect(teamUi).toContain("renderMyReadingTeamInline");
+    expect(teamUi).toContain("data-team-view-division");
+    expect(teamUi).toContain("data-add-other-team");
     expect(teamUi).not.toContain("openReadingTeamAdminStatsDialog");
     expect(teamUi).not.toContain("競賽團隊統計");
     expect(db).toContain("forbidden_rpc");
+    expect(db).toContain("already_in_plan_division");
     expect(migration).toMatch(/get_reading_team_statistics[\s\S]*team_statistics_admin_required/);
     expect(db).toContain('_callReadingTeamRpc("get_my_reading_team"');
     expect(db).toContain("return newPlanObj;");
