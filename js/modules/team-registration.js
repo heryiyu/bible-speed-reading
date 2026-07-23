@@ -533,6 +533,15 @@
     hydrate(container);
   };
 
+  function getJoinedReadingTeamContexts(context) {
+    if (Array.isArray(context && context.teams)) {
+      return context.teams
+        .filter(item => item && item.team)
+        .sort((left, right) => Number(left.team.division) - Number(right.team.division));
+    }
+    return context && context.team ? [context] : [];
+  }
+
   window.renderReadingTeamRegistrationInline = async function renderReadingTeamRegistrationInline(container, plan, options = {}) {
     if (!container || !isSupportedPlan(plan)) return;
     
