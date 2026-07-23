@@ -420,7 +420,24 @@ export function initAdminOrgManagement() {
   };
 
   document.getElementById("admin-edit-region-btn").onclick = async () => {
-    const val = regionSelect.valu  document.getElementById("admin-delete-region-btn").onclick = async () => {
+    const val = regionSelect.value;
+    if (!val) { showToast("ËHxÇô„'@"); return; }
+    const opt = regionSelect.options[regionSelect.selectedIndex];
+    const oldName = opt.text;
+    const newName = prompt(`Ë8e'@ ${oldName} „°1`, oldName);
+    if (newName && newName.trim() && newName.trim() !== oldName) {
+      loader.show("ô°'@-...");
+      const success = await db.updateGreatRegion(val, newName.trim());
+      loader.hide();
+      if (success) {
+        showToast("'@òô");
+        populateAdminRegions();
+        if (typeof renderProfileView === "function") renderProfileView();
+      }
+    }
+  };
+
+  document.getElementById("admin-delete-region-btn").onclick = async () => {
     const val = regionSelect.value;
     if (!val) {
       showToast("éš¢ï¿½ï¿½ï¿½è±¢ï¿½ï¿½é–¬ï¿½ï¿½ï¿½èŠ·ï¿½æ–¤ï¿½ï¿½æ†­æ‰¹ï¿½ï¿½åš—ï¿½");

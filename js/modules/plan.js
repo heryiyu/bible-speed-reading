@@ -6342,99 +6342,6 @@ if (typeof snapCalendarToToday === 'function') {
   window.snapCalendarToToday = snapCalendarToToday;
 }
 
-// Plan route state machine: the plan tab has exactly three mutually exclusive screens.
-async function enterPlanListState() {
-  window.currentPlanViewState = PLAN_ROUTE.LIST;
-  state.planDetailOpen = false;
-  state.planActiveSubTab = "today";
-  if (window.PlanPageController) window.PlanPageController.groupLoadedForPlanKey = null;
-  const shell = setOnlyPlanRouteVisible(PLAN_ROUTE.LIST);
-  moveGroupNodesToDetail(shell);
-  renderJoinedPlansList();
-  renderPresetPlansList();
-}
-
-async function enterPlanDetailState() {
-  if (!state.activePlan) {
-    await enterPlanListState();
-    return;
-  }
-  window.currentPlanViewState = PLAN_ROUTE.DETAIL;
-  state.planDetailOpen = true;
-  state.planActiveSubTab = "today";
-  setOnlyPlanRouteVisible(PLAN_ROUTE.DETAIL);
-  if (window.PlanPageController) await window.PlanPageController.switchPage(PLAN_PAGE.READING, { skipChrome: true });
-}
-
-async function fetchGroupRankings(planId) {
-  if (!state.activePlan && planId) {
-    state.activePlan = (state.activePlans || []).find(plan =>
-      plan.id === planId ||
-      plan.globalPlanId === planId ||
-      plan.presetKey === planId
-    ) || null;
-    if (typeof window.syncActivePlanContext === "function") window.syncActivePlanContext(state.activePlan);
-  }
-  if (!state.activePlan) return;
-
-  window._statsTabScope = getDefaultGroupStatsScope();
-  populateStatsSelector();
-  populateMembersSelector();
-}
-async function enterGroupProgressState() {
-  if (!state.activePlan) {
-    await enterPlanListState();
-    return;
-  }
-  window.currentPlanViewState = PLAN_ROUTE.GROUP;
-  state.planDetailOpen = true;
-  const requestedSubview = Object.values(GROUP_SUBVIEW).includes(state.planActiveSubTab)
-    ? state.planActiveSubTab
-    : (window.PlanPageController?.groupSubview || GROUP_SUBVIEW.STATS);
-  state.planActiveSubTab = requestedSubview;
-  setOnlyPlanRouteVisible(PLAN_ROUTE.GROUP);
-  if (window.PlanPageController) {
-    window.PlanPageController.groupSubview = requestedSubview;
-    await window.PlanPageController.switchPage(PLAN_PAGE.GROUP, { skipChrome: true, primaryView: requestedSubview });
-  }
-}
-
-async function setPlanState(newState) {
-  ensurePlanRouteShell();
-
-  const normalized = String(newState || "").toUpperCase();
-  if (normalized === PLAN_ROUTE.DETAIL || normalized === "DETAIL" || normalized === PLAN_ROUTE.GROUP || normalized === "GROUP") {
-    if (state.activePlan && isPlanExpired(state.activePlan)) {
-      showToast("此計畫已過期，無法再進入進度閱讀。");
-      await enterPlanListState();
-      return;
-    }
-  }
-
-  if (normalized === PLAN_ROUTE.LIST || normalized === "LIST") {
-    await enterPlanListState();
-  } else if (normalized === PLAN_ROUTE.DETAIL || normalized === "DETAIL") {
-    await enterPlanDetailState();
-  } else if (normalized === PLAN_ROUTE.GROUP || normalized === "GROUP") {
-    await enterGroupProgressState();
-  } else {
-    console.error(`[PlanSM] Unknown state: ${newState}`);
-    return;
-  }
-
-  if (typeof appRouter !== "undefined" && typeof appRouter.updateNavigationChrome === "function") {
-    appRouter.updateNavigationChrome();
-  }
-}
-
-function planGoBack() {
-  if (state.planActiveSubTab === "settings" && window.PlanPageController) {
-    window.PlanPageController.closeSettingsPage();
-    return;
-  }
-  if (getCurrentPlanRoute() !== PLAN_ROUTE.LIST) setPlanState(PLAN_ROUTE.LIST);
-}
-
 function planToggleGroupProgress() {
   if (typeof window.syncActivePlanContext === "function") window.syncActivePlanContext();
   if (!state.activePlan || !window.PlanPageController) return;
@@ -6447,6 +6354,8 @@ window.setPlanState = setPlanState;
 window.planGoBack = planGoBack;
 window.planToggleGroupProgress = planToggleGroupProgress;
 window.togglePlanDetailSubTab = planToggleGroupProgress;
+
+
 
 // ==================== 關心戳一下 Dialog ====================
 window.openCareReminderDialog = function(member) {
