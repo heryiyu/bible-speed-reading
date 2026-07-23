@@ -1184,15 +1184,16 @@ function renderPresetPlansList() {
     `;
 
     card.onclick = async () => {
-      const participation = typeof window.chooseReadingPlanParticipation === "function"
-        ? await window.chooseReadingPlanParticipation(plan)
-        : { mode: "personal", division: null };
-      if (!participation) return;
       const scheduleSettings = await openFlexibleScheduleDialog(plan);
       if (!scheduleSettings) return;
       const joinedPlan = await db.joinPresetPlan(key, scheduleSettings);
-      if (joinedPlan && participation.mode === "team" && typeof window.openReadingTeamDialog === "function") {
-        await window.openReadingTeamDialog(joinedPlan, { preferredDivision: participation.division });
+      if (!joinedPlan) return;
+
+      const division = typeof window.offerReadingTeamParticipation === "function"
+        ? await window.offerReadingTeamParticipation(joinedPlan)
+        : null;
+      if (division && typeof window.openReadingTeamDialog === "function") {
+        await window.openReadingTeamDialog(joinedPlan, { preferredDivision: division });
       }
     };
 

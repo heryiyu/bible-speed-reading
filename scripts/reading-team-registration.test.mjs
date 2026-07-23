@@ -70,10 +70,12 @@ describe("NLC and browser integration", () => {
     expect(readAllowlist).not.toContain("reading_team_members");
   });
 
-  it("offers personal, 3-person, and 6-person registration", () => {
-    expect(teamUi).toContain('data-team-mode="personal"');
-    expect(teamUi).toContain('data-division="3"');
-    expect(teamUi).toContain('data-division="6"');
+  it("keeps personal progress primary and offers optional 3-person or 6-person teams", () => {
+    expect(teamUi).toContain("計畫已加入");
+    expect(teamUi).toContain("章節進度只需勾選一次");
+    expect(teamUi).toContain("data-team-skip");
+    expect(teamUi).toContain('data-team-division="3"');
+    expect(teamUi).toContain('data-team-division="6"');
     expect(teamUi).toContain("一般會員只能查看自己加入的隊伍");
     expect(teamUi).toContain("只有同隊成員可查看");
     expect(teamUi).toContain("系統不會只用姓名建立成員");
@@ -100,8 +102,10 @@ describe("NLC and browser integration", () => {
   });
 
   it("connects joining and the plan options menu to My Team", () => {
-    expect(plan).toContain("chooseReadingPlanParticipation(plan)");
+    expect(plan).not.toContain("chooseReadingPlanParticipation(plan)");
+    expect(plan).toContain("offerReadingTeamParticipation(joinedPlan)");
     expect(plan).toContain("openReadingTeamDialog(joinedPlan");
+    expect(plan.indexOf("await db.joinPresetPlan")).toBeLessThan(plan.indexOf("offerReadingTeamParticipation(joinedPlan)"));
     expect(html).toContain('id="view-reading-team-btn"');
     expect(html).toContain("我的團隊");
     expect(html).toContain("競賽團隊統計");
@@ -109,6 +113,13 @@ describe("NLC and browser integration", () => {
     expect(migration).toMatch(/get_reading_team_statistics[\s\S]*team_statistics_admin_required/);
     expect(db).toContain('_callReadingTeamRpc("get_my_reading_team"');
     expect(db).toContain("return newPlanObj;");
+  });
+
+  it("derives team progress from each member's single personal reading log", () => {
+    expect(migration).not.toContain("reading_team_logs");
+    expect(migration).toMatch(/LEFT JOIN public\.reading_plans plan[\s\S]*plan\.user_id = membership\.user_id/);
+    expect(migration).toMatch(/FROM public\.reading_logs log WHERE log\.plan_id = plan\.id/);
+    expect(db).toContain('onConflict: "user_id,plan_id,book,chapter,round"');
   });
 
   it("does not reuse organisation statistics as team registration", () => {

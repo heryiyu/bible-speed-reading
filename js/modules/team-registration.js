@@ -40,8 +40,8 @@
     if (typeof hydrateIcons === "function") hydrateIcons(root);
   }
 
-  window.chooseReadingPlanParticipation = function chooseReadingPlanParticipation(plan) {
-    if (!isSupportedPlan(plan)) return Promise.resolve({ mode: "personal", division: null });
+  window.offerReadingTeamParticipation = function offerReadingTeamParticipation(plan) {
+    if (!isSupportedPlan(plan)) return Promise.resolve(null);
     return new Promise(resolve => {
       const overlay = createOverlay("reading-team-choice-dialog", "reading-team-choice-title");
       const panel = overlay.firstElementChild;
@@ -49,35 +49,33 @@
       panel.setAttribute("aria-describedby", "reading-team-choice-description");
       panel.innerHTML = `
         <header class="reading-team-dialog__header">
-          <div><p class="reading-team-eyebrow">${escapeHTML(plan.name || "教會讀經計畫")}</p><h3 id="reading-team-choice-title">選擇參加方式</h3></div>
+          <div><p class="reading-team-eyebrow">${escapeHTML(plan.name || "教會讀經計畫")}</p><h3 id="reading-team-choice-title">和夥伴一起讀嗎？</h3></div>
           <button type="button" class="reading-team-close" data-team-close aria-label="關閉"><span class="nlc-icon nlc-icon--sm" data-icon="close" aria-hidden="true"></span></button>
         </header>
-        <p class="reading-team-dialog__intro" id="reading-team-choice-description">每個人仍保有自己的讀經進度；選擇團隊後，可以和固定隊員查看共同完成狀況。</p>
+        <p class="reading-team-dialog__intro" id="reading-team-choice-description">計畫已加入。你的章節進度只需勾選一次；加入團隊後，系統會直接以這份個人進度計算共同完成狀況。</p>
         <div class="reading-team-choice-grid">
-          <button type="button" class="reading-team-choice" data-team-mode="personal">
+          <button type="button" class="reading-team-choice" data-team-skip>
             <span class="reading-team-choice__icon"><span class="nlc-icon nlc-icon--md" data-icon="user" aria-hidden="true"></span></span>
-            <span class="reading-team-choice__body"><strong>個人參加</strong><span class="reading-team-choice__description">只顯示自己的讀經進度</span></span><span class="reading-team-choice__arrow"><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" aria-hidden="true"></span></span>
+            <span class="reading-team-choice__body"><strong>先自己開始</strong><span class="reading-team-choice__description">之後可從計畫選單加入團隊</span></span><span class="reading-team-choice__arrow"><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" aria-hidden="true"></span></span>
           </button>
-          <button type="button" class="reading-team-choice" data-team-mode="team" data-division="3">
+          <button type="button" class="reading-team-choice" data-team-division="3">
             <span class="reading-team-choice__icon"><span class="nlc-icon nlc-icon--md" data-icon="people" aria-hidden="true"></span></span>
-            <span class="reading-team-choice__body"><strong>3 人組</strong><span class="reading-team-choice__description">固定三人，滿員後完成組隊</span></span><span class="reading-team-choice__arrow"><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" aria-hidden="true"></span></span>
+            <span class="reading-team-choice__body"><strong>參加 3 人團隊</strong><span class="reading-team-choice__description">固定三人，滿員後完成組隊</span></span><span class="reading-team-choice__arrow"><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" aria-hidden="true"></span></span>
           </button>
-          <button type="button" class="reading-team-choice" data-team-mode="team" data-division="6">
+          <button type="button" class="reading-team-choice" data-team-division="6">
             <span class="reading-team-choice__icon"><span class="nlc-icon nlc-icon--md" data-icon="people" aria-hidden="true"></span></span>
-            <span class="reading-team-choice__body"><strong>6 人組</strong><span class="reading-team-choice__description">固定六人，滿員後完成組隊</span></span><span class="reading-team-choice__arrow"><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" aria-hidden="true"></span></span>
+            <span class="reading-team-choice__body"><strong>參加 6 人團隊</strong><span class="reading-team-choice__description">固定六人，滿員後完成組隊</span></span><span class="reading-team-choice__arrow"><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" aria-hidden="true"></span></span>
           </button>
         </div>`;
       const finish = value => { removeOverlay(overlay); resolve(value); };
       panel.querySelector("[data-team-close]").onclick = () => finish(null);
-      panel.querySelectorAll("[data-team-mode]").forEach(button => {
-        button.onclick = () => finish({
-          mode: button.dataset.teamMode,
-          division: button.dataset.division ? Number(button.dataset.division) : null
-        });
+      panel.querySelector("[data-team-skip]").onclick = () => finish(null);
+      panel.querySelectorAll("[data-team-division]").forEach(button => {
+        button.onclick = () => finish(Number(button.dataset.teamDivision));
       });
       closeOnBackdrop(overlay, () => finish(null));
       hydrate(overlay);
-      panel.querySelector("[data-team-mode]")?.focus();
+      panel.querySelector("[data-team-skip]")?.focus();
     });
   };
 
