@@ -642,91 +642,41 @@ export function updateHeaderAvatar() {
   if (typeof refreshUserAvatars === "function") refreshUserAvatars();
 }
 
-function initAvatarDropdown() {
-  const container   = document.getElementById("user-avatar-container");
-  const btn         = document.getElementById("user-avatar-btn");
-  const dropdown    = document.getElementById("avatar-dropdown-menu");
-  const btnLogout   = document.getElementById("btn-avatar-logout");
-  const btnProfile  = document.getElementById("btn-avatar-profile");
-
-  if (!btn || !dropdown) return;
-
-  btn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const isOpen = !dropdown.classList.contains("hidden");
-    dropdown.classList.toggle("hidden", isOpen);
-    btn.setAttribute("aria-expanded", String(!isOpen));
-  });
-
-  document.addEventListener("click", (e) => {
-    if (container && !container.contains(e.target)) {
-      dropdown.classList.add("hidden");
-      btn.setAttribute("aria-expanded", "false");
+async function handleLogoutAndClearCache() {
+  loader.show("\u767b\u51fa\u4e2b\u6e05\u9664\u5feb\u53d6\u4e2d...");
+  try {
+    if (navigator.serviceWorker) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        await reg.unregister();
+      }
     }
-  });
-
-  if (btnProfile) {
-    btnProfile.addEventListener("click", (e) => {
-      e.preventDefault();
-      dropdown.classList.add("hidden");
-      if (typeof appRouter !== 'undefined' && appRouter.switchTab) {
-        appRouter.switchTab("profile-view");
+    if (window.caches) {
+      const keys = await caches.keys();
+      for (const key of keys) {
+        await caches.delete(key);
       }
-    });
-  }
-
-  async function handleLogoutAndClearCache() {
-    loader.show("\u767b\u51fa\u4e2b\u6e05\u9664\u5feb\u53d6\u4e2d...");
-    try {
-      if (navigator.serviceWorker) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (const reg of registrations) {
-          await reg.unregister();
-        }
-      }
-      if (window.caches) {
-        const keys = await caches.keys();
-        for (const key of keys) {
-          await caches.delete(key);
-        }
-      }
-      window.localStorage.removeItem("care_reminder_badge_last_refresh");
-
-      if (typeof auth !== "undefined" && auth.logout) {
-        await auth.logout();
-        return;
-      }
-      if (state.isSupabaseMode && state.supabase?.auth?.signOut) {
-        await state.supabase.auth.signOut();
-      }
-      state.realRole = null;
-      db.updateAuthUI(null);
-      await db.loadUserData();
-      updateHeaderAvatar();
-      alert("\u5df2\u767b\u51fa\u4e2b\u5feb\u53d6\u5df2\u91cd\u8a2d\u3002");
-      window.location.reload(true);
-    } catch (err) {
-      alert(`\u767b\u51fa\u5931\u6557: \${err.message}`);
-      window.location.reload();
-    } finally {
-      loader.hide();
     }
-  }
+    window.localStorage.removeItem("care_reminder_badge_last_refresh");
 
-  if (btnLogout) {
-    btnLogout.addEventListener("click", async (e) => {
-      e.preventDefault();
-      dropdown.classList.add("hidden");
-      await handleLogoutAndClearCache();
-    });
-  }
-
-  const btnProfileLogout = document.getElementById("btn-profile-logout");
-  if (btnProfileLogout) {
-    btnProfileLogout.addEventListener("click", async (e) => {
-      e.preventDefault();
-      await handleLogoutAndClearCache();
-    });
+    if (typeof auth !== "undefined" && auth.logout) {
+      await auth.logout();
+      return;
+    }
+    if (state.isSupabaseMode && state.supabase?.auth?.signOut) {
+      await state.supabase.auth.signOut();
+    }
+    state.realRole = null;
+    db.updateAuthUI(null);
+    await db.loadUserData();
+    updateHeaderAvatar();
+    alert("\u5df2\u767b\u51fa\u4e2b\u5feb\u53d6\u5df2\u91cd\u8a2d\u3002");
+    window.location.reload(true);
+  } catch (err) {
+    alert(`\u767b\u51fa\u5931\u6557: \${err.message}`);
+    window.location.reload();
+  } finally {
+    loader.hide();
   }
 }
 
@@ -750,7 +700,13 @@ export function init() {
     };
   }
 
-  initAvatarDropdown();
+  const btnProfileLogout = document.getElementById("btn-profile-logout");
+  if (btnProfileLogout) {
+    btnProfileLogout.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await handleLogoutAndClearCache();
+    });
+  }
 }
 
 window.renderProfileView = renderProfileView;
