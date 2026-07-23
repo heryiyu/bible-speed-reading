@@ -929,23 +929,6 @@
             <div id="reading-team-stats-inline" class="reading-team-inline hidden" aria-live="polite"></div>
             <div id="reading-team-registration-inline" class="reading-team-inline hidden" aria-live="polite"></div>
 
-            <!-- 管理權限統計篩選器 (只在 管理 tab 顯示) -->
-            <div class="stats-admin-scope-bar hidden" id="stats-admin-scope-bar"
-              style="display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
-              <span
-                style="font-size: 0.82rem; font-weight: 500; color: #d97706; white-space: nowrap;">&#x7D71;&#x8A08;&#x7BC4;&#x570D;</span><select
-                id="stats-basic-scope-select" class="form-control"
-                style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select><select
-                id="stats-admin-region-select" class="form-control"
-                style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
-              <select id="stats-admin-zone-select" class="form-control"
-                style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
-              <select id="stats-admin-group-select" class="form-control"
-                style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
-
-              <!-- Hidden master select for backward-compatibility -->
-              <select id="ranking-zone-selector" class="form-control hidden" style="display: none;"></select>
-            </div>
 
             <!-- 個人統計部分 -->
             <div id="stats-personal-section" style="display: flex; flex-direction: column; gap: 0.8rem; width: 100%;">
@@ -1067,6 +1050,151 @@
               </div>
             </div>
 
+          </div>
+
+          <!-- 子分頁 3：牧區排行 (Ranking) -->
+          <div id="subview-plan-ranking" class="hidden"
+            style="display: flex; flex-direction: column; gap: 1.2rem; width: 100%;">
+            <!-- 個人排名資訊 -->
+            <div class="glass-card" style="margin-bottom: 1.2rem;">
+              <h3 class="card-title"
+                style="margin-bottom: 1.2rem; font-size: 1.05rem; font-weight: 500; color: var(--text-primary);"><span
+                  class="label-with-icon"><span class="nlc-icon" data-icon="trophy"
+                    aria-hidden="true"></span><span>我的讀經排名</span></span></h3>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <!-- 全教會排行 card -->
+                <div
+                  style="background: var(--color-brand-muted); border: 1px solid var(--color-brand-border); border-radius: 12px; padding: 1rem; text-align: center;">
+                  <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 0.4rem;">
+                    全教會個人排行</div>
+                  <div style="font-size: 1.8rem; font-weight: 500; color: var(--primary-color);" id="my-rank-all">第 -- 名
+                  </div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem;" id="my-rank-all-total">
+                    共 -- 人</div>
+                </div>
+
+                <!-- 牧區排行 card -->
+                <div
+                  style="background: var(--color-success-subtle); border: 1px solid var(--color-success-border); border-radius: 12px; padding: 1rem; text-align: center;">
+                  <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 0.4rem;"
+                    id="my-rank-zone-title">牧區個人排行</div>
+                  <div style="font-size: 1.8rem; font-weight: 500; color: var(--color-success-foreground);"
+                    id="my-rank-zone">第 -- 名</div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem;"
+                    id="my-rank-zone-total">共 -- 人</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <h3 class="card-title"
+                style="margin-bottom: 1.2rem; font-size: 1.15rem; font-weight: 500; color: var(--text-primary);">
+                各牧區速讀排行榜 (總累計章數)</h3>
+
+              <!-- Table Headers -->
+              <div
+                style="display: grid; grid-template-columns: 40px 1fr 100px; gap: 0.5rem; border-bottom: 1px solid var(--border-card); padding-bottom: 0.6rem; margin-bottom: 0.8rem; font-size: 0.76rem; font-weight: 500; text-align: center;">
+                <div style="color: var(--text-muted);">名次</div>
+                <div style="text-align: left; color: var(--text-muted); padding-left: 0.5rem;">牧區名稱</div>
+                <div style="color: var(--primary-color);">累計章數</div>
+              </div>
+
+              <!-- Pastoral Rank List Container -->
+              <div id="pastoral-ranking-list-container"
+                style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 400px; overflow-y: auto; padding-right: 0.2rem;">
+                <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.65rem;">
+                  <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
+                    <div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:58%;border-radius:4px;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:52px;border-radius:4px;margin-left:auto;">
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
+                    <div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:46%;border-radius:4px;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:52px;border-radius:4px;margin-left:auto;">
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
+                    <div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:52%;border-radius:4px;"></div>
+                    <div class="skeleton-shimmer" style="height:14px;width:52px;border-radius:4px;margin-left:auto;">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <!-- 子分頁 5：組員狀況 (Members Status) -->
+          <div id="subview-plan-members" class="hidden flex flex-col w-full min-h-0"
+            style="display: flex; flex-direction: column; width: 100%; min-height: 0;">
+            <!-- 頂部控制欄：高度必須由內容撐開，絕不霸佔全螢幕 -->
+            <div class="p-4 bg-white dark:bg-zinc-900/60 border-b border-slate-100 dark:border-zinc-800/50 flex-none"
+              style="padding: 1rem; border-bottom: 1px solid var(--border-card); flex: none; display: flex; flex-direction: column; gap: 0.5rem; background: var(--bg-card); border-radius: 12px; margin-bottom: 0.8rem;">
+              <h2 class="text-base font-bold text-slate-800 dark:text-white mb-2"
+                style="font-size: 1rem; font-weight: 500; color: var(--text-primary); margin: 0 0 0.5rem 0;">組員狀況</h2>
+              <div class="reading-team-subview-switch hidden" id="members-team-view-switch">
+                <label for="members-team-view-select">查看內容</label>
+                <select id="members-team-view-select" class="form-control">
+                  <option value="organization">教會小組</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 下方組員列表容器：利用 flex-1 自動填滿剩餘上方空間，並允許內部獨立滾動 -->
+            <div id="reading-team-members-inline" class="reading-team-inline hidden" aria-live="polite"></div>
+
+
+
+
+          </div><!-- end subview-plan-members -->
+
+          <!-- 子分頁：牧區小組狀況 (全版滿版 APP 頁面) -->
+          <div id="plan-org-stats-subview" class="hidden" style="display: flex; flex-direction: column; width: 100%; min-height: 0;">
+            <!-- 頂部資訊 / 篩選控制列 -->
+            <!-- Header: scope bar and org controls (filter selectors) -->
+            <div id="plan-org-stats-header" style="background: var(--bg-card); border-radius: 12px; border-bottom: 1px solid var(--border-card); display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 0.8rem; padding: 0.8rem;">
+            <!-- 管理權限統計篩選器 (只在 管理 tab 顯示) -->
+            <div class="stats-admin-scope-bar hidden" id="stats-admin-scope-bar"
+              style="display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;">
+              <span
+                style="font-size: 0.82rem; font-weight: 500; color: #d97706; white-space: nowrap;">&#x7D71;&#x8A08;&#x7BC4;&#x570D;</span><select
+                id="stats-basic-scope-select" class="form-control"
+                style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select><select
+                id="stats-admin-region-select" class="form-control"
+                style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
+              <select id="stats-admin-zone-select" class="form-control"
+                style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
+              <select id="stats-admin-group-select" class="form-control"
+                style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
+
+              <!-- Hidden master select for backward-compatibility -->
+              <select id="ranking-zone-selector" class="form-control hidden" style="display: none;"></select>
+            </div>
+              <!-- 全域權限統計篩選器 (組員狀況) -->
+              <div id="members-organization-controls" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 0.6rem; margin-right: auto;">
+                  <span class="label-with-icon"
+                    style="font-size: 1.1rem; font-weight: 500; color: var(--primary-color);"><span class="nlc-icon"
+                      data-icon="people" aria-hidden="true"></span></span>
+                  <h3 style="margin: 0; font-size: 1.05rem; font-weight: 500; color: var(--text-primary);">查看範圍</h3>
+                </div>
+                <select id="members-admin-region-select" class="form-control"
+                  style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
+                <select id="members-admin-zone-select" class="form-control"
+                  style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
+                <select id="members-admin-group-select" class="form-control"
+                  style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
+
+                <!-- Hidden master select for backward-compatibility -->
+                <select id="members-zone-selector" class="form-control hidden" style="display: none;"></select>
+              </div>
+            </div>
+            <!-- Content: group stats + member list -->
+            <div id="plan-org-stats-content" style="display: flex; flex-direction: column; gap: 1.2rem; flex: 1; min-height: 0; overflow-y: auto;">
             <!-- 團體統計部分 -->
             <!-- 團體統計部分 -->
             <div id="stats-group-section" class="hidden"
@@ -1215,121 +1343,6 @@
               </div>
 
             </div>
-          </div>
-
-          <!-- 子分頁 3：牧區排行 (Ranking) -->
-          <div id="subview-plan-ranking" class="hidden"
-            style="display: flex; flex-direction: column; gap: 1.2rem; width: 100%;">
-            <!-- 個人排名資訊 -->
-            <div class="glass-card" style="margin-bottom: 1.2rem;">
-              <h3 class="card-title"
-                style="margin-bottom: 1.2rem; font-size: 1.05rem; font-weight: 500; color: var(--text-primary);"><span
-                  class="label-with-icon"><span class="nlc-icon" data-icon="trophy"
-                    aria-hidden="true"></span><span>我的讀經排名</span></span></h3>
-
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <!-- 全教會排行 card -->
-                <div
-                  style="background: var(--color-brand-muted); border: 1px solid var(--color-brand-border); border-radius: 12px; padding: 1rem; text-align: center;">
-                  <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 0.4rem;">
-                    全教會個人排行</div>
-                  <div style="font-size: 1.8rem; font-weight: 500; color: var(--primary-color);" id="my-rank-all">第 -- 名
-                  </div>
-                  <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem;" id="my-rank-all-total">
-                    共 -- 人</div>
-                </div>
-
-                <!-- 牧區排行 card -->
-                <div
-                  style="background: var(--color-success-subtle); border: 1px solid var(--color-success-border); border-radius: 12px; padding: 1rem; text-align: center;">
-                  <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; margin-bottom: 0.4rem;"
-                    id="my-rank-zone-title">牧區個人排行</div>
-                  <div style="font-size: 1.8rem; font-weight: 500; color: var(--color-success-foreground);"
-                    id="my-rank-zone">第 -- 名</div>
-                  <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.3rem;"
-                    id="my-rank-zone-total">共 -- 人</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="glass-card">
-              <h3 class="card-title"
-                style="margin-bottom: 1.2rem; font-size: 1.15rem; font-weight: 500; color: var(--text-primary);">
-                各牧區速讀排行榜 (總累計章數)</h3>
-
-              <!-- Table Headers -->
-              <div
-                style="display: grid; grid-template-columns: 40px 1fr 100px; gap: 0.5rem; border-bottom: 1px solid var(--border-card); padding-bottom: 0.6rem; margin-bottom: 0.8rem; font-size: 0.76rem; font-weight: 500; text-align: center;">
-                <div style="color: var(--text-muted);">名次</div>
-                <div style="text-align: left; color: var(--text-muted); padding-left: 0.5rem;">牧區名稱</div>
-                <div style="color: var(--primary-color);">累計章數</div>
-              </div>
-
-              <!-- Pastoral Rank List Container -->
-              <div id="pastoral-ranking-list-container"
-                style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 400px; overflow-y: auto; padding-right: 0.2rem;">
-                <div class="skeleton-wrapper" style="display:flex;flex-direction:column;gap:0.65rem;">
-                  <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
-                    <div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
-                    <div class="skeleton-shimmer" style="height:14px;width:58%;border-radius:4px;"></div>
-                    <div class="skeleton-shimmer" style="height:14px;width:52px;border-radius:4px;margin-left:auto;">
-                    </div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
-                    <div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
-                    <div class="skeleton-shimmer" style="height:14px;width:46%;border-radius:4px;"></div>
-                    <div class="skeleton-shimmer" style="height:14px;width:52px;border-radius:4px;margin-left:auto;">
-                    </div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0.2rem;">
-                    <div class="skeleton-shimmer" style="width:28px;height:28px;border-radius:50%;flex-shrink:0;"></div>
-                    <div class="skeleton-shimmer" style="height:14px;width:52%;border-radius:4px;"></div>
-                    <div class="skeleton-shimmer" style="height:14px;width:52px;border-radius:4px;margin-left:auto;">
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-          <!-- 子分頁 5：組員狀況 (Members Status) -->
-          <div id="subview-plan-members" class="hidden flex flex-col w-full min-h-0"
-            style="display: flex; flex-direction: column; width: 100%; min-height: 0;">
-            <!-- 頂部控制欄：高度必須由內容撐開，絕不霸佔全螢幕 -->
-            <div class="p-4 bg-white dark:bg-zinc-900/60 border-b border-slate-100 dark:border-zinc-800/50 flex-none"
-              style="padding: 1rem; border-bottom: 1px solid var(--border-card); flex: none; display: flex; flex-direction: column; gap: 0.5rem; background: var(--bg-card); border-radius: 12px; margin-bottom: 0.8rem;">
-              <h2 class="text-base font-bold text-slate-800 dark:text-white mb-2"
-                style="font-size: 1rem; font-weight: 500; color: var(--text-primary); margin: 0 0 0.5rem 0;">組員狀況</h2>
-              <div class="reading-team-subview-switch hidden" id="members-team-view-switch">
-                <label for="members-team-view-select">查看內容</label>
-                <select id="members-team-view-select" class="form-control">
-                  <option value="organization">教會小組</option>
-                </select>
-              </div>
-              <!-- 全域權限統計篩選器 (組員狀況) -->
-              <div id="members-organization-controls" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 0.6rem; margin-right: auto;">
-                  <span class="label-with-icon"
-                    style="font-size: 1.1rem; font-weight: 500; color: var(--primary-color);"><span class="nlc-icon"
-                      data-icon="people" aria-hidden="true"></span></span>
-                  <h3 style="margin: 0; font-size: 1.05rem; font-weight: 500; color: var(--text-primary);">查看範圍</h3>
-                </div>
-                <select id="members-admin-region-select" class="form-control"
-                  style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
-                <select id="members-admin-zone-select" class="form-control"
-                  style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
-                <select id="members-admin-group-select" class="form-control"
-                  style="width: auto; min-width: 140px; font-size: 0.82rem; padding: 0.35rem 0.7rem; font-weight: 500; border-color: var(--primary-color); border-radius: 8px; background: var(--bg-input); color: var(--text-primary);"></select>
-
-                <!-- Hidden master select for backward-compatibility -->
-                <select id="members-zone-selector" class="form-control hidden" style="display: none;"></select>
-              </div>
-            </div>
-
-            <!-- 下方組員列表容器：利用 flex-1 自動填滿剩餘上方空間，並允許內部獨立滾動 -->
-            <div id="reading-team-members-inline" class="reading-team-inline hidden" aria-live="polite"></div>
-
             <div id="member-list-container" class="flex-1 overflow-y-auto p-4 space-y-3"
               style="flex: 1; overflow-y: auto; padding: 0.5rem 0; display: flex; flex-direction: column; gap: 0.8rem; min-height: 0;">
               <!-- 參與者總覽 -->
@@ -1361,20 +1374,6 @@
                 </div>
               </div>
             </div>
-
-
-
-          </div><!-- end subview-plan-members -->
-
-          <!-- 子分頁：牧區小組狀況 (全版滿版 APP 頁面) -->
-          <div id="plan-org-stats-subview" class="hidden" style="display: flex; flex-direction: column; width: 100%; min-height: 0;">
-            <!-- 頂部資訊 / 篩選控制列 -->
-            <div id="plan-org-stats-header" style="background: var(--bg-card); border-radius: 12px; border-bottom: 1px solid var(--border-card); display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 0.8rem;">
-              <!-- 這裡會動態搬移篩選聯動組件與統計標籤 -->
-            </div>
-            <!-- 內容呈現區 -->
-            <div id="plan-org-stats-content" style="display: flex; flex-direction: column; gap: 1.2rem; flex: 1; min-height: 0;">
-              <!-- 這裡會動態搬移小組排名與成員狀況名單 -->
             </div>
           </div>
 
