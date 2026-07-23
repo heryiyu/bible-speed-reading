@@ -1380,6 +1380,7 @@ const db = {
       try {
         const { data: usersProfiles, error: profilesError } = await state.supabase.from("profiles").select("id, name, email, great_region, pastoral_zone, small_group, role, managed_regions, managed_zones, managed_groups").eq("is_demo", false);
         console.log(`🔍 [AdminDebug] profiles 查詢結果: ${usersProfiles ? usersProfiles.length : 0} 筆`, profilesError ? `錯誤: ${profilesError.message}` : '');
+        if (profilesError) throw profilesError;
         if (usersProfiles) console.log('🔍 [AdminDebug] profiles 名單:', usersProfiles.map(u => `${u.name}(${u.role})`));
         
         let plansQuery = state.supabase.from("reading_plans").select("id, user_id, name, preset_key, global_plan_id, target_books, current_round, level");
@@ -1398,6 +1399,7 @@ const db = {
         }
         const { data: allPlans, error: plansError } = await plansQuery;
         console.log(`🔍 [AdminDebug] reading_plans 查詢結果: ${allPlans ? allPlans.length : 0} 筆`, plansError ? `錯誤: ${plansError.message}` : '');
+        if (plansError) throw plansError;
 
         let logsQuery = state.supabase.from("reading_logs").select("user_id, book, chapter, read_at, plan_id, round");
         if (allPlans && allPlans.length > 0) {
@@ -1406,6 +1408,7 @@ const db = {
         }
         const { data: allLogs, error: logsError } = await logsQuery;
         console.log(`🔍 [AdminDebug] reading_logs 查詢結果: ${allLogs ? allLogs.length : 0} 筆`, logsError ? `錯誤: ${logsError.message}` : '');
+        if (logsError) throw logsError;
         state.allLogsCache = allLogs || [];
 
         // Fetch today's devotional notes (golden verses)
@@ -1522,6 +1525,7 @@ const db = {
             };
           }).filter(Boolean);
         }
+        return [mockUser];
       } catch (err) {
         console.error("Failed to fetch merged users:", err);
       }

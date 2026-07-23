@@ -24,7 +24,7 @@ import { SupabaseRepository } from './pwa/SupabaseRepository.js';
 
 cleanupProductionStorage(window.localStorage);
 
-const buildVersion = "__BUILD_VERSION__" + "_clean_demo_mode_v2";
+const buildVersion = "__BUILD_VERSION__" + "_clean_demo_mode_v3";
 const moduleCache = {};
 let careReminderBadgeLastRefresh = 0;
 
