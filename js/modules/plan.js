@@ -201,12 +201,10 @@ async function showPlanGroupSubview(view = GROUP_SUBVIEW.STATS) {
   const allowedViews = Object.values(GROUP_SUBVIEW);
   let target = allowedViews.includes(view) ? view : GROUP_SUBVIEW.STATS;
 
-  const tabs = getPlanDetailTabs();
   const statsPanel = document.getElementById("subview-plan-stats");
   const rankingPanel = document.getElementById("subview-plan-ranking");
   const membersPanel = document.getElementById("subview-plan-members");
 
-  if (tabs) forceHidden(tabs, true);
   const legacyScheduleTab = document.getElementById("tab-plan-schedule");
   if (legacyScheduleTab) {
     legacyScheduleTab.classList.remove("active");
@@ -221,19 +219,18 @@ async function showPlanGroupSubview(view = GROUP_SUBVIEW.STATS) {
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-selected", isActive ? "true" : "false");
   });
+
   forceHidden(statsPanel, target === GROUP_SUBVIEW.RANKING);
   forceHidden(rankingPanel, target !== GROUP_SUBVIEW.RANKING);
-  forceHidden(membersPanel, target !== GROUP_SUBVIEW.STATS);
+  forceHidden(membersPanel, true); // Keep members panel hidden under all main tabs
 
   window.PlanPageController.groupSubview = target;
   updatePlanPrimaryTabs(target);
+
   if (target === GROUP_SUBVIEW.PERSONAL) {
     await window.switchStatTab("personal");
   } else if (target === GROUP_SUBVIEW.STATS) {
-    // Simple rule: has team? show team stats. No team? show registration.
-    // Org/pastoral stats live permanently in the 牧區小組狀況 full-page view.
     const regContainer = document.getElementById("reading-team-registration-inline");
-
     const isTeamPlan = typeof window.isReadingTeamPlan === "function" && window.isReadingTeamPlan(state.activePlan);
     let hasTeam = false;
     if (isTeamPlan) {
@@ -244,24 +241,24 @@ async function showPlanGroupSubview(view = GROUP_SUBVIEW.STATS) {
       hasTeam = teamContexts.length > 0;
     }
 
+    // Hide personal section under the stats tab
+    const personalSec = document.getElementById("stats-personal-section");
+    if (personalSec) personalSec.classList.add("hidden");
+
     if (!hasTeam) {
-      forceHidden(statsPanel, true);
-      forceHidden(membersPanel, true);
       if (regContainer) {
         regContainer.classList.remove("hidden");
         if (typeof window.renderReadingTeamRegistrationInline === "function") {
           window.renderReadingTeamRegistrationInline(regContainer, state.activePlan);
         }
       }
+      const teamSwitcher = document.getElementById("stats-team-view-switch");
+      const teamInline = document.getElementById("reading-team-stats-inline");
+      if (teamSwitcher) teamSwitcher.classList.add("hidden");
+      if (teamInline) teamInline.classList.add("hidden");
     } else {
       if (regContainer) regContainer.classList.add("hidden");
-      const personalSec = document.getElementById("stats-personal-section");
-      if (personalSec) personalSec.style.display = "";
-      forceHidden(statsPanel, false);
-      forceHidden(membersPanel, true);
       await prepareReadingTeamSubview("stats");
-      await prepareReadingTeamSubview("members");
-      await window.switchStatTab("personal");
     }
   } else if (target === GROUP_SUBVIEW.RANKING) {
     await renderPlanRankingView();
@@ -572,11 +569,20 @@ async function prepareReadingTeamSubview(mode) {
     select.dataset.readingTeamBound = "true";
     select.addEventListener("change", async () => {
       if (isStats) {
-        await renderPlanStatsView();
+        await prepareReadingTeamSubview("stats");
       } else {
-        await renderPlanMembersView();
+        await prepareReadingTeamSubview("members");
       }
     });
+  }
+
+  // Direct C logic: render the team progress inline details
+  const selectedDivision = Number(String(select.value).replace("reading-team-", ""));
+  const selectedContext = contexts.find(context => Number(context.team.division) === selectedDivision) || contexts[0];
+  const showTeam = !!selectedContext;
+  inline.classList.toggle("hidden", !showTeam);
+  if (showTeam && typeof window.renderMyReadingTeamInline === "function") {
+    window.renderMyReadingTeamInline(inline, state.activePlan, selectedContext, mode);
   }
 
   return true;
