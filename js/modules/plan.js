@@ -318,16 +318,22 @@ window.PlanPageController = {
   async switchPage(index, options = {}) {
     if (!state.activePlan) return;
 
-    // Check if user has team and dynamically update third tab name
-    const hasTeam = await checkUserHasTeam();
-    const statsTab = document.getElementById("plan-primary-tab-stats");
-    if (statsTab) {
-      statsTab.textContent = hasTeam ? "團隊統計" : "團體報名";
-    }
-
     const target = Number(index) === PLAN_PAGE.GROUP ? PLAN_PAGE.GROUP : PLAN_PAGE.READING;
     const shell = this.ensureShell();
     if (!shell?.wrapper) return;
+
+    // Check if user has team and dynamically update third tab name
+    const isTeamPlan = typeof window.isReadingTeamPlan === "function" && window.isReadingTeamPlan(state.activePlan);
+    const statsTab = document.getElementById("plan-primary-tab-stats");
+    if (statsTab) {
+      if (isTeamPlan) {
+        const hasTeam = await checkUserHasTeam();
+        statsTab.textContent = hasTeam ? "團隊統計" : "團體報名";
+      } else {
+        statsTab.textContent = "團體統計";
+      }
+    }
+
     this.currentIndex = target;
     state.planDetailOpen = true;
     state.planActiveSubTab = target === PLAN_PAGE.GROUP ? (options.primaryView || this.groupSubview || "stats") : "today";
@@ -509,7 +515,16 @@ async function prepareReadingTeamSubview(mode) {
 
   // 2. Fetch team context
   const supported = typeof window.isReadingTeamPlan === "function" && window.isReadingTeamPlan(state.activePlan);
-  const result = supported ? await db.getMyReadingTeam(state.activePlan) : null;
+  if (!supported) {
+    switcher.classList.add("hidden");
+    inline.classList.add("hidden");
+    const regContainer = document.getElementById("reading-team-registration-inline");
+    if (regContainer) regContainer.classList.add("hidden");
+    organizationElements.forEach(element => setReadingTeamSubviewElementHidden(element, false));
+    return true;
+  }
+
+  const result = await db.getMyReadingTeam(state.activePlan);
   const contexts = result && result.success ? getJoinedReadingTeamContexts(result.context) : [];
   const activeDivisions = new Set(contexts.map(context => Number(context.team.division)));
 
@@ -6221,6 +6236,7 @@ async function enterOrgStatsState() {
   }
   window.currentPlanViewState = PLAN_ROUTE.ORG_STATS;
   state.planDetailOpen = true;
+  window._currentStatsTab = 'admin'; // FORCE set current stats tab to organization/admin level
   
   const listSub = document.getElementById("plan-list-subview");
   const detailSub = document.getElementById("plan-detail-subview");
@@ -6325,7 +6341,7 @@ function planGoBack() {
     return;
   }
   if (getCurrentPlanRoute() !== PLAN_ROUTE.LIST) setPlanState(PLAN_ROUTE.LIST);
-}��數</div>
+}��數</div>
           </div>
         </div>
         <div class="stat-value ${lagValueClass}">
