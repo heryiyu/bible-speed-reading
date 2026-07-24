@@ -768,6 +768,98 @@ function initPlanControls() {
     });
   }
 
+  // Reset Plan Progress Button inside options dropdown
+  const resetProgressBtn = document.getElementById("reset-plan-progress-btn");
+  if (resetProgressBtn) {
+    resetProgressBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const menu = document.getElementById("plan-options-dropdown");
+      if (menu) menu.classList.add("hidden");
+      if (!state.activePlan) return;
+      const planName = state.activePlan.name;
+      const confirmed = await window.showConfirmDialog({
+        title: `確定要重置「${planName}」的進度嗎？`,
+        message: "重置後，此計畫的所有打卡紀錄都將會被清除，且無法復原。",
+        confirmText: "確定重置",
+        cancelText: "保留進度",
+        isDestructive: true
+      });
+      if (!confirmed) return;
+
+      loader.show("正在重置計畫進度...");
+      try {
+        const plan = state.activePlan;
+        const planId = plan.id;
+        const presetKey = plan.presetKey;
+
+        // 1. Clear local memory logs
+        if (state.readingLogs) {
+          state.readingLogs = state.readingLogs.filter(l => !(
+            (planId && l.plan_id === planId) ||
+            (presetKey && l.presetKey === presetKey)
+          ));
+        }
+
+        // 2. Clear progress in memory plan object
+        plan.progress = 0;
+        if (plan.days) {
+          plan.days.forEach(d => {
+            if (d.chapters) {
+              d.chapters.forEach(ch => {
+                ch.isRead = false;
+                for (let r = 1; r <= 10; r++) {
+                  ch[`isReadR${r}`] = false;
+                }
+              });
+            }
+          });
+        }
+
+        // 3. Clear database (if Supabase mode)
+        if (state.isSupabaseMode && state.supabase && !(state.currentUser && state.currentUser.is_demo)) {
+          const user = await db.getCurrentDbUser();
+          if (user && user.id) {
+            let query = state.supabase.from("reading_logs").delete().eq("user_id", user.id);
+            if (planId && planId.length > 5 && planId.includes('-')) {
+              query = query.eq("plan_id", planId);
+            } else if (presetKey) {
+              query = query.eq("preset_key", presetKey);
+            }
+            const { error } = await query;
+            if (error) throw error;
+          }
+        }
+
+        // 4. Save to localStorage (if local/demo mode)
+        if (!state.isSupabaseMode) {
+          localStorage.setItem("reading_logs", JSON.stringify(state.readingLogs || []));
+          localStorage.setItem("active_reading_plans", JSON.stringify(state.activePlans || []));
+        }
+
+        // 5. Update UI
+        if (typeof calculatePlanProgress === "function") {
+          calculatePlanProgress();
+        }
+        window.setDataVersion(prev => prev + 1);
+        window.dispatchEvent(new CustomEvent("app:dataRefresh", { detail: { scope: "plan" } }));
+
+        showToast("已成功重置計畫進度！");
+        
+        // Reload the plan detail view to reflect the 0% progress
+        if (typeof window.setPlanState === 'function') {
+          await window.setPlanState(PLAN_ROUTE.DETAIL);
+        } else {
+          renderPlanView();
+        }
+      } catch (err) {
+        console.error("Failed to reset plan progress:", err);
+        showToast("重置失敗：" + (err.message || err));
+      } finally {
+        loader.hide();
+      }
+    });
+  }
+
   const _canSeeMembers = canUseAdvancedGroupStats();
   const innerAdminTab = document.getElementById("stats-inner-tab-admin");
   if (innerAdminTab) forceHidden(innerAdminTab, !_canSeeMembers);
