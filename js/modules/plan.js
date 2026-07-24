@@ -205,6 +205,14 @@ async function showPlanGroupSubview(view = GROUP_SUBVIEW.STATS) {
   const allowedViews = Object.values(GROUP_SUBVIEW);
   let target = allowedViews.includes(view) ? view : GROUP_SUBVIEW.STATS;
 
+  const isTeamPlan = typeof window.isReadingTeamPlan === "function" && window.isReadingTeamPlan(state.activePlan);
+  if (isTeamPlan && target === GROUP_SUBVIEW.STATS) {
+    const hasTeam = await checkUserHasTeam();
+    if (!hasTeam) {
+      target = GROUP_SUBVIEW.PERSONAL;
+    }
+  }
+
   const statsPanel = document.getElementById("subview-plan-stats");
   const rankingPanel = document.getElementById("subview-plan-ranking");
   const membersPanel = document.getElementById("subview-plan-members");
@@ -300,7 +308,7 @@ window.PlanPageController = {
       });
       shell.strip.addEventListener("keydown", async event => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-        const buttons = [...shell.strip.querySelectorAll("[data-plan-primary-view]")];
+        const buttons = [...shell.strip.querySelectorAll("[data-plan-primary-view]")].filter(b => !b.classList.contains("hidden") && b.style.display !== "none");
         const current = buttons.indexOf(document.activeElement);
         if (current < 0) return;
         event.preventDefault();
@@ -332,7 +340,14 @@ window.PlanPageController = {
     return shell;
   },
   async switchPrimaryView(view, options = {}) {
-    const targetView = Object.values(PLAN_PRIMARY_VIEW).includes(view) ? view : PLAN_PRIMARY_VIEW.PROGRESS;
+    let targetView = Object.values(PLAN_PRIMARY_VIEW).includes(view) ? view : PLAN_PRIMARY_VIEW.PROGRESS;
+    const isTeamPlan = typeof window.isReadingTeamPlan === "function" && window.isReadingTeamPlan(state.activePlan);
+    if (isTeamPlan && targetView === PLAN_PRIMARY_VIEW.STATS) {
+      const hasTeam = await checkUserHasTeam();
+      if (!hasTeam) {
+        targetView = PLAN_PRIMARY_VIEW.PERSONAL;
+      }
+    }
     if (targetView === PLAN_PRIMARY_VIEW.PROGRESS) {
       return this.switchPage(PLAN_PAGE.READING, options);
     }
@@ -348,13 +363,27 @@ window.PlanPageController = {
 
     // Check if user has team and dynamically update third tab name
     const isTeamPlan = typeof window.isReadingTeamPlan === "function" && window.isReadingTeamPlan(state.activePlan);
+    let hasTeam = false;
+    if (isTeamPlan) {
+      hasTeam = await checkUserHasTeam();
+    }
     const statsTab = document.getElementById("plan-primary-tab-stats");
     if (statsTab) {
       if (isTeamPlan) {
-        const hasTeam = await checkUserHasTeam();
-        statsTab.textContent = hasTeam ? "團隊統計" : "團體報名";
+        statsTab.textContent = "團隊統計";
+        forceHidden(statsTab, !hasTeam);
       } else {
         statsTab.textContent = "團體統計";
+        forceHidden(statsTab, false);
+      }
+    }
+
+    if (isTeamPlan && !hasTeam) {
+      if (options.primaryView === GROUP_SUBVIEW.STATS) {
+        options.primaryView = GROUP_SUBVIEW.PERSONAL;
+      }
+      if (this.groupSubview === GROUP_SUBVIEW.STATS) {
+        this.groupSubview = GROUP_SUBVIEW.PERSONAL;
       }
     }
 
@@ -6689,9 +6718,21 @@ async function enterGroupProgressState() {
   }
   window.currentPlanViewState = PLAN_ROUTE.GROUP;
   state.planDetailOpen = true;
-  const requestedSubview = Object.values(GROUP_SUBVIEW).includes(state.planActiveSubTab)
+
+  const isTeamPlan = typeof window.isReadingTeamPlan === "function" && window.isReadingTeamPlan(state.activePlan);
+  let hasTeam = false;
+  if (isTeamPlan) {
+    hasTeam = await checkUserHasTeam();
+  }
+
+  let requestedSubview = Object.values(GROUP_SUBVIEW).includes(state.planActiveSubTab)
     ? state.planActiveSubTab
     : (window.PlanPageController?.groupSubview || GROUP_SUBVIEW.STATS);
+
+  if (isTeamPlan && !hasTeam && requestedSubview === GROUP_SUBVIEW.STATS) {
+    requestedSubview = GROUP_SUBVIEW.PERSONAL;
+  }
+
   state.planActiveSubTab = requestedSubview;
   setOnlyPlanRouteVisible(PLAN_ROUTE.GROUP);
   if (window.PlanPageController) {
