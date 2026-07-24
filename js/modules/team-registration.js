@@ -393,7 +393,7 @@
           <div><span class="stat-badge stat-badge--brand">${Number(team.division)} 人組</span><strong>${Number(team.memberCount)} / ${Number(team.capacity)} 人</strong><span>${isReady ? "隊伍已完成" : "等待隊員加入"}</span></div>
           <div class="reading-team-summary__progress"><span>團隊平均進度</span><strong>${averageProgress}%</strong></div>
         </div>
-        ${!isReady ? `<div class="reading-team-invite"><div><span>隊伍邀請碼</span><strong>${escapeHTML(team.inviteCode)}</strong></div><button type="button" class="secondary-btn" data-copy-team-code><span class="nlc-icon nlc-icon--sm" data-icon="share" aria-hidden="true"></span>複製邀請碼</button></div>` : `<div class="reading-team-ready"><span class="nlc-icon nlc-icon--sm" data-icon="checkCircle" aria-hidden="true"></span><span>名單已滿員並鎖定，團隊統計會固定以 ${Number(team.capacity)} 人計算。</span></div>`}
+        ${!isReady ? `<div class="reading-team-invite" style="justify-content: center; padding: 0.8rem 1rem;"><button type="button" class="secondary-btn" data-copy-team-code style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;"><span class="nlc-icon nlc-icon--sm" data-icon="share" aria-hidden="true"></span>複製團隊邀請碼</button></div>` : `<div class="reading-team-ready"><span class="nlc-icon nlc-icon--sm" data-icon="checkCircle" aria-hidden="true"></span><span>名單已滿員並鎖定，團隊統計會固定以 ${Number(team.capacity)} 人計算。</span></div>`}
         <section class="reading-team-members" aria-labelledby="reading-team-members-title">
           <div class="reading-team-section-title"><h4 id="reading-team-members-title">隊員狀況</h4><span>只有同隊成員可查看</span></div>
           <div class="reading-team-member-list">${members.map(member => renderMember(member, totalChapters)).join("")}</div>
