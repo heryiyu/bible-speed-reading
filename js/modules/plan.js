@@ -3425,7 +3425,7 @@ function setupCascadingSelectors(regionId, zoneId, groupId, masterId) {
   if (!regionSelect || !zoneSelect || !groupSelect || !masterSelect) return;
 
   const userKey = state.currentUser ? `${state.currentUser.name}_${state.currentUser.role}` : "anonymous";
-  if (regionSelect.dataset.populatedFor === userKey) return;
+  if (regionSelect.options.length > 1 && regionSelect.dataset.populatedFor === userKey) return;
 
   regionSelect.dataset.populated = "true";
   regionSelect.dataset.populatedFor = userKey;
@@ -6866,11 +6866,20 @@ async function enterOrgStatsState() {
     if (backBtnText) backBtnText.textContent = "返回";
   }
 
+  // Switch the header filter bars immediately to prevent layout flashing/flicker
+  const adminScopeBar = document.getElementById("stats-admin-scope-bar");
+  const membersOrgControls = document.getElementById("members-organization-controls");
+  if (adminScopeBar) {
+    adminScopeBar.classList.add("hidden");
+    adminScopeBar.style.display = "none";
+  }
+  if (membersOrgControls) {
+    membersOrgControls.style.display = "";
+    membersOrgControls.classList.remove("hidden");
+  }
+
   populateStatsSelector();
   populateMembersSelector();
-  // Hide members controls first; renderPlanMembersView will reveal when appropriate
-  const membersOrgCtrl = document.getElementById("members-organization-controls");
-  if (membersOrgCtrl) membersOrgCtrl.style.display = "none";
 
   // Do NOT call switchStatTab("admin") here — that would invoke renderPlanHistoryView()
   // which uses _statsTabScope (from the old stats filter, e.g. "group:青少年教會") and
