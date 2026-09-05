@@ -1698,6 +1698,11 @@ function renderJoinedPlansList() {
           if (kind === "group_meeting" && typeof isGroupMeetingPlanVisibleToUser === "function" && !isGroupMeetingPlanVisibleToUser(gp)) return false;
           return matchesPlanSearch(gp);
         })
+        // 每日靈修排在小組聚會上面（同類型維持原本 start_date 排序）
+        .sort((a, b) => {
+          const rank = gp => ((gp.planKind || gp.plan_kind) === "devotional" ? 0 : 1);
+          return rank(a) - rank(b);
+        })
       : [];
 
     if (plansToRender.length === 0 && viewerOnlyPlans.length === 0 && planSearchQuery) {
