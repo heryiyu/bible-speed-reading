@@ -9611,6 +9611,10 @@ window.renderDevotionViewer = renderDevotionViewer;
 // ── 小組聚會週計畫 viewer（會友端；plan_kind='group_meeting'）──────────────────
 let groupMeetingViewerWeekIndex = null;
 let groupMeetingViewerPlanId = null;
+function resetGroupMeetingViewerWeek() {
+  groupMeetingViewerWeekIndex = null;
+}
+window.resetGroupMeetingViewerWeek = resetGroupMeetingViewerWeek;
 
 function showGroupMeetingViewerRoot() {
   const detailView = document.getElementById("plan-detail-view");

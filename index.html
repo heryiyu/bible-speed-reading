@@ -57,7 +57,7 @@
       window.location.replace("/repair?version=" + Date.now());
     };
   </script>
-  <link rel="stylesheet" href="index.css?v=20260905_devotion_ui_polish" onerror="window.showAppStyleRecovery(this)">
+  <link rel="stylesheet" href="index.css?v=20260905_home_feature_cards" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/admin-registration-statistics.css?v=20260812_clean-user-directory-ui" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/team-registration.css?v=20260802_pwa_shell_recovery" onerror="window.showAppStyleRecovery(this)">
 
@@ -309,8 +309,14 @@
                home.js 的 refreshDevotionHomeCard()）。刻意簡化：只顯示日期＋經文，
                有影片才多顯示一個小提示，不出現任何進度/百分比。放在速讀計畫卡片
                下方、每日金句上方，避免跟金句卡並排搶成同一列。 -->
-          <div class="glass-card card-col span-12 bento-card devotion-home-card hidden" id="devotion-home-card">
+          <div class="glass-card card-col span-12 bento-card devotion-home-card home-feature-card hidden" id="devotion-home-card">
             <div id="devotion-home-content"></div>
+          </div>
+
+          <!-- 小組聚會週計畫（同上，plan_kind='group_meeting'；見 home.js 的
+               refreshGroupMeetingHomeCard()）。顯示本週的信息經文，點進去看整週。 -->
+          <div class="glass-card card-col span-12 bento-card devotion-home-card home-feature-card home-feature-card--gm hidden" id="group-meeting-home-card">
+            <div id="group-meeting-home-content"></div>
           </div>
 
           <!-- 每日金句 (Verse of the Day) -->
@@ -2822,7 +2828,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260905_devotion_ui_polish"></script>
+  <script type="module" src="js/app.js?v=20260905_home_feature_cards"></script>
 </body>
 
 </html>

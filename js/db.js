@@ -5421,6 +5421,12 @@ const db = {
       p_playlist_id: String(playlistId || "").trim()
     });
   },
+  async setAllDevotionDaysPublished(globalPlanId, published = true) {
+    return this._callDevotionRpc("set_all_devotion_days_published", {
+      p_global_plan_id: globalPlanId,
+      p_published: published !== false
+    });
+  },
   // 會友端：每日靈修的個人打勾 + 思想經文心得（migration 0158，一律 RPC）。
   async listDevotionProgress(globalPlanId) {
     return this._callDevotionRpc("list_devotion_progress", { p_global_plan_id: globalPlanId });

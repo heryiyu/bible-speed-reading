@@ -2796,6 +2796,7 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
   }
   const data = res.data || {};
   const days = Array.isArray(data.days) ? data.days : [];
+  const draftCount = days.filter(d => !d.isPublished).length;
 
   const rowHtml = days.map(d => `
     <tr data-devotion-day-id="${escapeHTML(String(d.id))}" data-devotion-day-index="${d.dayIndex}">
@@ -2829,7 +2830,11 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
           </button>
         </label>
         <button type="button" class="secondary-btn" id="admin-devotion-preview">預覽會友畫面</button>
+        <button type="button" class="primary-btn" id="admin-devotion-publish-all"${draftCount ? '' : ' disabled'}>
+          ${draftCount ? `全部發佈（${draftCount} 天草稿）` : '全部已發佈'}
+        </button>
       </div>
+      <p class="admin-devotion__hint">「全部發佈」會把所有天設為已發佈；未來日期仍由上方「開放未來日期」依當天日期一天天自動開鎖。</p>
       <p class="admin-devotion__hint">「每日靈修」功能未開放時，會友和探索計畫都看不到這份計畫；要檢視會友端畫面請用上方「預覽會友畫面」。</p>
 
       <div class="admin-devotion__playlist">
@@ -2881,6 +2886,17 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
     feedback.classList.toggle('hidden', !msg);
     feedback.style.color = isError ? 'var(--color-danger)' : 'var(--text-secondary)';
   };
+
+  root.querySelector('#admin-devotion-publish-all')?.addEventListener('click', async () => {
+    if (!draftCount) return;
+    if (!confirm(`把這份計畫全部 ${days.length} 天設為「已發佈」？（未來日期仍由「開放未來日期」依日期自動開鎖）`)) return;
+    const btn = root.querySelector('#admin-devotion-publish-all');
+    if (btn) { btn.disabled = true; btn.textContent = '發佈中…'; }
+    const r = await db.setAllDevotionDaysPublished(planId, true);
+    if (!r.success) { showFeedback(r.message || '發佈失敗'); if (btn) btn.disabled = false; return; }
+    if (typeof showToast === 'function') showToast(`已發佈（更新 ${r.data?.changed ?? draftCount} 天）`);
+    renderAdminDevotionPlan(root, true);
+  });
 
   const futureToggle = root.querySelector('#admin-devotion-future-toggle');
   futureToggle?.addEventListener('click', async () => {

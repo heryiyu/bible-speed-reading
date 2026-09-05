@@ -186,6 +186,7 @@ const DEVOTION_RPC_FUNCTIONS = new Set([
   "bulk_upsert_devotion_days",
   "set_devotional_plan_future_open",
   "set_devotional_plan_playlist_id",
+  "set_all_devotion_days_published",
   "list_devotion_progress",
   "upsert_devotion_progress"
 ]);

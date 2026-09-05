@@ -300,6 +300,7 @@ export function updateDashboardView() {
   updateAnnouncementsList();
   void refreshExamHomeBanner();
   void refreshDevotionHomeCard();
+  void refreshGroupMeetingHomeCard();
 
 
 
@@ -2114,6 +2115,96 @@ window.openDevotionPlanFromDashboard = function () {
   if (typeof window.resetDevotionViewerDay === "function") window.resetDevotionViewerDay();
   if (typeof window.previewDevotionalPlanAsMember === "function") {
     window.previewDevotionalPlanAsMember(plan.globalPlanId || plan.id);
+  }
+};
+
+// ── 首頁「小組聚會週計畫」獨立卡片 ──────────────────────────────────────────
+// 跟每日靈修卡片同一套邏輯（查 state.globalPlans + 可見性、沒有「加入」概念），
+// 只是換成顯示「本週」的信息經文，點進去看整週的信息 / 奉獻經文 / 詩歌。
+let groupMeetingHomeCardRequestId = 0;
+
+function findVisibleGroupMeetingPlan() {
+  return (state.globalPlans || []).find(gp =>
+    gp && (gp.planKind || gp.plan_kind) === "group_meeting"
+    && typeof window.isGroupMeetingPlanVisibleToUser === "function"
+    && window.isGroupMeetingPlanVisibleToUser(gp)
+  ) || null;
+}
+
+async function refreshGroupMeetingHomeCard() {
+  const card = document.getElementById("group-meeting-home-card");
+  const host = document.getElementById("group-meeting-home-content");
+  if (!card || !host) return;
+
+  const plan = findVisibleGroupMeetingPlan();
+  if (!plan) {
+    card.classList.add("hidden");
+    host.innerHTML = "";
+    return;
+  }
+  const isDevMode = typeof window.isGroupMeetingPlanDevMode === "function" && window.isGroupMeetingPlanDevMode(plan);
+
+  const requestId = ++groupMeetingHomeCardRequestId;
+  const planId = plan.globalPlanId || plan.global_plan_id || plan.id;
+  try {
+    const res = (typeof db !== "undefined" && typeof db.getGroupMeetingPlan === "function")
+      ? await db.getGroupMeetingPlan(planId)
+      : null;
+    if (requestId !== groupMeetingHomeCardRequestId) return;
+
+    if (!res || !res.success) { card.classList.add("hidden"); host.innerHTML = ""; return; }
+    const data = res.data || {};
+    const weeks = (Array.isArray(data.weeks) ? data.weeks : []).slice().sort((a, b) => a.weekIndex - b.weekIndex);
+    if (!weeks.length) { card.classList.add("hidden"); host.innerHTML = ""; return; }
+
+    // 跟 viewer 一致：本週 → 最後一個已過的週 → 第 1 週
+    const past = weeks.filter(w => w.isPast);
+    const cur = weeks.find(w => w.isThisWeek) || (past.length ? past[past.length - 1] : weeks[0]);
+    if (!cur) { card.classList.add("hidden"); host.innerHTML = ""; return; }
+
+    const subtitle = cur.locked
+      ? `${cur.dateLabel || "下一週"} 開放`
+      : (cur.messagePassageLabel || cur.messageTopic || cur.monthTheme || "本週內容準備中");
+    const songCount = Array.isArray(cur.songs) ? cur.songs.length : 0;
+
+    card.classList.remove("hidden");
+    host.innerHTML = `
+      ${isDevMode ? '<p class="devotion-home-row__dev-hint">開發中・只有你看得到</p>' : ""}
+      <div class="devotion-home-row" role="button" tabindex="0" aria-label="進入本週小組聚會計畫">
+        <span class="nlc-icon devotion-home-row__icon" data-icon="users" aria-hidden="true"></span>
+        <div class="devotion-home-row__body">
+          <p class="devotion-home-row__title">小組聚會・${escapeHTML(cur.dateLabel || "本週")}</p>
+          <p class="devotion-home-row__passage">${escapeHTML(subtitle)}</p>
+        </div>
+        ${songCount ? `<span class="devotion-home-row__video-hint">詩歌 ${songCount} 首</span>` : ""}
+        <span class="nlc-icon devotion-home-row__chevron" data-icon="chevronRight" aria-hidden="true"></span>
+      </div>`;
+
+    const row = host.querySelector(".devotion-home-row");
+    if (row) {
+      row.onclick = () => window.openGroupMeetingPlanFromDashboard();
+      row.onkeydown = (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          window.openGroupMeetingPlanFromDashboard();
+        }
+      };
+    }
+    if (typeof hydrateIcons === "function") hydrateIcons(host);
+  } catch (e) {
+    if (requestId !== groupMeetingHomeCardRequestId) return;
+    console.warn("[Home] refreshGroupMeetingHomeCard error:", e);
+    card.classList.add("hidden");
+    host.innerHTML = "";
+  }
+}
+
+window.openGroupMeetingPlanFromDashboard = function () {
+  const plan = findVisibleGroupMeetingPlan();
+  if (!plan) return;
+  if (typeof window.resetGroupMeetingViewerWeek === "function") window.resetGroupMeetingViewerWeek();
+  if (typeof window.previewGroupMeetingPlanAsMember === "function") {
+    window.previewGroupMeetingPlanAsMember(plan.globalPlanId || plan.id);
   }
 };
 

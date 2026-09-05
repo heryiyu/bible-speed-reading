@@ -516,6 +516,15 @@ body.dark-theme {
 }
 .devotion-home-row__chevron { flex-shrink: 0; color: var(--text-secondary); }
 
+/* 首頁功能卡（每日靈修 / 小組聚會）：低調的品牌色外框 + 左側細色條，讓它們在
+   一排中性卡片裡多一點存在感，但不搶眼。用 color-mix + token，三個主題都自動跟。 */
+.glass-card.home-feature-card {
+  border: 1px solid color-mix(in srgb, var(--color-brand) 30%, var(--border-card));
+  border-left: 3px solid color-mix(in srgb, var(--color-brand) 58%, var(--border-card));
+  background: color-mix(in srgb, var(--color-brand) 4%, var(--bg-card));
+}
+.home-feature-card + .home-feature-card { margin-top: 0.75rem; }
+
 /* Group stats progress segments */
 .progress-segment-track {
   display: flex;
