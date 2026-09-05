@@ -2019,6 +2019,28 @@ function renderDailyVerse(options = {}) {
 // state.activePlans 永遠會是空的，卡片永遠不會出現。
 let devotionHomeCardRequestId = 0;
 
+// 首頁卡片判斷「這個人看不看得到靈修 / 小組聚會」靠 window.devotionGroupFeaturesMasterEnabled
+// 等旗標——這些平常只有在使用者進「計畫」/「個人」分頁時，才由 plan.js 的
+// ensureDevotionGroupPreferencesLoaded() 載入。剛登入直接停在首頁的話旗標還是
+// undefined，isDevotionalPlanVisibleToUser() 會誤判成「看不到」把卡片藏起來
+// （使用者回報：每次重新登入靈修 / 小組聚會卡都不出現）。這裡自己確保載入一次；
+// plan.js 之後真的載入時，ensureDevotionGroupPreferencesLoaded 會沿用同一份值。
+async function ensureDevotionGroupFlagsForHome() {
+  if (typeof window.devotionGroupFeaturesMasterEnabled === "boolean") return;
+  if (typeof window.ensureDevotionGroupPreferencesLoaded === "function") {
+    try { await window.ensureDevotionGroupPreferencesLoaded(); return; } catch (_) { /* 往下自己抓 */ }
+  }
+  if (typeof db === "undefined" || typeof db.getMyDevotionGroupPreferences !== "function") return;
+  try {
+    const r = await db.getMyDevotionGroupPreferences();
+    if (r && r.success && r.data) {
+      window.devotionGroupFeaturesMasterEnabled = r.data.masterEnabled === true;
+      window.dailyDevotionFeatureEnabled = r.data.dailyDevotion === true;
+      window.groupMeetingPlanFeatureEnabled = r.data.groupMeetingPlan === true;
+    }
+  } catch (_) { /* 離線 / RPC 未部署：維持 undefined，卡片先不顯示 */ }
+}
+
 function findVisibleDevotionalPlan() {
   return (state.globalPlans || []).find(gp =>
     gp && (gp.planKind || gp.plan_kind) === "devotional"
@@ -2039,6 +2061,7 @@ async function refreshDevotionHomeCard() {
   const host = document.getElementById("devotion-home-content");
   if (!card || !host) return;
 
+  await ensureDevotionGroupFlagsForHome();
   const plan = findVisibleDevotionalPlan();
   if (!plan) {
     card.classList.add("hidden");
@@ -2136,6 +2159,7 @@ async function refreshGroupMeetingHomeCard() {
   const host = document.getElementById("group-meeting-home-content");
   if (!card || !host) return;
 
+  await ensureDevotionGroupFlagsForHome();
   const plan = findVisibleGroupMeetingPlan();
   if (!plan) {
     card.classList.add("hidden");
