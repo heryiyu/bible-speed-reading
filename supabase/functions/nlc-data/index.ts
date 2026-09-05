@@ -185,7 +185,9 @@ const DEVOTION_RPC_FUNCTIONS = new Set([
   "delete_devotion_day",
   "bulk_upsert_devotion_days",
   "set_devotional_plan_future_open",
-  "set_devotional_plan_playlist_id"
+  "set_devotional_plan_playlist_id",
+  "list_devotion_progress",
+  "upsert_devotion_progress"
 ]);
 // 小組聚會週計畫（group_meeting plan，migration 0148）。write RPC 自己在 SQL 端
 // 用 _group_meeting_actor_can_manage() 檢查 admin/pastor；get_group_meeting_plan

@@ -5366,6 +5366,7 @@ const db = {
       devotion_admin_required: "只有系統管理員 / 牧者可以編輯每日靈修。",
       devotion_payload_invalid: "資料格式不正確，未寫入。",
       devotion_playlist_id_invalid: "播放清單 ID 格式不正確（要以 PL 開頭）。",
+      devotion_progress_payload_invalid: "資料格式不正確，未寫入。",
       no_playlist_configured: "這份計畫還沒設定 YouTube 播放清單。",
       playlist_feed_failed: "讀取 YouTube 播放清單失敗，請稍後再試。",
       playlist_feed_unreachable: "連不上 YouTube，請稍後再試。",
@@ -5418,6 +5419,22 @@ const db = {
     return this._callDevotionRpc("set_devotional_plan_playlist_id", {
       p_global_plan_id: globalPlanId,
       p_playlist_id: String(playlistId || "").trim()
+    });
+  },
+  // 會友端：每日靈修的個人打勾 + 思想經文心得（migration 0158，一律 RPC）。
+  async listDevotionProgress(globalPlanId) {
+    return this._callDevotionRpc("list_devotion_progress", { p_global_plan_id: globalPlanId });
+  },
+  async upsertDevotionProgress({ globalPlanId, dayIndex, itemKind, itemIndex = 0, done = false, note = "" } = {}) {
+    return this._callDevotionRpc("upsert_devotion_progress", {
+      p_payload: {
+        globalPlanId,
+        dayIndex,
+        itemKind,
+        itemIndex,
+        done: done === true,
+        note: String(note || "")
+      }
     });
   },
   // 讀取這份靈修計畫綁定的 YouTube 播放清單影片（伺服器端抓公開 RSS，免金鑰）。

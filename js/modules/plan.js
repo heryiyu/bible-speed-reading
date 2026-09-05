@@ -9232,6 +9232,8 @@ function showDevotionViewerRoot() {
   return root;
 }
 function exitDevotionViewer() {
+  // 心得編輯視窗掛在 document.body，離開 viewer 時一併收掉，避免變成孤兒遮罩。
+  document.querySelectorAll(".devotion-note-modal").forEach(el => el.remove());
   const root = document.getElementById("devotion-view-root");
   if (root) { root.innerHTML = ""; root.classList.add("hidden"); root.style.display = "none"; }
   const legacy = document.getElementById("plan-detail-subview");
@@ -9249,7 +9251,7 @@ function renderDevotionViewer(plan) {
 
   const planId = plan.globalPlanId || plan.global_plan_id || plan.id;
   if (devotionViewerPlanId !== planId) { devotionViewerPlanId = planId; devotionViewerDayIndex = null; }
-  return db.getDevotionalPlan(planId).then(res => {
+  return db.getDevotionalPlan(planId).then(async res => {
     if (!res.success) {
       host.innerHTML = `<div class="devotion-view"><p class="devotion-view__loading">${escapeHTML(res.message || "無法載入每日靈修。")}</p></div>`;
       return;
@@ -9279,16 +9281,75 @@ function renderDevotionViewer(plan) {
     let cur = clampToAvailable(devotionViewerDayIndex);
     devotionViewerDayIndex = cur.dayIndex;
 
-    // ── 本地「已讀 / 已思想」（不入庫）──
+    // ── 個人打勾 + 思想經文心得 ──
+    // 本機 localStorage 為底；心得一律同步到 Supabase（migration 0158），
+    // 「最近一週」內的打勾也同步，更早的打勾只留本機。換裝置 / 清快取時心得
+    // 不會弄丟。雲端載入失敗（示範模式 / 離線 / localhost）就純本機運作。
     const readKey = (di) => `devotion_read_${planId}_${di}`;
     const thinkKey = (di, i) => `devotion_thought_${planId}_${di}_${i}`;
+    const noteMirrorKey = (di, i) => `devotion_think_note_${planId}_${di}_${i}`;
     const lsGet = (k) => { try { return localStorage.getItem(k) === "1"; } catch (_) { return false; } };
     const lsSet = (k, v) => { try { localStorage.setItem(k, v ? "1" : "0"); } catch (_) {} };
+    const lsGetRaw = (k) => { try { return localStorage.getItem(k) || ""; } catch (_) { return ""; } };
+    const lsSetRaw = (k, v) => { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (_) {} };
+
+    const cloud = new Map(); // "di|kind|idx" -> { done, note }
+    const cloudKey = (di, kind, i) => `${di}|${kind}|${i}`;
+    try {
+      const pr = await db.listDevotionProgress(planId);
+      const items = pr && pr.success && pr.data && Array.isArray(pr.data.items) ? pr.data.items : [];
+      items.forEach(it => {
+        cloud.set(cloudKey(it.dayIndex, it.itemKind, it.itemIndex == null ? 0 : it.itemIndex), {
+          done: it.done === true, note: String(it.note || "")
+        });
+      });
+    } catch (_) { /* 純本機 */ }
+
+    const parseISO = (s) => { const t = new Date(`${s}T00:00:00Z`); return Number.isNaN(t.getTime()) ? null : t; };
+    const daysApart = (a, b) => {
+      const da = parseISO(a), db2 = parseISO(b);
+      if (!da || !db2) return Infinity;
+      return Math.round((da - db2) / 86400000);
+    };
+    const todayISO = d.today || "";
+    // 「最近一週」= 今天往前推 7 天（含今天）。範圍外的打勾只存本機。
+    const withinSyncWindow = (displayDate) => {
+      const diff = daysApart(todayISO, displayDate);
+      return diff >= 0 && diff <= 7;
+    };
+
+    const isPassageDone = (row) => {
+      const c = cloud.get(cloudKey(row.dayIndex, "passage", 0));
+      return (c && c.done) || lsGet(readKey(row.dayIndex));
+    };
+    const isThinkDone = (di, i) => {
+      const c = cloud.get(cloudKey(di, "think", i));
+      return (c && c.done) || lsGet(thinkKey(di, i));
+    };
+    const thinkNote = (di, i) => {
+      const c = cloud.get(cloudKey(di, "think", i));
+      if (c && c.note) return c.note;
+      return lsGetRaw(noteMirrorKey(di, i));
+    };
+
+    // 本機一定寫；符合「最近一週」視窗、或這一筆帶心得，才推雲端。
+    const persistProgress = (di, displayDate, kind, i, done, note) => {
+      lsSet(kind === "passage" ? readKey(di) : thinkKey(di, i), done);
+      if (kind === "think") lsSetRaw(noteMirrorKey(di, i), note);
+      cloud.set(cloudKey(di, kind, i), { done: !!done, note: String(note || "") });
+      if (String(note || "").trim() || withinSyncWindow(displayDate)) {
+        db.upsertDevotionProgress({
+          globalPlanId: planId, dayIndex: di, itemKind: kind, itemIndex: i,
+          done: !!done, note: String(note || "")
+        }).catch(() => {});
+      }
+    };
+
     const dayDone = (row) => {
       if (row.locked) return false;
-      if (!lsGet(readKey(row.dayIndex))) return false;
+      if (!isPassageDone(row)) return false;
       const rs = Array.isArray(row.reflections) ? row.reflections : [];
-      return rs.every((_, i) => lsGet(thinkKey(row.dayIndex, i)));
+      return rs.every((_, i) => isThinkDone(row.dayIndex, i));
     };
 
     const todayStr = d.today || "";
@@ -9326,7 +9387,7 @@ function renderDevotionViewer(plan) {
         if (row.dayIndex === cur.dayIndex) cls.push("active");
         if (iso === todayStr) cls.push("today");
         if (dayDone(row)) cls.push("completed");
-        else if (iso < todayStr && !row.locked) cls.push("past-unread");
+        // 每日靈修不標「過期未完成」的紅色——沒打勾只是還沒做，不施壓。
         cells += `<button type="button" class="${cls.join(" ")}" data-devo-day="${row.dayIndex}"${iso === todayStr ? ' aria-current="date"' : ""}><span class="day-number">${label}</span></button>`;
       }
       return `<div class="calendar-component plan-calendar devotion-view__calendar">
@@ -9361,6 +9422,71 @@ function renderDevotionViewer(plan) {
 
     let devotionPassageView = null; // { ref, label } —非 null 時，靈修畫面內只顯示該段經文
 
+    // ── 思想經文「寫心得」全螢幕編輯視窗（有返回鍵；掛 document.body，不受計畫詳情捲動容器限制）──
+    let devotionNoteOverlay = null;
+    function onDevotionNoteKey(e) { if (e.key === "Escape") closeDevotionNoteEditor(); }
+    const closeDevotionNoteEditor = () => {
+      if (devotionNoteOverlay) { devotionNoteOverlay.remove(); devotionNoteOverlay = null; }
+      document.removeEventListener("keydown", onDevotionNoteKey);
+    };
+    const openDevotionNoteEditor = (row, idx, promptText) => {
+      closeDevotionNoteEditor();
+      const existing = thinkNote(row.dayIndex, idx);
+      const overlay = document.createElement("div");
+      overlay.className = "tts-guide-modal-overlay devotion-note-modal";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) closeDevotionNoteEditor(); });
+      overlay.innerHTML = `
+        <div class="modal-panel devotion-note-modal__panel">
+          <div class="devotion-note-modal__head">
+            <button type="button" class="pill-btn" data-note-back>← 返回</button>
+            <h4>寫下心得</h4>
+            <button type="button" class="devotion-note-modal__x" data-note-x aria-label="關閉">&times;</button>
+          </div>
+          <div class="devotion-note-modal__body">
+            ${promptText ? `<p class="devotion-note-modal__prompt">${escapeHTML(promptText)}</p>` : ""}
+            <textarea class="form-control devotion-note-modal__text" rows="8" placeholder="把今天默想到的、想跟主說的話寫下來…">${escapeHTML(existing)}</textarea>
+            <p class="devotion-note-modal__hint">只有你自己看得到，會存到雲端，換手機也還在。</p>
+            <p class="devotion-note-modal__msg" data-note-msg></p>
+          </div>
+          <div class="devotion-note-modal__foot">
+            <button type="button" class="primary-btn" data-note-save>儲存</button>
+            <button type="button" class="pill-btn" data-note-cancel>取消</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      devotionNoteOverlay = overlay;
+      document.addEventListener("keydown", onDevotionNoteKey);
+      if (typeof hydrateIcons === "function") hydrateIcons(overlay);
+      const ta = overlay.querySelector(".devotion-note-modal__text");
+      setTimeout(() => { try { ta.focus(); } catch (_) {} }, 30);
+      overlay.querySelector("[data-note-back]").addEventListener("click", closeDevotionNoteEditor);
+      overlay.querySelector("[data-note-x]").addEventListener("click", closeDevotionNoteEditor);
+      overlay.querySelector("[data-note-cancel]").addEventListener("click", closeDevotionNoteEditor);
+      overlay.querySelector("[data-note-save]").addEventListener("click", async () => {
+        const val = ta.value.trim();
+        const msg = overlay.querySelector("[data-note-msg]");
+        const btn = overlay.querySelector("[data-note-save]");
+        btn.disabled = true;
+        if (msg) { msg.textContent = "儲存中…"; msg.style.color = "var(--text-secondary)"; }
+        const doneNow = isThinkDone(row.dayIndex, idx);
+        const r = await db.upsertDevotionProgress({
+          globalPlanId: planId, dayIndex: row.dayIndex, itemKind: "think", itemIndex: idx,
+          done: doneNow, note: val
+        });
+        btn.disabled = false;
+        if (!r || !r.success) {
+          if (msg) { msg.textContent = (r && r.message) || "儲存失敗，請稍後再試。"; msg.style.color = "var(--color-danger)"; }
+          return;
+        }
+        lsSetRaw(noteMirrorKey(row.dayIndex, idx), val);
+        cloud.set(cloudKey(row.dayIndex, "think", idx), { done: doneNow, note: val });
+        closeDevotionNoteEditor();
+        paint();
+      });
+    };
+
     const paint = () => {
       if (devotionPassageView) {
         renderDevotionPassageInline(host, devotionPassageView.ref, devotionPassageView.label, () => {
@@ -9374,11 +9500,11 @@ function renderDevotionViewer(plan) {
       const reflections = Array.isArray(cur.reflections) ? cur.reflections : [];
       const refs = Array.isArray(cur.passageRefs) ? cur.passageRefs : [];
       const firstRef = refs[0] || (typeof parsePassageLabel === "function" ? parsePassageLabel(cur.passageLabel) : null);
-      const passageRead = lsGet(readKey(cur.dayIndex));
+      const passageRead = isPassageDone(cur);
       const devotionVideoId = cur.videoUrl ? extractYoutubeVideoId(cur.videoUrl) : null;
       const devotionVideoThumbUrl = devotionVideoId ? `https://img.youtube.com/vi/${devotionVideoId}/hqdefault.jpg` : "";
 
-      const taskRow = ({ checked, title, opens, arrow, dataAttr }) => `
+      const taskRow = ({ checked, title, opens, arrow, dataAttr, trailing }) => `
         <div class="plan-task-item" ${dataAttr || ""}>
           <button type="button" class="task-read-toggle" data-devo-toggle
             aria-pressed="${checked ? "true" : "false"}" aria-label="${checked ? "取消已讀" : "標記已讀"}">
@@ -9390,7 +9516,12 @@ function renderDevotionViewer(plan) {
                  ${arrow ? `<span class="task-arrow" aria-hidden="true">${typeof renderIcon === "function" ? renderIcon("chevronRight", { size: "sm", className: "nlc-icon" }) : "›"}</span>` : ""}
                </button>`
             : `<div class="task-open-button task-open-button--static"><span class="task-title">${title}</span></div>`}
+          ${trailing || ""}
         </div>`;
+
+      // 思想經文：點整條問題就進入心得編輯；寫過的加一個「已寫心得」淡標記。
+      const thinkTitle = (t, i) => escapeHTML(t)
+        + (thinkNote(cur.dayIndex, i).trim() ? ' <span class="devotion-think-note-flag">已寫心得</span>' : "");
 
       host.innerHTML = `
         <div class="devotion-view">
@@ -9414,8 +9545,8 @@ function renderDevotionViewer(plan) {
             <section class="devotion-view__block">
               <h4 class="devotion-view__h">思想經文</h4>
               ${reflections.length ? `<div class="plan-task-list">${reflections.map((t, i) =>
-                taskRow({ checked: lsGet(thinkKey(cur.dayIndex, i)), title: escapeHTML(t),
-                  opens: false, dataAttr: `data-devo-kind="think" data-devo-i="${i}"` })).join("")}</div>`
+                taskRow({ checked: isThinkDone(cur.dayIndex, i), title: thinkTitle(t, i),
+                  opens: true, arrow: true, dataAttr: `data-devo-kind="think" data-devo-i="${i}"` })).join("")}</div>`
                 : `<p class="devotion-view__muted">（本日無思想題）</p>`}
             </section>
             ${cur.videoUrl ? `
@@ -9450,14 +9581,22 @@ function renderDevotionViewer(plan) {
       host.querySelectorAll(".plan-task-item").forEach(item => {
         const kind = item.dataset.devoKind;
         const i = item.dataset.devoI;
-        const key = kind === "think" ? thinkKey(cur.dayIndex, Number(i)) : readKey(cur.dayIndex);
         item.querySelector("[data-devo-toggle]")?.addEventListener("click", (ev) => {
           ev.stopPropagation();
-          lsSet(key, !lsGet(key));
+          if (kind === "think") {
+            const idx = Number(i);
+            persistProgress(cur.dayIndex, cur.displayDate, "think", idx,
+              !isThinkDone(cur.dayIndex, idx), thinkNote(cur.dayIndex, idx));
+          } else {
+            persistProgress(cur.dayIndex, cur.displayDate, "passage", 0, !isPassageDone(cur), "");
+          }
           paint();
         });
         item.querySelector("[data-devo-open]")?.addEventListener("click", () => {
-          if (firstRef && firstRef.book) {
+          if (kind === "think") {
+            const idx = Number(i);
+            openDevotionNoteEditor(cur, idx, reflections[idx] || "");
+          } else if (firstRef && firstRef.book) {
             devotionPassageView = { ref: firstRef, label: cur.passageLabel || "" };
             paint();
           }

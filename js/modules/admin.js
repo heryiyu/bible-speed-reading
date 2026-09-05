@@ -2786,6 +2786,7 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
     adminDevotionSelectedPlanId = String(plans[0].id);
   }
   const planId = adminDevotionSelectedPlanId;
+  const activePlan = plans.find(p => String(p.id) === String(planId)) || plans[0];
 
   if (firstPaint(root)) root.innerHTML = '<div class="admin-user-directory__empty">正在載入每日靈修…</div>';
   const res = await db.listDevotionDays(planId);
@@ -2795,10 +2796,6 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
   }
   const data = res.data || {};
   const days = Array.isArray(data.days) ? data.days : [];
-
-  const planOptions = plans.map(p =>
-    `<option value="${escapeHTML(String(p.id))}"${String(p.id) === String(planId) ? ' selected' : ''}>${escapeHTML(p.name || '未命名靈修計畫')}</option>`
-  ).join('');
 
   const rowHtml = days.map(d => `
     <tr data-devotion-day-id="${escapeHTML(String(d.id))}" data-devotion-day-index="${d.dayIndex}">
@@ -2819,10 +2816,7 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
   root.innerHTML = `
     <div class="admin-devotion">
       <div class="admin-devotion__toolbar">
-        <label class="admin-registration-statistics__filter">
-          <span>靈修計畫</span>
-          <select id="admin-devotion-plan-select" class="form-control">${planOptions}</select>
-        </label>
+        <div class="admin-devotion__planname">${escapeHTML(data.name || (activePlan && activePlan.name) || '每日靈修')}</div>
         <div class="admin-devotion__meta">
           ${escapeHTML(data.startDate || '')} ～ ${escapeHTML(data.endDate || '')}　｜　共 ${days.length} 天
         </div>
@@ -2871,11 +2865,6 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
     </div>`;
 
   if (typeof hydrateIcons === 'function') hydrateIcons(root);
-
-  root.querySelector('#admin-devotion-plan-select')?.addEventListener('change', (e) => {
-    adminDevotionSelectedPlanId = String(e.target.value);
-    renderAdminDevotionPlan(root, true);
-  });
 
   root.querySelector('#admin-devotion-preview')?.addEventListener('click', () => {
     if (typeof window.previewDevotionalPlanAsMember === 'function') {
@@ -3189,8 +3178,7 @@ async function renderAdminGroupMeetingPlan(root, forceRefresh = false) {
     adminGroupMeetingSelectedPlanId = String(plans[0].id);
   }
   const planId = adminGroupMeetingSelectedPlanId;
-  const planOptions = plans.map(p =>
-    `<option value="${escapeHTML(String(p.id))}" ${String(p.id) === planId ? 'selected' : ''}>${escapeHTML(p.name || '(未命名)')}</option>`).join('');
+  const activePlan = plans.find(p => String(p.id) === String(planId)) || plans[0];
 
   const res = await db.listGroupMeetingWeeks(planId);
   if (!res.success) { root.innerHTML = `<div class="admin-devotion__empty">${escapeHTML(res.message || '載入失敗')}</div>`; return; }
@@ -3215,9 +3203,7 @@ async function renderAdminGroupMeetingPlan(root, forceRefresh = false) {
   root.innerHTML = `
     <div class="admin-devotion">
       <div class="admin-devotion__toolbar">
-        <label>計畫
-          <select id="admin-gm-plan-select" class="form-control">${planOptions}</select>
-        </label>
+        <div class="admin-devotion__planname">${escapeHTML(data.name || (activePlan && activePlan.name) || '小組聚會週計畫')}</div>
         <div class="admin-devotion__meta">起始 ${escapeHTML(data.startDate || '')}　共 ${weeks.length} 週</div>
         <label class="admin-devotion__future">
           <span>開放未來週次</span>
@@ -3235,7 +3221,6 @@ async function renderAdminGroupMeetingPlan(root, forceRefresh = false) {
         </table>
       </div>
       <button type="button" class="secondary-btn" id="admin-gm-add" style="margin-top:.75rem;">＋ 新增一週</button>
-      <div id="admin-gm-editor" class="admin-devotion__editor hidden"></div>
     </div>`;
 
   const showFeedback = (msg) => {
@@ -3243,10 +3228,6 @@ async function renderAdminGroupMeetingPlan(root, forceRefresh = false) {
     if (el) { el.textContent = msg; el.classList.remove('hidden'); }
   };
 
-  root.querySelector('#admin-gm-plan-select')?.addEventListener('change', (e) => {
-    adminGroupMeetingSelectedPlanId = String(e.target.value);
-    renderAdminGroupMeetingPlan(root, true);
-  });
   root.querySelector('#admin-gm-preview')?.addEventListener('click', () => {
     if (typeof window.previewGroupMeetingPlanAsMember === 'function') window.previewGroupMeetingPlanAsMember(planId);
   });
@@ -3261,54 +3242,92 @@ async function renderAdminGroupMeetingPlan(root, forceRefresh = false) {
     renderAdminGroupMeetingPlan(root, true);
   });
 
+  // 逐週編輯 —— 跳出置中彈窗（掛在 document.body，不受管理子頁捲動容器限制）
+  let gmEditorOverlay = null;
+  function onGmEditorKey(e) { if (e.key === 'Escape') closeGmEditor(); }
+  const closeGmEditor = () => {
+    if (gmEditorOverlay) { gmEditorOverlay.remove(); gmEditorOverlay = null; }
+    document.removeEventListener('keydown', onGmEditorKey);
+  };
   const openEditor = (week) => {
-    const editor = root.querySelector('#admin-gm-editor');
-    if (!editor) return;
+    closeGmEditor();
     const w = week || {
       weekIndex: (weeks.at(-1)?.weekIndex || 0) + 1, dateLabel: '', monthTheme: '',
       messageTopic: '', messagePassageLabel: '', offeringTopic: '', offeringPassageLabel: '',
       songs: [], note: '', isPublished: false
     };
-    editor.classList.remove('hidden');
-    editor.innerHTML = `
-      <h4>${week ? `編輯第 ${w.weekIndex} 週` : '新增一週'}</h4>
-      <label>第幾週<input type="number" min="1" id="gm-week-index" class="form-control" value="${w.weekIndex}" ${week ? 'readonly' : ''}></label>
-      <label>日期標籤（顯示用）<input type="text" id="gm-date-label" class="form-control" value="${escapeHTML(w.dateLabel || '')}" placeholder="7/1–7/2"></label>
-      <label>月主題<input type="text" id="gm-month-theme" class="form-control" value="${escapeHTML(w.monthTheme || '')}" placeholder="耶穌被賣的那一夜"></label>
-      <label>信息經文小標<input type="text" id="gm-msg-topic" class="form-control" value="${escapeHTML(w.messageTopic || '')}" placeholder="設立主聖餐"></label>
-      <label>信息經文<input type="text" id="gm-msg-passage" class="form-control" value="${escapeHTML(w.messagePassageLabel || '')}" placeholder="馬太福音 26:17-29"></label>
-      <label>奉獻經文小標<input type="text" id="gm-off-topic" class="form-control" value="${escapeHTML(w.offeringTopic || '')}" placeholder="擘餅與分杯（可留空）"></label>
-      <label>奉獻經文<input type="text" id="gm-off-passage" class="form-control" value="${escapeHTML(w.offeringPassageLabel || '')}" placeholder="馬太福音 26:26-28（可留空）"></label>
-      <label>敬拜讚美詩歌（一行一首，「代碼 歌名」）<textarea id="gm-songs" class="form-control" rows="4">${escapeHTML(gmSongsToText(w.songs))}</textarea></label>
-      <label>備註<input type="text" id="gm-note" class="form-control" value="${escapeHTML(w.note || '')}" placeholder="Pastor Greg 特會（可留空）"></label>
-      <label class="admin-devotion__pub"><input type="checkbox" id="gm-published" ${w.isPublished ? 'checked' : ''}> 發佈這一週（會友看得到）</label>
-      <div style="display:flex;gap:.5rem;margin-top:.5rem;">
-        <button type="button" class="primary-btn" id="gm-save">儲存</button>
-        <button type="button" class="pill-btn" id="gm-cancel">取消</button>
+    const overlay = document.createElement('div');
+    overlay.className = 'tts-guide-modal-overlay admin-devotion-modal';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeGmEditor(); });
+    overlay.innerHTML = `
+      <div class="modal-panel admin-devotion-modal__panel">
+        <div class="admin-devotion-modal__head">
+          <button type="button" class="pill-btn" id="gm-back">← 返回</button>
+          <h4>${week ? '編輯第 ' + w.weekIndex + ' 週' : '新增一週'}${w.dateLabel ? '　·　' + escapeHTML(w.dateLabel) : ''}</h4>
+          <button type="button" class="admin-devotion-modal__x" id="gm-x" aria-label="關閉">&times;</button>
+        </div>
+        <div class="admin-devotion-modal__body">
+          <label>第幾週<input type="number" min="1" id="gm-week-index" class="form-control" value="${w.weekIndex}" ${week ? 'readonly' : ''}></label>
+          <label>日期標籤（顯示用）<input type="text" id="gm-date-label" class="form-control" value="${escapeHTML(w.dateLabel || '')}" placeholder="7/1–7/2"></label>
+          <label>月主題<input type="text" id="gm-month-theme" class="form-control" value="${escapeHTML(w.monthTheme || '')}" placeholder="耶穌被賣的那一夜"></label>
+          <label>信息經文小標<input type="text" id="gm-msg-topic" class="form-control" value="${escapeHTML(w.messageTopic || '')}" placeholder="設立主聖餐"></label>
+          <label>信息經文<input type="text" id="gm-msg-passage" class="form-control" value="${escapeHTML(w.messagePassageLabel || '')}" placeholder="馬太福音 26:17-29"></label>
+          <label>奉獻經文小標<input type="text" id="gm-off-topic" class="form-control" value="${escapeHTML(w.offeringTopic || '')}" placeholder="擘餅與分杯（可留空）"></label>
+          <label>奉獻經文<input type="text" id="gm-off-passage" class="form-control" value="${escapeHTML(w.offeringPassageLabel || '')}" placeholder="馬太福音 26:26-28（可留空）"></label>
+          <label>敬拜讚美詩歌（一行一首，「代碼 歌名」）<textarea id="gm-songs" class="form-control" rows="4">${escapeHTML(gmSongsToText(w.songs))}</textarea></label>
+          <label>備註<input type="text" id="gm-note" class="form-control" value="${escapeHTML(w.note || '')}" placeholder="Pastor Greg 特會（可留空）"></label>
+          <label class="admin-devotion__pub"><input type="checkbox" id="gm-published" ${w.isPublished ? 'checked' : ''}> 發佈這一週（會友看得到）</label>
+          <p class="admin-devotion__hint" id="gm-editor-msg"></p>
+        </div>
+        <div class="admin-devotion-modal__foot">
+          <button type="button" class="primary-btn" id="gm-save">儲存</button>
+          <button type="button" class="pill-btn" id="gm-cancel">取消</button>
+        </div>
       </div>`;
-    editor.querySelector('#gm-cancel').addEventListener('click', () => editor.classList.add('hidden'));
-    editor.querySelector('#gm-save').addEventListener('click', async () => {
-      const msgLabel = editor.querySelector('#gm-msg-passage').value.trim();
-      const offLabel = editor.querySelector('#gm-off-passage').value.trim();
+    document.body.appendChild(overlay);
+    gmEditorOverlay = overlay;
+    document.addEventListener('keydown', onGmEditorKey);
+    if (typeof hydrateIcons === 'function') hydrateIcons(overlay);
+
+    overlay.querySelector('#gm-back').addEventListener('click', closeGmEditor);
+    overlay.querySelector('#gm-x').addEventListener('click', closeGmEditor);
+    overlay.querySelector('#gm-cancel').addEventListener('click', closeGmEditor);
+
+    const editorMsg = overlay.querySelector('#gm-editor-msg');
+    overlay.querySelector('#gm-save').addEventListener('click', async () => {
+      const msgLabel = overlay.querySelector('#gm-msg-passage').value.trim();
+      const offLabel = overlay.querySelector('#gm-off-passage').value.trim();
       const payload = {
         globalPlanId: planId,
-        weekIndex: Number(editor.querySelector('#gm-week-index').value),
-        dateLabel: editor.querySelector('#gm-date-label').value.trim(),
-        monthTheme: editor.querySelector('#gm-month-theme').value.trim(),
-        messageTopic: editor.querySelector('#gm-msg-topic').value.trim(),
+        weekIndex: Number(overlay.querySelector('#gm-week-index').value),
+        dateLabel: overlay.querySelector('#gm-date-label').value.trim(),
+        monthTheme: overlay.querySelector('#gm-month-theme').value.trim(),
+        messageTopic: overlay.querySelector('#gm-msg-topic').value.trim(),
         messagePassageLabel: msgLabel,
         messagePassageRefs: gmRefsFromLabel(msgLabel),
-        offeringTopic: editor.querySelector('#gm-off-topic').value.trim(),
+        offeringTopic: overlay.querySelector('#gm-off-topic').value.trim(),
         offeringPassageLabel: offLabel,
         offeringPassageRefs: gmRefsFromLabel(offLabel),
-        songs: gmTextToSongs(editor.querySelector('#gm-songs').value),
-        note: editor.querySelector('#gm-note').value.trim(),
-        isPublished: editor.querySelector('#gm-published').checked
+        songs: gmTextToSongs(overlay.querySelector('#gm-songs').value),
+        note: overlay.querySelector('#gm-note').value.trim(),
+        isPublished: overlay.querySelector('#gm-published').checked
       };
-      if (!payload.weekIndex || payload.weekIndex < 1) { showFeedback('「第幾週」要是 1 以上的數字'); return; }
+      if (!payload.weekIndex || payload.weekIndex < 1) {
+        if (editorMsg) { editorMsg.textContent = '「第幾週」要是 1 以上的數字'; editorMsg.style.color = 'var(--color-danger)'; }
+        return;
+      }
+      const saveBtn = overlay.querySelector('#gm-save');
+      saveBtn.disabled = true;
       const r = await db.upsertGroupMeetingWeek(payload);
-      if (!r.success) { showFeedback(r.message || '儲存失敗'); return; }
+      saveBtn.disabled = false;
+      if (!r.success) {
+        if (editorMsg) { editorMsg.textContent = r.message || '儲存失敗'; editorMsg.style.color = 'var(--color-danger)'; }
+        return;
+      }
       if (typeof showToast === 'function') showToast('已儲存');
+      closeGmEditor();
       renderAdminGroupMeetingPlan(root, true);
     });
   };

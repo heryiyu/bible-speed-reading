@@ -15644,6 +15644,45 @@ textarea::placeholder {
 .devotion-view__block .task-read-toggle[aria-pressed="true"] ~ .task-open-button--static .task-title {
   color: var(--text-muted);
 }
+
+/* 思想經文：整條可點（開心得編輯）；寫過的加一個淡標記 */
+.devotion-view__block .plan-task-item[data-devo-kind="think"] .task-open-button { cursor: pointer; }
+.devotion-think-note-flag {
+  display: inline-block; margin-left: 0.4rem; padding: 0.05rem 0.4rem;
+  border-radius: 999px; font-size: 0.875rem; white-space: nowrap;
+  color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--color-brand) 30%, var(--border-card));
+}
+
+/* 心得編輯彈窗 */
+.devotion-note-modal__panel {
+  max-width: 560px; width: 94%; max-height: 88vh;
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+  border-radius: 20px; background: var(--bg-card); color: var(--text-primary);
+  border: 1px solid var(--border-card); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+}
+.devotion-note-modal__head {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-card);
+}
+.devotion-note-modal__head h4 { flex: 1; margin: 0; font-size: 1rem; font-weight: var(--type-weight-strong, 500); }
+.devotion-note-modal__x {
+  background: none; border: none; font-size: 1.5rem; line-height: 1;
+  cursor: pointer; color: var(--text-secondary); padding: 0.1rem 0.4rem;
+}
+.devotion-note-modal__body { padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; }
+.devotion-note-modal__prompt {
+  margin: 0; padding: 0.6rem 0.75rem; border-radius: var(--radius-md);
+  background: var(--bg-input); color: var(--text-primary); font-size: 0.9375rem; line-height: 1.6;
+}
+.devotion-note-modal__text { width: 100%; resize: vertical; min-height: 8rem; line-height: 1.7; }
+.devotion-note-modal__hint { margin: 0; font-size: 0.875rem; color: var(--text-muted); }
+.devotion-note-modal__msg { margin: 0; font-size: 0.875rem; min-height: 1.2em; }
+.devotion-note-modal__foot {
+  display: flex; gap: 0.5rem; padding: 0.85rem 1rem;
+  border-top: 1px solid var(--border-card); background: var(--bg-card);
+}
 .devotion-view__locked {
   border: 1px dashed var(--border-card); border-radius: var(--radius-md);
   padding: 1.75rem 1rem; text-align: center; color: var(--text-muted); display: flex;
@@ -15772,6 +15811,10 @@ textarea::placeholder {
 /* 管理：每日靈修 */
 .admin-devotion { display: flex; flex-direction: column; gap: 1rem; }
 .admin-devotion__toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; }
+.admin-devotion__planname {
+  font-size: 1rem; font-weight: var(--type-weight-strong, 500); color: var(--text-primary);
+  align-self: center;
+}
 .admin-devotion__meta { font-size: 0.875rem; color: var(--text-muted); }
 .admin-devotion__future { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); }
 .admin-devotion__import summary { cursor: pointer; font-size: 0.9375rem; font-weight: var(--type-weight-strong, 500); }
