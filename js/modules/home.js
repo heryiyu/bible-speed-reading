@@ -2041,11 +2041,24 @@ async function ensureDevotionGroupFlagsForHome() {
   } catch (_) { /* 離線 / RPC 未部署：維持 undefined，卡片先不顯示 */ }
 }
 
+// 「這個人看不看得到靈修 / 小組聚會」——刻意在 home.js 內自己算一份，不呼叫
+// plan.js 的 window.isDevotionalPlanVisibleToUser()：那些函式在 plan.js 裡，而
+// plan.js 是背景延遲載入的，剛登入停在首頁時多半還沒載入好，`typeof ... ===
+// "function"` 為 false → 卡片永遠找不到計畫。邏輯本身很小且穩定（角色 + 兩個
+// 旗標，跟 migration 0156 一致），內聯即可。
+function homeCanSeeDevotionGroupFeature(featureKey) {
+  const role = typeof getUserRoleCode === "function" ? getUserRoleCode(state.currentUser) : null;
+  if (role === "admin" || role === "pastor") return true;
+  if (window.devotionGroupFeaturesMasterEnabled !== true) return false;
+  return featureKey === "group_meeting_plan"
+    ? window.groupMeetingPlanFeatureEnabled === true
+    : window.dailyDevotionFeatureEnabled === true;
+}
+
 function findVisibleDevotionalPlan() {
+  if (!homeCanSeeDevotionGroupFeature("daily_devotion")) return null;
   return (state.globalPlans || []).find(gp =>
     gp && (gp.planKind || gp.plan_kind) === "devotional"
-    && typeof window.isDevotionalPlanVisibleToUser === "function"
-    && window.isDevotionalPlanVisibleToUser(gp)
   ) || null;
 }
 
@@ -2068,7 +2081,8 @@ async function refreshDevotionHomeCard() {
     host.innerHTML = "";
     return;
   }
-  const isDevMode = typeof window.isDevotionalPlanDevMode === "function" && window.isDevotionalPlanDevMode(plan);
+  // 總開關還沒開 = 功能還沒對會友開放，只有 admin/pastor 看得到（帶提示）
+  const isDevMode = window.devotionGroupFeaturesMasterEnabled !== true;
 
   const requestId = ++devotionHomeCardRequestId;
   const planId = plan.globalPlanId || plan.global_plan_id || plan.id;
@@ -2147,10 +2161,9 @@ window.openDevotionPlanFromDashboard = function () {
 let groupMeetingHomeCardRequestId = 0;
 
 function findVisibleGroupMeetingPlan() {
+  if (!homeCanSeeDevotionGroupFeature("group_meeting_plan")) return null;
   return (state.globalPlans || []).find(gp =>
     gp && (gp.planKind || gp.plan_kind) === "group_meeting"
-    && typeof window.isGroupMeetingPlanVisibleToUser === "function"
-    && window.isGroupMeetingPlanVisibleToUser(gp)
   ) || null;
 }
 
@@ -2166,7 +2179,7 @@ async function refreshGroupMeetingHomeCard() {
     host.innerHTML = "";
     return;
   }
-  const isDevMode = typeof window.isGroupMeetingPlanDevMode === "function" && window.isGroupMeetingPlanDevMode(plan);
+  const isDevMode = window.devotionGroupFeaturesMasterEnabled !== true;
 
   const requestId = ++groupMeetingHomeCardRequestId;
   const planId = plan.globalPlanId || plan.global_plan_id || plan.id;

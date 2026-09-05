@@ -45,9 +45,23 @@ describe("home dashboard: independent daily-devotion card", () => {
     const body = home.slice(idx, idx + 400);
     expect(body).toContain("state.globalPlans || []");
     expect(body).toContain('(gp.planKind || gp.plan_kind) === "devotional"');
-    expect(body).toContain("window.isDevotionalPlanVisibleToUser(gp)");
+    // 可見性在 home.js 自己算（不依賴延遲載入的 plan.js window.isDevotionalPlanVisibleToUser）
+    expect(body).toContain('homeCanSeeDevotionGroupFeature("daily_devotion")');
     // 絕對不能又退回查 state.activePlans——那個陣列裡永遠不會有靈修計畫。
     expect(body).not.toContain("state.activePlans");
+  });
+
+  it("computes devotion/group-meeting visibility inline (role + 0156 flags), not via lazy-loaded plan.js", () => {
+    const idx = home.indexOf("function homeCanSeeDevotionGroupFeature(");
+    expect(idx).toBeGreaterThan(-1);
+    const body = home.slice(idx, idx + 500);
+    expect(body).toContain('role === "admin" || role === "pastor"');
+    expect(body).toContain("window.devotionGroupFeaturesMasterEnabled !== true");
+    expect(body).toContain("window.dailyDevotionFeatureEnabled === true");
+    expect(body).toContain("window.groupMeetingPlanFeatureEnabled === true");
+    // findVisible* 不再硬依賴 plan.js 那兩支延遲載入的函式
+    expect(home).not.toContain('typeof window.isDevotionalPlanVisibleToUser === "function"');
+    expect(home).not.toContain('typeof window.isGroupMeetingPlanVisibleToUser === "function"');
   });
 
   it("refreshDevotionHomeCard hides the card when there's no visible devotional plan, or no content for today", () => {
@@ -68,7 +82,7 @@ describe("home dashboard: independent daily-devotion card", () => {
     const idx = home.indexOf("const isDevMode =");
     expect(idx).toBeGreaterThan(-1);
     const body = home.slice(idx, idx + 1700);
-    expect(body).toContain("window.isDevotionalPlanDevMode(plan)");
+    expect(body).toContain("window.devotionGroupFeaturesMasterEnabled !== true");
     expect(body).toContain("devotion-home-row__dev-hint");
     expect(body).toContain("只有你看得到");
   });
