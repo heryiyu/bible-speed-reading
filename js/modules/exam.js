@@ -2925,12 +2925,73 @@ function examResultRow(a, graded) {
 // 成績檢討的連連看：把 data-resp / data-key 畫成線（綠＝你連的、紅虛線＝正解更正）
 const _matchBoardsObserved = typeof WeakSet === "function" ? new WeakSet() : null;
 
+// 成績檢討的連連看：線太多會交叉成一團不好對答案。加一顆按鈕「整理成平行線」——
+// 把右欄照「你連的」重新排序，讓每條綠線都變水平；紅虛線（正解更正）就會一眼看出
+// 差在哪。再按一次還原原本順序。純視覺重排，不改任何作答資料。
+function wireResultMatchAlign(board) {
+  if (!board || board._alignWired) return;
+  const rightCol = board.querySelector(".exam-match-col--right");
+  if (!rightCol) return;
+  let resp = {};
+  try { resp = JSON.parse(board.dataset.resp || "{}") || {}; } catch (_) { resp = {}; }
+  const leftIds = [...board.querySelectorAll('.exam-match-node[data-side="L"]')].map((n) => n.dataset.id);
+  const rightNodes = [...rightCol.querySelectorAll('.exam-match-node[data-side="R"]')];
+  if (rightNodes.length < 2 || !Object.keys(resp).length) return; // 沒得整理（沒作答或右欄太少）
+  board._alignWired = true;
+
+  const origOrder = rightNodes.map((n) => n.dataset.id);
+  const origNum = new Map(rightNodes.map((n) => [n.dataset.id, n.querySelector(".exam-match-num")?.textContent || ""]));
+  const byId = (id) => rightCol.querySelector(`.exam-match-node[data-side="R"][data-id="${cssAttr(String(id))}"]`);
+  const renumber = () => rightCol.querySelectorAll('.exam-match-node[data-side="R"] .exam-match-num')
+    .forEach((el, i) => { el.textContent = String(i + 1); });
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "exam-match-align-btn";
+  btn.textContent = "整理成平行線";
+  const legend = board.nextElementSibling && board.nextElementSibling.classList.contains("exam-result__match-legend")
+    ? board.nextElementSibling : null;
+  if (legend) legend.parentNode.insertBefore(btn, legend);
+  else board.parentNode.insertBefore(btn, board.nextSibling);
+
+  let aligned = false;
+  btn.addEventListener("click", () => {
+    aligned = !aligned;
+    if (aligned) {
+      const used = new Set();
+      leftIds.forEach((lid) => {
+        const rid = resp[lid] != null ? String(resp[lid]) : null;
+        const node = rid != null ? byId(rid) : null;
+        if (node && !used.has(rid)) { rightCol.appendChild(node); used.add(rid); }
+      });
+      origOrder.forEach((id) => { if (!used.has(id)) { const n = byId(id); if (n) rightCol.appendChild(n); } });
+      renumber();
+      btn.textContent = "還原原本順序";
+      btn.classList.add("is-active");
+    } else {
+      origOrder.forEach((id) => { const n = byId(id); if (n) rightCol.appendChild(n); });
+      rightCol.querySelectorAll('.exam-match-node[data-side="R"]').forEach((n) => {
+        const el = n.querySelector(".exam-match-num");
+        if (el && origNum.has(n.dataset.id)) el.textContent = origNum.get(n.dataset.id);
+      });
+      btn.textContent = "整理成平行線";
+      btn.classList.remove("is-active");
+    }
+    _paintResultMatchLines(board);
+  });
+}
+
 // 連連看畫線：立刻畫一次，再等「下一個 frame」「字型載入完」各補畫一次
 // （fit-content 的方框寬度會隨中文字型載入而縮 → 圈圈位置會變 → 線要重畫），
 // 之後靠 ResizeObserver 只要方框尺寸變就自動重畫。
 function drawResultMatchLines(root) {
   if (!root) return;
   _paintResultMatchLines(root);
+  try {
+    const wireRoot = root.classList && root.classList.contains("exam-result__match-board") ? [root]
+      : (root.querySelectorAll ? [...root.querySelectorAll(".exam-result__match-board")] : []);
+    wireRoot.forEach(wireResultMatchAlign);
+  } catch (_) {}
   if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => _paintResultMatchLines(root));
   try { document.fonts?.ready?.then(() => _paintResultMatchLines(root)); } catch (_) {}
   if (_matchBoardsObserved && typeof ResizeObserver === "function") {
