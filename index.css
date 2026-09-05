@@ -15655,6 +15655,20 @@ textarea::placeholder {
   margin: 0; text-align: center; color: var(--text-primary);
   font-size: 1.125rem; font-weight: var(--type-weight-strong, 500); line-height: 1.5;
 }
+.devotion-view__actions { display: flex; justify-content: flex-end; }
+.devotion-view__share {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.3rem 0.75rem; border: 1px solid var(--border-card); border-radius: 999px;
+  background: var(--bg-card); color: var(--text-secondary);
+  font: inherit; font-size: 0.875rem; cursor: pointer;
+}
+.devotion-view__share:hover { border-color: var(--color-brand); color: var(--color-brand); }
+.devotion-view__share .nlc-icon { width: 1em; height: 1em; }
+/* 分享 / 複製彈窗（沿用 .devotion-note-modal 骨架） */
+.devotion-share-opts { display: flex; flex-direction: column; gap: 0.4rem; }
+.devotion-share-opt { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9375rem; color: var(--text-primary); cursor: pointer; }
+.devotion-share-opt.is-disabled { color: var(--text-muted); cursor: not-allowed; }
+.devotion-share-preview { width: 100%; resize: vertical; min-height: 9rem; line-height: 1.7; white-space: pre-wrap; }
 .devotion-view__block {
   border: 1px solid var(--border-card); border-radius: var(--radius-md);
   background: var(--bg-card); padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem;

@@ -4071,6 +4071,42 @@ async function renderDevotionPassageInline(host, ref, label, onBack) {
 }
 window.renderDevotionPassageInline = renderDevotionPassageInline;
 
+// 分享用：把靈修某段經文抓成純文字（「1 經文內容\n2 …」，跨章加「書名 N章」標題）。
+// 沿用 renderDevotionPassageInline 同一套抓法，只是輸出純文字（v.text 去標籤）。
+async function fetchDevotionPassagePlainText(ref) {
+  if (!ref || !ref.book || typeof fetchBibleChapter !== "function") return "";
+  const version = String((state.readerState && state.readerState.version) || "CUNP").toUpperCase();
+  const book = (window.BIBLE_BOOKS || []).find(b => b.name === ref.book);
+  if (!book) return "";
+  const chapFrom = Number(ref.chapterFrom) || 1;
+  const chapTo = Math.max(chapFrom, Number(ref.chapterTo) || chapFrom);
+  const vFrom = Number(ref.verseFrom) || 1;
+  const vTo = Number(ref.verseTo) || 9999;
+  const strip = (html) => {
+    try {
+      const d = document.createElement("div");
+      d.innerHTML = String(html || "");
+      return (d.textContent || "").replace(/\s+/g, " ").trim();
+    } catch (_) {
+      return String(html || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    }
+  };
+  const out = [];
+  const lastChap = Math.min(chapTo, chapFrom + 3); // 保險：最多跨 4 章
+  for (let c = chapFrom; c <= lastChap; c++) {
+    let data = null;
+    try { data = await fetchBibleChapter(book.eng, c, version); } catch (_) { data = null; }
+    const verses = (data && Array.isArray(data.verses)) ? data.verses : [];
+    const lo = c === chapFrom ? vFrom : 1;
+    const hi = c === chapTo ? vTo : 9999;
+    const picked = verses.filter(v => Number(v.verse) >= lo && Number(v.verse) <= hi);
+    if (lastChap > chapFrom && picked.length) out.push(`${book.name} ${c}章`);
+    picked.forEach(v => { const t = strip(v.text); if (t) out.push(`${v.verse} ${t}`); });
+  }
+  return out.join("\n");
+}
+window.fetchDevotionPassagePlainText = fetchDevotionPassagePlainText;
+
 function updatePlanCheckboxState(key, isChecked) {
   // Safe empty fallback since we redraw tasks on update
   if (state.activePlan) {
@@ -9492,6 +9528,148 @@ function renderDevotionViewer(plan) {
       });
     };
 
+    // ── 分享 / 複製內文：勾選要帶哪些段落（經文 / 思想經文 / 影片連結），組成純文字 ──
+    let devotionShareOverlay = null;
+    function onDevotionShareKey(e) { if (e.key === "Escape") closeDevotionShareModal(); }
+    const closeDevotionShareModal = () => {
+      if (devotionShareOverlay) { devotionShareOverlay.remove(); devotionShareOverlay = null; }
+      document.removeEventListener("keydown", onDevotionShareKey);
+    };
+    const SHARE_OPTS_KEY = "devotion_share_opts";
+    const readShareOpts = () => {
+      try {
+        const o = JSON.parse(localStorage.getItem(SHARE_OPTS_KEY) || "{}") || {};
+        return { passage: o.passage !== false, reflections: o.reflections !== false, video: o.video !== false };
+      } catch (_) { return { passage: true, reflections: true, video: true }; }
+    };
+    const openDevotionShareModal = (day) => {
+      closeDevotionShareModal();
+      const opts = readShareOpts();
+      const dateLabel = day.displayDate || "";
+      const refl = Array.isArray(day.reflections) ? day.reflections.filter(Boolean) : [];
+      const hasVideo = !!(day.videoUrl && String(day.videoUrl).trim());
+
+      let passageFetching = false;
+      const buildText = (o) => {
+        const lines = [`【每日靈修】${dateLabel}`.trim()];
+        if (day.title) lines.push(`主題：${day.title}`);
+        if (o.passage && day.passageLabel) {
+          lines.push("", `經文：${day.passageLabel}`);
+          if (day._sharePassageText) lines.push(day._sharePassageText);
+          else if (passageFetching) lines.push("（讀取經文內文中…）");
+        }
+        if (o.reflections && refl.length) {
+          lines.push("", "思想經文：");
+          refl.forEach((t, i) => lines.push(`${i + 1}. ${t}`));
+        }
+        if (o.video && hasVideo) {
+          lines.push("", day.videoTitle ? `靈修影片：${day.videoTitle}` : "靈修影片：", String(day.videoUrl).trim());
+        }
+        return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      };
+
+      const overlay = document.createElement("div");
+      overlay.className = "tts-guide-modal-overlay devotion-note-modal devotion-share-modal";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) closeDevotionShareModal(); });
+      const optRow = (key, label, disabled) => `
+        <label class="devotion-share-opt${disabled ? " is-disabled" : ""}">
+          <input type="checkbox" data-share-opt="${key}" ${opts[key] && !disabled ? "checked" : ""} ${disabled ? "disabled" : ""}>
+          <span>${escapeHTML(label)}</span>
+        </label>`;
+      const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+      overlay.innerHTML = `
+        <div class="modal-panel devotion-note-modal__panel">
+          <div class="devotion-note-modal__head">
+            <button type="button" class="pill-btn" data-share-back>← 返回</button>
+            <h4>分享 / 複製</h4>
+            <button type="button" class="devotion-note-modal__x" data-share-x aria-label="關閉">&times;</button>
+          </div>
+          <div class="devotion-note-modal__body">
+            <p class="devotion-note-modal__hint">選要帶哪些內容，下面會即時組成文字，可以複製或直接分享到別的地方。</p>
+            <div class="devotion-share-opts">
+              ${optRow("passage", "經文（含內文）", !day.passageLabel)}
+              ${optRow("reflections", `思想經文（${refl.length} 題）`, !refl.length)}
+              ${optRow("video", "靈修影片連結", !hasVideo)}
+            </div>
+            <textarea class="form-control devotion-note-modal__text devotion-share-preview" rows="9" readonly></textarea>
+            <p class="devotion-note-modal__msg" data-share-msg></p>
+          </div>
+          <div class="devotion-note-modal__foot">
+            <button type="button" class="primary-btn" data-share-copy>複製文字</button>
+            ${canNativeShare ? '<button type="button" class="secondary-btn" data-share-native>分享…</button>' : ""}
+            <button type="button" class="pill-btn" data-share-cancel>關閉</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      devotionShareOverlay = overlay;
+      document.addEventListener("keydown", onDevotionShareKey);
+      if (typeof hydrateIcons === "function") hydrateIcons(overlay);
+
+      const preview = overlay.querySelector(".devotion-share-preview");
+      const msgEl = overlay.querySelector("[data-share-msg]");
+      const setMsg = (m, err) => { if (msgEl) { msgEl.textContent = m || ""; msgEl.style.color = err ? "var(--color-danger)" : "var(--text-secondary)"; } };
+      const currentOpts = () => {
+        const o = {};
+        overlay.querySelectorAll("[data-share-opt]").forEach(cb => { o[cb.dataset.shareOpt] = cb.checked; });
+        return o;
+      };
+      const refresh = () => {
+        const o = currentOpts();
+        preview.value = buildText(o);
+        try { localStorage.setItem(SHARE_OPTS_KEY, JSON.stringify(o)); } catch (_) {}
+      };
+      overlay.querySelectorAll("[data-share-opt]").forEach(cb => cb.addEventListener("change", refresh));
+      refresh();
+
+      // 「經文」要附上經文內文：抓一次（快取在 day 上），回來重刷預覽
+      const passageRef = (Array.isArray(day.passageRefs) && day.passageRefs[0] && day.passageRefs[0].book)
+        ? day.passageRefs[0]
+        : (typeof parsePassageLabel === "function" ? parsePassageLabel(day.passageLabel) : null);
+      if (day.passageLabel && !day._sharePassageText && passageRef && passageRef.book
+          && typeof fetchDevotionPassagePlainText === "function") {
+        passageFetching = true;
+        refresh();
+        fetchDevotionPassagePlainText(passageRef).then(txt => {
+          if (txt) day._sharePassageText = txt;
+        }).catch(() => {}).finally(() => {
+          passageFetching = false;
+          if (devotionShareOverlay === overlay) refresh();
+        });
+      }
+
+      overlay.querySelector("[data-share-back]").addEventListener("click", closeDevotionShareModal);
+      overlay.querySelector("[data-share-x]").addEventListener("click", closeDevotionShareModal);
+      overlay.querySelector("[data-share-cancel]").addEventListener("click", closeDevotionShareModal);
+
+      overlay.querySelector("[data-share-copy]").addEventListener("click", async () => {
+        const text = preview.value;
+        if (!text) { setMsg("沒有可複製的內容，請至少勾一項。", true); return; }
+        let ok = false;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); ok = true; }
+        } catch (_) { ok = false; }
+        if (!ok) {
+          try {
+            preview.removeAttribute("readonly");
+            preview.focus(); preview.select(); preview.setSelectionRange(0, text.length);
+            ok = document.execCommand("copy");
+            preview.setAttribute("readonly", "");
+          } catch (_) { ok = false; }
+        }
+        if (ok) { if (typeof showToast === "function") showToast("已複製，可以貼到別的地方了"); setMsg("已複製。"); }
+        else setMsg("這個瀏覽器不允許自動複製，請手動選取上面文字。", true);
+      });
+
+      const nativeBtn = overlay.querySelector("[data-share-native]");
+      if (nativeBtn) nativeBtn.addEventListener("click", async () => {
+        const text = preview.value;
+        if (!text) { setMsg("沒有可分享的內容，請至少勾一項。", true); return; }
+        try { await navigator.share({ text }); } catch (_) { /* 使用者取消或不支援 */ }
+      });
+    };
+
     const paint = () => {
       if (devotionPassageView) {
         renderDevotionPassageInline(host, devotionPassageView.ref, devotionPassageView.label, () => {
@@ -9535,6 +9713,11 @@ function renderDevotionViewer(plan) {
             <strong>第 ${cur.dayIndex} 天</strong> / 共 ${total} 天　<span class="devotion-view__date">${escapeHTML(cur.displayDate || "")}</span>
           </div>
           ${(!locked && cur.title) ? `<h3 class="devotion-view__theme">${escapeHTML(cur.title)}</h3>` : ""}
+          ${!locked ? `<div class="devotion-view__actions">
+            <button type="button" class="devotion-view__share" data-devo-share>
+              ${typeof renderIcon === "function" ? renderIcon("share", { size: "sm", className: "nlc-icon" }) : ""}分享 / 複製
+            </button>
+          </div>` : ""}
           ${locked ? `
             <div class="devotion-view__locked">
               <span class="nlc-icon nlc-icon--md" data-icon="lock" aria-hidden="true"></span>
@@ -9573,6 +9756,8 @@ function renderDevotionViewer(plan) {
       if (typeof hydrateIcons === "function") hydrateIcons(host);
       if (typeof requestAnimationFrame === "function") requestAnimationFrame(tuneCalendar);
       else tuneCalendar();
+
+      host.querySelector("[data-devo-share]")?.addEventListener("click", () => openDevotionShareModal(cur));
 
       host.querySelectorAll("[data-devo-day]").forEach(btn => btn.addEventListener("click", () => {
         devotionViewerDayIndex = Number(btn.dataset.devoDay);
