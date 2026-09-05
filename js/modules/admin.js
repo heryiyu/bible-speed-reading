@@ -2837,6 +2837,17 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
         <button type="button" class="secondary-btn" id="admin-devotion-preview">預覽會友畫面</button>
       </div>
       <p class="admin-devotion__hint">「每日靈修」功能未開放時，會友和探索計畫都看不到這份計畫；要檢視會友端畫面請用上方「預覽會友畫面」。</p>
+
+      <div class="admin-devotion__playlist">
+        <label for="admin-devotion-playlist-input">YouTube 播放清單</label>
+        <input type="text" id="admin-devotion-playlist-input" class="form-control"
+          value="${escapeHTML(data.playlistId || '')}" placeholder="PL... 或整段播放清單網址">
+        <button type="button" class="secondary-btn" id="admin-devotion-playlist-save">儲存</button>
+        <span class="admin-devotion__hint" id="admin-devotion-playlist-status">
+          設定後，編輯每一天時可以「依日期抓候選」，從這個清單挑當天的靈修影片。
+        </span>
+      </div>
+
       <p class="admin-feature-setting-feedback hidden" id="admin-devotion-feedback" role="status"></p>
 
       <details class="admin-devotion__import">
@@ -2857,8 +2868,6 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
         </table>
       </div>
       <button type="button" class="secondary-btn" id="admin-devotion-add" style="margin-top:.75rem;">＋ 新增一天</button>
-
-      <div id="admin-devotion-editor" class="admin-devotion__editor hidden"></div>
     </div>`;
 
   if (typeof hydrateIcons === 'function') hydrateIcons(root);
@@ -2898,6 +2907,35 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
     if (typeof showToast === 'function') showToast(!cur ? '已開放未來日期' : '未來日期已鎖回');
   });
 
+  // YouTube 播放清單設定（給「依日期抓候選」用）
+  let currentDevotionPlaylistId = String(data.playlistId || '');
+  const extractPlaylistId = (raw) => {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    const m = s.match(/[?&]list=([A-Za-z0-9_-]+)/);
+    return m ? m[1] : s;
+  };
+  const playlistInput = root.querySelector('#admin-devotion-playlist-input');
+  const playlistStatus = root.querySelector('#admin-devotion-playlist-status');
+  root.querySelector('#admin-devotion-playlist-save')?.addEventListener('click', async () => {
+    const btn = root.querySelector('#admin-devotion-playlist-save');
+    const id = extractPlaylistId(playlistInput?.value);
+    if (btn) btn.disabled = true;
+    const r = await db.setDevotionalPlanPlaylistId(planId, id);
+    if (btn) btn.disabled = false;
+    if (!r.success) {
+      if (playlistStatus) { playlistStatus.textContent = r.message || '儲存失敗'; playlistStatus.style.color = 'var(--color-danger)'; }
+      return;
+    }
+    currentDevotionPlaylistId = r.data?.playlistId || id;
+    if (playlistInput) playlistInput.value = currentDevotionPlaylistId;
+    if (playlistStatus) {
+      playlistStatus.textContent = currentDevotionPlaylistId ? '已儲存播放清單。' : '已清除播放清單設定。';
+      playlistStatus.style.color = 'var(--text-secondary)';
+    }
+    if (typeof showToast === 'function') showToast('已儲存 YouTube 播放清單');
+  });
+
   // 批次匯入
   const bulkArea = root.querySelector('#admin-devotion-bulk');
   const bulkPreviewBtn = root.querySelector('#admin-devotion-bulk-preview');
@@ -2924,41 +2962,173 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
     renderAdminDevotionPlan(root, true);
   });
 
-  // 逐日編輯 / 刪除 / 新增
+  // 逐日編輯 / 刪除 / 新增 —— 跳出置中彈窗（掛在 document.body，不受管理子頁捲動容器限制）
+  let devotionEditorOverlay = null;
+  function onDevotionEditorKey(e) {
+    if (e.key === 'Escape') closeDevotionEditor();
+  }
+  const closeDevotionEditor = () => {
+    if (devotionEditorOverlay) { devotionEditorOverlay.remove(); devotionEditorOverlay = null; }
+    document.removeEventListener('keydown', onDevotionEditorKey);
+  };
+  const dateDiffDays = (a, b) => {
+    const da = new Date(String(a) + 'T00:00:00Z');
+    const db2 = new Date(String(b) + 'T00:00:00Z');
+    if (Number.isNaN(da.getTime()) || Number.isNaN(db2.getTime())) return null;
+    return Math.round((da - db2) / 86400000);
+  };
+  const addDaysISO = (iso, n) => {
+    const d0 = new Date(String(iso) + 'T00:00:00Z');
+    if (Number.isNaN(d0.getTime())) return '';
+    d0.setUTCDate(d0.getUTCDate() + n);
+    return d0.toISOString().slice(0, 10);
+  };
+
   const openEditor = (day) => {
-    const editor = root.querySelector('#admin-devotion-editor');
-    if (!editor) return;
+    closeDevotionEditor();
     const d = day || { dayIndex: (days.at(-1)?.dayIndex || 0) + 1, title: '', passageLabel: '', reflections: [], videoUrl: '', videoTitle: '', isPublished: false };
-    editor.classList.remove('hidden');
-    editor.innerHTML = `
-      <h4>${day ? `編輯第 ${d.dayIndex} 天` : '新增一天'}</h4>
-      <label>第幾天<input type="number" min="1" id="dv-day-index" class="form-control" value="${d.dayIndex}" ${day ? 'readonly' : ''}></label>
-      <label>當日主題<input type="text" id="dv-title" class="form-control" value="${escapeHTML(d.title || '')}" placeholder="等候所應許的"></label>
-      <label>經文進度<input type="text" id="dv-passage" class="form-control" value="${escapeHTML(d.passageLabel || '')}" placeholder="使徒行傳 1:1-5"></label>
-      <label>思想經文（一行一條）<textarea id="dv-reflections" class="form-control" rows="6">${escapeHTML((d.reflections || []).join('\n'))}</textarea></label>
-      <label>靈修影片連結<input type="url" id="dv-video-url" class="form-control" value="${escapeHTML(d.videoUrl || '')}" placeholder="https://..."></label>
-      <label>影片標題<input type="text" id="dv-video-title" class="form-control" value="${escapeHTML(d.videoTitle || '')}"></label>
-      <label class="admin-devotion__pub"><input type="checkbox" id="dv-published" ${d.isPublished ? 'checked' : ''}> 發佈這一天（會友看得到）</label>
-      <div style="display:flex;gap:.5rem;margin-top:.5rem;">
-        <button type="button" class="primary-btn" id="dv-save">儲存</button>
-        <button type="button" class="pill-btn" id="dv-cancel">取消</button>
+    const dayDate = day ? (d.displayDate || '') : addDaysISO(data.startDate, (d.dayIndex || 1) - 1);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'tts-guide-modal-overlay admin-devotion-modal';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDevotionEditor(); });
+    overlay.innerHTML = `
+      <div class="modal-panel admin-devotion-modal__panel">
+        <div class="admin-devotion-modal__head">
+          <button type="button" class="pill-btn" id="dv-back">← 返回</button>
+          <h4>${day ? '編輯第 ' + d.dayIndex + ' 天' : '新增一天'}${dayDate ? '　·　' + escapeHTML(dayDate) : ''}</h4>
+          <button type="button" class="admin-devotion-modal__x" id="dv-x" aria-label="關閉">&times;</button>
+        </div>
+        <div class="admin-devotion-modal__body">
+          <label>第幾天<input type="number" min="1" id="dv-day-index" class="form-control" value="${d.dayIndex}" ${day ? 'readonly' : ''}></label>
+          <label>當日主題<input type="text" id="dv-title" class="form-control" value="${escapeHTML(d.title || '')}" placeholder="等候所應許的"></label>
+          <label>經文進度<input type="text" id="dv-passage" class="form-control" value="${escapeHTML(d.passageLabel || '')}" placeholder="使徒行傳 1:1-5"></label>
+          <label>思想經文（一行一條）<textarea id="dv-reflections" class="form-control" rows="6">${escapeHTML((d.reflections || []).join('\n'))}</textarea></label>
+
+          <div class="admin-devotion-modal__video">
+            <label>靈修影片連結<input type="url" id="dv-video-url" class="form-control" value="${escapeHTML(d.videoUrl || '')}" placeholder="https://www.youtube.com/watch?v=..."></label>
+            <label>影片標題<input type="text" id="dv-video-title" class="form-control" value="${escapeHTML(d.videoTitle || '')}"></label>
+            <div class="admin-devotion-modal__video-actions">
+              <button type="button" class="secondary-btn" id="dv-fetch-candidates">依日期抓候選</button>
+              <button type="button" class="pill-btn" id="dv-refetch-title">重新抓標題</button>
+            </div>
+            <p class="admin-devotion__hint" id="dv-video-msg"></p>
+            <div id="dv-candidates" class="admin-devotion-candidates hidden"></div>
+          </div>
+
+          <label class="admin-devotion__pub"><input type="checkbox" id="dv-published" ${d.isPublished ? 'checked' : ''}> 發佈這一天（會友看得到）</label>
+        </div>
+        <div class="admin-devotion-modal__foot">
+          <button type="button" class="primary-btn" id="dv-save">儲存</button>
+          <button type="button" class="pill-btn" id="dv-cancel">取消</button>
+        </div>
       </div>`;
-    editor.querySelector('#dv-cancel').addEventListener('click', () => editor.classList.add('hidden'));
-    editor.querySelector('#dv-save').addEventListener('click', async () => {
+    document.body.appendChild(overlay);
+    devotionEditorOverlay = overlay;
+    document.addEventListener('keydown', onDevotionEditorKey);
+    if (typeof hydrateIcons === 'function') hydrateIcons(overlay);
+
+    overlay.querySelector('#dv-back').addEventListener('click', closeDevotionEditor);
+    overlay.querySelector('#dv-x').addEventListener('click', closeDevotionEditor);
+    overlay.querySelector('#dv-cancel').addEventListener('click', closeDevotionEditor);
+
+    const videoMsg = overlay.querySelector('#dv-video-msg');
+    const setVideoMsg = (msg, isError = false) => {
+      if (!videoMsg) return;
+      videoMsg.textContent = msg || '';
+      videoMsg.style.color = isError ? 'var(--color-danger)' : 'var(--text-secondary)';
+    };
+
+    // 重新抓標題：YouTube oEmbed（有 CORS、免金鑰）
+    overlay.querySelector('#dv-refetch-title').addEventListener('click', async () => {
+      const url = overlay.querySelector('#dv-video-url').value.trim();
+      if (!url) { setVideoMsg('請先貼上影片連結。', true); return; }
+      const btn = overlay.querySelector('#dv-refetch-title');
+      btn.disabled = true;
+      setVideoMsg('讀取中…');
+      try {
+        const res = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent(url));
+        if (!res.ok) throw new Error('oembed_' + res.status);
+        const j = await res.json();
+        if (j && j.title) {
+          overlay.querySelector('#dv-video-title').value = j.title;
+          setVideoMsg('已更新影片標題。');
+        } else {
+          setVideoMsg('這個連結抓不到標題。', true);
+        }
+      } catch (_) {
+        setVideoMsg('抓不到影片資訊（可能不是公開的 YouTube 連結）。', true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // 依日期抓候選：從計畫綁定的播放清單列影片，依與當天日期的接近度排序
+    overlay.querySelector('#dv-fetch-candidates').addEventListener('click', async () => {
+      const box = overlay.querySelector('#dv-candidates');
+      const btn = overlay.querySelector('#dv-fetch-candidates');
+      if (!currentDevotionPlaylistId) {
+        setVideoMsg('這份計畫還沒設定 YouTube 播放清單，請先在上方「YouTube 播放清單」欄位設定。', true);
+        return;
+      }
+      btn.disabled = true;
+      setVideoMsg('從播放清單抓取中…');
+      const r = await db.fetchDevotionPlaylistVideos(planId);
+      btn.disabled = false;
+      if (!r.success) { setVideoMsg(r.message || '抓取失敗。', true); return; }
+      const vids = (r.data.videos || []).slice();
+      if (!vids.length) { setVideoMsg('播放清單裡沒有影片。', true); box.classList.add('hidden'); return; }
+      if (dayDate) {
+        vids.sort((a, b) => {
+          const da = a.publishedDate ? Math.abs(dateDiffDays(a.publishedDate, dayDate)) : 1e9;
+          const db2 = b.publishedDate ? Math.abs(dateDiffDays(b.publishedDate, dayDate)) : 1e9;
+          return da - db2;
+        });
+      }
+      setVideoMsg(dayDate
+        ? ('依「' + dayDate + '」排序，最接近的排在最前面。清單只含最近約 15 部，更早的請直接貼連結。')
+        : '清單只含最近約 15 部。');
+      box.classList.remove('hidden');
+      box.innerHTML = vids.map(v => {
+        const diff = (dayDate && v.publishedDate) ? dateDiffDays(v.publishedDate, dayDate) : null;
+        const diffLabel = diff === null ? '' : (diff === 0 ? '同一天' : (diff > 0 ? ('晚 ' + diff + ' 天') : ('早 ' + (-diff) + ' 天')));
+        return '<button type="button" class="admin-devotion-candidate" data-url="' + escapeHTML(v.url) + '" data-title="' + escapeHTML(v.title) + '">'
+          + '<span class="admin-devotion-candidate__title">' + escapeHTML(v.title) + '</span>'
+          + '<span class="admin-devotion-candidate__meta">' + escapeHTML(v.publishedDate || '日期不明') + (diffLabel ? '　·　' + diffLabel : '') + '</span>'
+          + '</button>';
+      }).join('');
+      box.querySelectorAll('.admin-devotion-candidate').forEach(el => {
+        el.addEventListener('click', () => {
+          overlay.querySelector('#dv-video-url').value = el.dataset.url;
+          overlay.querySelector('#dv-video-title').value = el.dataset.title;
+          box.querySelectorAll('.admin-devotion-candidate').forEach(x => x.classList.remove('is-selected'));
+          el.classList.add('is-selected');
+          setVideoMsg('已填入：' + el.dataset.title);
+        });
+      });
+    });
+
+    overlay.querySelector('#dv-save').addEventListener('click', async () => {
       const payload = {
         globalPlanId: planId,
-        dayIndex: Number(editor.querySelector('#dv-day-index').value),
-        title: editor.querySelector('#dv-title').value.trim(),
-        passageLabel: editor.querySelector('#dv-passage').value.trim(),
-        reflections: editor.querySelector('#dv-reflections').value.split('\n').map(s => s.trim()).filter(Boolean),
-        videoUrl: editor.querySelector('#dv-video-url').value.trim(),
-        videoTitle: editor.querySelector('#dv-video-title').value.trim(),
-        isPublished: editor.querySelector('#dv-published').checked
+        dayIndex: Number(overlay.querySelector('#dv-day-index').value),
+        title: overlay.querySelector('#dv-title').value.trim(),
+        passageLabel: overlay.querySelector('#dv-passage').value.trim(),
+        reflections: overlay.querySelector('#dv-reflections').value.split('\n').map(s => s.trim()).filter(Boolean),
+        videoUrl: overlay.querySelector('#dv-video-url').value.trim(),
+        videoTitle: overlay.querySelector('#dv-video-title').value.trim(),
+        isPublished: overlay.querySelector('#dv-published').checked
       };
-      if (!payload.dayIndex || payload.dayIndex < 1) { showFeedback('「第幾天」要是 1 以上的數字'); return; }
+      if (!payload.dayIndex || payload.dayIndex < 1) { setVideoMsg('「第幾天」要是 1 以上的數字', true); return; }
+      const saveBtn = overlay.querySelector('#dv-save');
+      saveBtn.disabled = true;
       const r = await db.upsertDevotionDay(payload);
-      if (!r.success) { showFeedback(r.message || '儲存失敗'); return; }
+      saveBtn.disabled = false;
+      if (!r.success) { setVideoMsg(r.message || '儲存失敗', true); return; }
       if (typeof showToast === 'function') showToast('已儲存');
+      closeDevotionEditor();
       renderAdminDevotionPlan(root, true);
     });
   };

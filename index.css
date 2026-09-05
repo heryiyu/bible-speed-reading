@@ -15783,12 +15783,68 @@ textarea::placeholder {
 }
 .admin-devotion__table th { color: var(--text-secondary); font-weight: var(--type-weight-strong, 500); }
 .admin-devotion__date { font-size: 0.875rem; color: var(--text-muted); }
-.admin-devotion__editor {
-  border: 1px solid var(--border-card); border-radius: var(--radius-md);
-  background: var(--bg-card); padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem;
-}
-.admin-devotion__editor label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.875rem; color: var(--text-secondary); }
 .admin-devotion__pub { flex-direction: row !important; align-items: center; gap: 0.5rem !important; }
+
+/* 播放清單設定列 */
+.admin-devotion__playlist {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem;
+  padding: 0.75rem 0.85rem; border: 1px solid var(--border-card);
+  border-radius: var(--radius-md); background: var(--bg-input);
+}
+.admin-devotion__playlist label { font-size: 0.875rem; color: var(--text-secondary); font-weight: var(--type-weight-strong, 500); }
+.admin-devotion__playlist input { flex: 1 1 16rem; min-width: 12rem; }
+.admin-devotion__playlist .admin-devotion__hint { flex-basis: 100%; margin: 0; }
+
+/* 逐日編輯彈窗 */
+.admin-devotion-modal__panel {
+  max-width: 560px; width: 94%; max-height: 88vh;
+  display: flex; flex-direction: column;
+  padding: 0; border-radius: 20px; background: var(--bg-card); color: var(--text-primary);
+  border: 1px solid var(--border-card); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.admin-devotion-modal__head {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-card);
+}
+.admin-devotion-modal__head h4 { flex: 1; margin: 0; font-size: 1rem; font-weight: var(--type-weight-strong, 500); color: var(--text-primary); }
+.admin-devotion-modal__x {
+  background: none; border: none; font-size: 1.5rem; line-height: 1;
+  cursor: pointer; color: var(--text-secondary); padding: 0.1rem 0.4rem;
+}
+.admin-devotion-modal__body {
+  padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.7rem;
+}
+.admin-devotion-modal__body label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.875rem; color: var(--text-secondary); }
+.admin-devotion-modal__video {
+  display: flex; flex-direction: column; gap: 0.6rem;
+  padding: 0.8rem 0.85rem; border: 1px solid var(--border-card);
+  border-radius: var(--radius-md); background: var(--bg-input);
+}
+.admin-devotion-modal__video-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.admin-devotion-modal__foot {
+  display: flex; gap: 0.5rem; padding: 0.85rem 1rem;
+  border-top: 1px solid var(--border-card); background: var(--bg-card);
+}
+
+/* 候選影片清單 */
+.admin-devotion-candidates {
+  display: flex; flex-direction: column; gap: 0.4rem;
+  max-height: 15rem; overflow-y: auto;
+}
+.admin-devotion-candidate {
+  display: flex; flex-direction: column; gap: 0.15rem; text-align: left;
+  padding: 0.5rem 0.6rem; border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm, 8px); background: var(--bg-card);
+  cursor: pointer; font: inherit; color: var(--text-primary);
+}
+.admin-devotion-candidate:hover { border-color: var(--color-brand); }
+.admin-devotion-candidate.is-selected {
+  border-color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--bg-card));
+}
+.admin-devotion-candidate__title { font-size: 0.875rem; line-height: 1.4; }
+.admin-devotion-candidate__meta { font-size: 0.875rem; color: var(--text-muted); }
 
 /* 每日靈修「開發中、只有管理員看得到」標記 */
 .plan-card__dev-badge {

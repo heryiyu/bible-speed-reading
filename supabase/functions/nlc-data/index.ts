@@ -184,7 +184,8 @@ const DEVOTION_RPC_FUNCTIONS = new Set([
   "upsert_devotion_day",
   "delete_devotion_day",
   "bulk_upsert_devotion_days",
-  "set_devotional_plan_future_open"
+  "set_devotional_plan_future_open",
+  "set_devotional_plan_playlist_id"
 ]);
 // 小組聚會週計畫（group_meeting plan，migration 0148）。write RPC 自己在 SQL 端
 // 用 _group_meeting_actor_can_manage() 檢查 admin/pastor；get_group_meeting_plan
@@ -603,7 +604,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const table = body.table;
     const action = body.action || "select";
-    if (!["save_profile", "rpc", "send_care_reminder", "mark_issue_report_reply_seen", "sync_registration_stats_sheet", "issue_thread_get", "issue_thread_post", "issue_thread_attachment_delete"].includes(action) && (!table || typeof table !== "string")) {
+    if (!["save_profile", "rpc", "send_care_reminder", "mark_issue_report_reply_seen", "sync_registration_stats_sheet", "issue_thread_get", "issue_thread_post", "issue_thread_attachment_delete", "devotion_fetch_playlist_videos"].includes(action) && (!table || typeof table !== "string")) {
       return jsonResponse({ error: "missing_table" }, 400);
     }
 
@@ -1041,6 +1042,86 @@ Deno.serve(async (req: Request) => {
       }
 
       return jsonResponse({ data: { ok: true } });
+    }
+
+    // ── devotion_fetch_playlist_videos: admin/pastor only. Reads the YouTube
+    // playlist bound to a devotional plan (global_plans.rules.devotionPlaylistId,
+    // or a one-off override passed in) and returns its recent videos from
+    // YouTube's public RSS feed (youtube.com/feeds/videos.xml?playlist_id=…, no
+    // login, no API key, same public data a browser sees). The admin editor uses
+    // this to offer date-matched candidates when filling in each day's 靈修影片.
+    // Read-only: this never writes to plan_devotion_days.
+    if (action === "devotion_fetch_playlist_videos") {
+      if (!hasWholeChurchPlanScope(profile)) return jsonResponse({ error: "forbidden" }, 403);
+
+      const planId = String(body.global_plan_id || "");
+      if (!planId) return jsonResponse({ error: "missing_global_plan_id" }, 400);
+
+      const { data: plan, error: planError } = await supabaseAdmin
+        .from("global_plans")
+        .select("id, rules, plan_kind")
+        .eq("id", planId)
+        .eq("plan_kind", "devotional")
+        .maybeSingle();
+      if (planError) return jsonResponse({ error: planError.message }, 400);
+      if (!plan) return jsonResponse({ error: "devotional_plan_not_found" }, 404);
+
+      const overrideId = String(body.playlist_id || "").trim();
+      const rules = (plan.rules && typeof plan.rules === "object") ? plan.rules : {};
+      const playlistId = overrideId || String((rules as any).devotionPlaylistId || "").trim();
+      if (!playlistId) return jsonResponse({ error: "no_playlist_configured" }, 400);
+      if (!/^PL[A-Za-z0-9_-]{10,}$/.test(playlistId)) {
+        return jsonResponse({ error: "devotion_playlist_id_invalid" }, 400);
+      }
+
+      const decodeXmlEntities = (value: string) => value
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'")
+        .replace(/&amp;/g, "&");
+      const taipeiDate = (value: string) => {
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return "";
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit"
+        }).format(parsed);
+        return parts; // en-CA → YYYY-MM-DD
+      };
+
+      let xml = "";
+      try {
+        const feedResponse = await fetch(
+          `https://www.youtube.com/feeds/videos.xml?playlist_id=${encodeURIComponent(playlistId)}`,
+          { headers: { "User-Agent": "Mozilla/5.0 (compatible; NewLifeBibleApp/1.0; +https://bible.newlife.org.tw)" } }
+        );
+        if (!feedResponse.ok) {
+          console.error("devotion_fetch_playlist_videos: feed fetch failed", feedResponse.status, playlistId);
+          return jsonResponse({ error: "playlist_feed_failed", status: feedResponse.status }, 502);
+        }
+        xml = await feedResponse.text();
+      } catch (err) {
+        console.error("devotion_fetch_playlist_videos: feed unreachable", err);
+        return jsonResponse({ error: "playlist_feed_unreachable" }, 502);
+      }
+
+      const videos: Array<Record<string, unknown>> = [];
+      const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+      let match: RegExpExecArray | null;
+      while ((match = entryRegex.exec(xml)) !== null) {
+        const entry = match[1];
+        const videoId = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1];
+        const titleRaw = entry.match(/<title>([\s\S]*?)<\/title>/)?.[1];
+        const published = entry.match(/<published>([^<]+)<\/published>/)?.[1];
+        if (!videoId || !titleRaw) continue;
+        videos.push({
+          videoId,
+          title: decodeXmlEntities(titleRaw.trim()),
+          url: `https://www.youtube.com/watch?v=${videoId}`,
+          publishedDate: published ? taipeiDate(published) : "",
+          publishedAt: published || ""
+        });
+      }
+
+      return jsonResponse({ data: { playlistId, videos } });
     }
 
     // Any authenticated member may file an issue report (insert only). Reads and

@@ -5365,6 +5365,10 @@ const db = {
       devotional_plan_not_found: "找不到這份靈修計畫。",
       devotion_admin_required: "只有系統管理員 / 牧者可以編輯每日靈修。",
       devotion_payload_invalid: "資料格式不正確，未寫入。",
+      devotion_playlist_id_invalid: "播放清單 ID 格式不正確（要以 PL 開頭）。",
+      no_playlist_configured: "這份計畫還沒設定 YouTube 播放清單。",
+      playlist_feed_failed: "讀取 YouTube 播放清單失敗，請稍後再試。",
+      playlist_feed_unreachable: "連不上 YouTube，請稍後再試。",
       forbidden_rpc: "沒有權限執行此操作。"
     };
     const key = Object.keys(map).find(code => raw.includes(code));
@@ -5409,6 +5413,50 @@ const db = {
       p_global_plan_id: globalPlanId,
       p_open: open === true
     });
+  },
+  async setDevotionalPlanPlaylistId(globalPlanId, playlistId) {
+    return this._callDevotionRpc("set_devotional_plan_playlist_id", {
+      p_global_plan_id: globalPlanId,
+      p_playlist_id: String(playlistId || "").trim()
+    });
+  },
+  // 讀取這份靈修計畫綁定的 YouTube 播放清單影片（伺服器端抓公開 RSS，免金鑰）。
+  // 走 nlc-data 的 devotion_fetch_playlist_videos action，不是 RPC。
+  async fetchDevotionPlaylistVideos(globalPlanId, playlistIdOverride) {
+    if (state.currentUser && state.currentUser.is_demo) {
+      return { success: false, message: "示範模式無法抓取影片。" };
+    }
+    if (typeof auth === "undefined" || !auth.isLoggedIn()) {
+      return { success: false, message: "請先登入後再試。" };
+    }
+    try {
+      const cfg = state.supabaseConfig || {};
+      const accessToken = await auth.getValidAccessToken();
+      const response = await fetch(
+        cfg.url.replace(/\/+$/, "") + "/functions/v1/nlc-data",
+        {
+          method: "POST",
+          headers: {
+            apikey: cfg.anonKey,
+            Authorization: "Bearer " + accessToken,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            action: "devotion_fetch_playlist_videos",
+            global_plan_id: globalPlanId,
+            playlist_id: String(playlistIdOverride || "").trim() || undefined
+          })
+        }
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return { success: false, message: this._devotionErrorMessage(result.error || ""), code: result.error };
+      }
+      const videos = Array.isArray(result.data?.videos) ? result.data.videos : [];
+      return { success: true, data: { playlistId: result.data?.playlistId || "", videos } };
+    } catch (e) {
+      return { success: false, message: e.message || "抓取影片失敗" };
+    }
   },
 
   // ── 小組聚會週計畫（group_meeting plan，migration 0148）──────────────────
