@@ -15756,7 +15756,10 @@ textarea::placeholder {
 .group-meeting-view__h {
   margin: 0; font-size: 0.9375rem; font-weight: var(--type-weight-strong, 500); color: var(--color-brand);
 }
-.group-meeting-view__topic { margin: 0; font-size: 0.9375rem; color: var(--text-primary); }
+/* 信息 / 奉獻經文列：主題與經文同一行「主題｜經文」，整列可點開段落 */
+.gm-passage-topic { font-weight: var(--type-weight-strong, 500); color: var(--text-primary); }
+.gm-passage-sep { margin: 0 0.4rem; color: var(--text-muted); }
+.gm-passage-ref { color: var(--text-secondary); }
 .group-meeting-view__block .plan-task-item .task-title { white-space: normal; line-height: 1.6; }
 .group-meeting-view__block .task-open-button--static { cursor: default; }
 .group-meeting-view__songs { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }

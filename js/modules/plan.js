@@ -9681,17 +9681,22 @@ function renderGroupMeetingViewer(plan) {
 
     const chevron = typeof renderIcon === "function" ? renderIcon("chevronRight", { size: "sm", className: "nlc-icon" }) : "›";
 
-    const passageRow = (label, refs, kind) => {
+    const passageRow = (topic, label, refs, kind) => {
+      const t = String(topic || "").trim();
+      const l = String(label || "").trim() || "（未設定）";
+      const titleHtml = t
+        ? `<span class="gm-passage-topic">${escapeHTML(t)}</span><span class="gm-passage-sep" aria-hidden="true">｜</span><span class="gm-passage-ref">${escapeHTML(l)}</span>`
+        : `<span class="gm-passage-ref">${escapeHTML(l)}</span>`;
       const first = Array.isArray(refs) && refs[0] && refs[0].book ? refs[0] : null;
       if (first) {
         return `<div class="plan-task-item" data-gm-open data-gm-kind="${kind}">
           <button type="button" class="task-open-button">
-            <span class="task-title">${escapeHTML(label || "（未設定）")}</span>
+            <span class="task-title">${titleHtml}</span>
             <span class="task-arrow" aria-hidden="true">${chevron}</span>
           </button>
         </div>`;
       }
-      return `<div class="plan-task-item"><div class="task-open-button task-open-button--static"><span class="task-title">${escapeHTML(label || "（未設定）")}</span></div></div>`;
+      return `<div class="plan-task-item"><div class="task-open-button task-open-button--static"><span class="task-title">${titleHtml}</span></div></div>`;
     };
 
     const buildStrip = () => {
@@ -9739,14 +9744,12 @@ function renderGroupMeetingViewer(plan) {
             <div class="group-meeting-view__note">${escapeHTML(cur.note)}</div>` : `
             <section class="group-meeting-view__block">
               <h4 class="group-meeting-view__h">信息經文</h4>
-              ${cur.messageTopic ? `<p class="group-meeting-view__topic">${escapeHTML(cur.messageTopic)}</p>` : ""}
-              <div class="plan-task-list">${passageRow(cur.messagePassageLabel, cur.messagePassageRefs, "message")}</div>
+              <div class="plan-task-list">${passageRow(cur.messageTopic, cur.messagePassageLabel, cur.messagePassageRefs, "message")}</div>
             </section>
             ${hasOffering ? `
             <section class="group-meeting-view__block">
               <h4 class="group-meeting-view__h">奉獻經文</h4>
-              ${cur.offeringTopic ? `<p class="group-meeting-view__topic">${escapeHTML(cur.offeringTopic)}</p>` : ""}
-              <div class="plan-task-list">${passageRow(cur.offeringPassageLabel, cur.offeringPassageRefs, "offering")}</div>
+              <div class="plan-task-list">${passageRow(cur.offeringTopic, cur.offeringPassageLabel, cur.offeringPassageRefs, "offering")}</div>
             </section>` : ""}
             <section class="group-meeting-view__block">
               <h4 class="group-meeting-view__h">敬拜讚美詩歌</h4>
