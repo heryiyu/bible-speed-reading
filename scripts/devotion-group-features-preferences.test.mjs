@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const migration = read("supabase/migrations/0156_devotion_group_features_master.sql");
+const migration0160 = read("supabase/migrations/0160_devotion_master_reset_distinct_count.sql");
 const nlcData = read("supabase/functions/nlc-data/index.ts");
 const dbJs = read("js/db.js");
 const plan = read("js/modules/plan.js");
@@ -54,6 +55,13 @@ describe("migration 0156: per-user preference table + master flag + RPCs", () =>
     // 開啟時絕對不能幫任何人預設打開。
     const grantedOnEnable = body.slice(0, body.indexOf("IF NOT COALESCE(p_enabled, FALSE) THEN"));
     expect(grantedOnEnable).not.toContain("profile_feature_preferences");
+  });
+
+  it("migration 0160: master-off resetCount counts distinct users, not rows (a user with both features on is 1, not 2)", () => {
+    expect(migration0160).toContain("CREATE OR REPLACE FUNCTION public.set_devotion_group_features_master(");
+    expect(migration0160).toContain("RETURNING profile_id");
+    expect(migration0160).toContain("COUNT(DISTINCT profile_id) INTO reset_count");
+    expect(migration0160).not.toContain("SELECT COUNT(*) INTO reset_count");
   });
 
   it("get_devotional_plan and get_group_meeting_plan gate member access on master AND the caller's own preference, not the old global flags", () => {
