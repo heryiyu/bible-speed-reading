@@ -49,26 +49,49 @@ async function resolveChannelId(handle: string): Promise<string> {
 
 type LatestVideo = { videoId: string; title: string; publishedTaipeiDate: string };
 
-// YouTube 官方公開的頻道 RSS（Atom）訂閱源，任何 RSS 閱讀器都能讀，不需要
-// 登入、不需要申請 API 金鑰、沒有配額限制。只看第一則（= 最新一支影片）。
-async function fetchLatestVideo(channelId: string): Promise<LatestVideo | null> {
-  const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-  if (!response.ok) throw new Error(`feed_fetch_failed:${response.status}`);
-  const xml = await response.text();
-  const entryMatch = xml.match(/<entry>([\s\S]*?)<\/entry>/);
-  if (!entryMatch) return null;
-  const entry = entryMatch[1];
+function parseFeedEntry(entry: string): LatestVideo | null {
   const videoId = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1];
-  const titleRaw = entry.match(/<title>([^<]*)<\/title>/)?.[1];
+  const titleRaw = entry.match(/<title>([\s\S]*?)<\/title>/)?.[1];
   const published = entry.match(/<published>([^<]+)<\/published>/)?.[1];
   if (!videoId || !titleRaw || !published) return null;
   const publishedDate = new Date(published);
   if (Number.isNaN(publishedDate.getTime())) return null;
   return {
     videoId,
-    title: decodeXmlEntities(titleRaw),
+    title: decodeXmlEntities(titleRaw.trim()),
     publishedTaipeiDate: taipeiDate(publishedDate)
   };
+}
+
+// YouTube 官方公開的頻道 RSS（Atom）訂閱源，任何 RSS 閱讀器都能讀，不需要
+// 登入、不需要申請 API 金鑰、沒有配額限制。只看第一則（= 最新一支影片）。
+// 只在沒有設定靈修播放清單時才會用到——讀整個頻道有抓到非靈修影片的風險。
+async function fetchLatestVideo(channelId: string): Promise<LatestVideo | null> {
+  const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+  if (!response.ok) throw new Error(`feed_fetch_failed:${response.status}`);
+  const xml = await response.text();
+  const entryMatch = xml.match(/<entry>([\s\S]*?)<\/entry>/);
+  if (!entryMatch) return null;
+  return parseFeedEntry(entryMatch[1]);
+}
+
+// 靈修播放清單的公開 RSS：清單裡只有靈修影片，所以可以安全地「抓當天那一支」，
+// 不會像讀整個頻道那樣抓到主日信息 / 活動預告 / 見證等其他影片。掃過全部項目
+// （不只第一則，避免播放清單排序方式影響），找發布日 = 今天（Asia/Taipei）
+// 的那一支；找不到就回 null（留白讓管理員手動補，或稍晚 cron 再跑時再試）。
+async function fetchPlaylistVideoForDate(
+  playlistId: string, targetTaipeiDate: string
+): Promise<LatestVideo | null> {
+  const response = await fetch(`https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`);
+  if (!response.ok) throw new Error(`playlist_feed_fetch_failed:${response.status}`);
+  const xml = await response.text();
+  const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+  let match: RegExpExecArray | null;
+  while ((match = entryRegex.exec(xml)) !== null) {
+    const parsed = parseFeedEntry(match[1]);
+    if (parsed && parsed.publishedTaipeiDate === targetTaipeiDate) return parsed;
+  }
+  return null;
 }
 
 Deno.serve(async req => {
@@ -87,6 +110,7 @@ Deno.serve(async req => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const configuredChannelId = (Deno.env.get("DEVOTION_YOUTUBE_CHANNEL_ID") || "").trim();
+  const configuredPlaylistId = (Deno.env.get("DEVOTION_YOUTUBE_PLAYLIST_ID") || "").trim();
   const handle = (Deno.env.get("DEVOTION_YOUTUBE_HANDLE") || "NewLifeChurch").trim().replace(/^@/, "");
   if (!supabaseUrl || !serviceRoleKey) {
     console.error("devotion_video_sync_server_not_configured", JSON.stringify({ invocationId }));
@@ -100,7 +124,7 @@ Deno.serve(async req => {
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
   const { data: plans, error: planError } = await supabase.from("global_plans")
-    .select("id, name, start_date, end_date")
+    .select("id, name, start_date, end_date, rules")
     .eq("plan_kind", "devotional")
     .lte("start_date", today).gte("end_date", today);
   if (planError) {
@@ -112,45 +136,55 @@ Deno.serve(async req => {
     return respond({ date: today, status: "no_active_devotional_plan", updated: 0, invocationId });
   }
 
+  // 頻道整體「最新一支」只在某個計畫沒有綁定播放清單時才需要，且只抓一次。
   let channelId = configuredChannelId;
-  if (!channelId) {
-    try {
-      channelId = await resolveChannelId(handle);
-    } catch (error) {
-      const message = String((error as Error)?.message || error);
-      console.error("devotion_video_sync_channel_resolution_failed", JSON.stringify({ invocationId, handle, error: message }));
-      return respond({ error: message, invocationId }, 502);
-    }
-  }
+  let channelLatest: LatestVideo | null | undefined;
+  const resolveChannelLatest = async (): Promise<LatestVideo | null> => {
+    if (channelLatest !== undefined) return channelLatest;
+    if (!channelId) channelId = await resolveChannelId(handle);
+    channelLatest = await fetchLatestVideo(channelId);
+    return channelLatest;
+  };
 
-  let latest: LatestVideo | null;
-  try {
-    latest = await fetchLatestVideo(channelId);
-  } catch (error) {
-    const message = String((error as Error)?.message || error);
-    console.error("devotion_video_sync_feed_fetch_failed", JSON.stringify({ invocationId, channelId, error: message }));
-    return respond({ error: message, channelId, invocationId }, 502);
-  }
-  if (!latest) {
-    console.info("devotion_video_sync_feed_empty", JSON.stringify({ invocationId, channelId }));
-    return respond({ date: today, channelId, status: "feed_empty", updated: 0, invocationId });
-  }
-  if (latest.publishedTaipeiDate !== today) {
-    // 頻道今天還沒上架新影片（例如上架時間延後）：寧可留白讓管理員之後手動補，
-    // 也不要把不是今天的舊影片誤植到今天的靈修內容。
-    console.info("devotion_video_sync_no_new_video_today", JSON.stringify({ invocationId, today, latestPublished: latest.publishedTaipeiDate }));
-    return respond({ date: today, channelId, status: "no_new_video_today", updated: 0, invocationId });
-  }
-
-  const videoUrl = `https://www.youtube.com/watch?v=${latest.videoId}`;
   const results: Array<Record<string, unknown>> = [];
   let updated = 0;
   for (const plan of plans) {
     const dayIndex = dayDifference(today, String(plan.start_date)) + 1;
     if (dayIndex < 1) { results.push({ planId: plan.id, status: "before_plan_start" }); continue; }
+
+    const planRules = (plan.rules && typeof plan.rules === "object") ? plan.rules as Record<string, unknown> : {};
+    const playlistId = String(planRules.devotionPlaylistId || "").trim() || configuredPlaylistId;
+
+    // 優先讀計畫綁定的靈修播放清單（只含靈修影片）；沒有才退回讀整個頻道的
+    // 最新一支——後者仍守「發布日必須是今天」，避免把非今天的舊片誤植。
+    let picked: LatestVideo | null = null;
+    const feedSource = playlistId ? `playlist:${playlistId}` : "channel";
+    try {
+      if (playlistId) {
+        picked = await fetchPlaylistVideoForDate(playlistId, today);
+      } else {
+        const latest = await resolveChannelLatest();
+        picked = latest && latest.publishedTaipeiDate === today ? latest : null;
+      }
+    } catch (error) {
+      const message = String((error as Error)?.message || error);
+      console.error("devotion_video_sync_feed_fetch_failed", JSON.stringify({ invocationId, planId: plan.id, feedSource, error: message }));
+      results.push({ planId: plan.id, dayIndex, status: "failed", error: message, feedSource });
+      continue;
+    }
+
+    if (!picked) {
+      // 今天還沒有對應影片（例如上架時間延後）：寧可留白讓管理員之後手動補，
+      // 也不要把不是今天的影片誤植到今天的靈修內容。
+      console.info("devotion_video_sync_no_new_video_today", JSON.stringify({ invocationId, planId: plan.id, today, feedSource }));
+      results.push({ planId: plan.id, dayIndex, status: "no_new_video_today", feedSource });
+      continue;
+    }
+
+    const videoUrl = `https://www.youtube.com/watch?v=${picked.videoId}`;
     const { data: syncResult, error: syncError } = await supabase.rpc("sync_devotion_day_video", {
       p_global_plan_id: plan.id, p_day_index: dayIndex,
-      p_video_url: videoUrl, p_video_title: latest.title
+      p_video_url: videoUrl, p_video_title: picked.title
     });
     if (syncError) {
       console.error("devotion_video_sync_rpc_failed", JSON.stringify({ invocationId, planId: plan.id, dayIndex, error: syncError.message }));
@@ -158,9 +192,12 @@ Deno.serve(async req => {
       continue;
     }
     if (syncResult?.updated) updated += 1;
-    results.push({ planId: plan.id, dayIndex, status: syncResult?.updated ? "updated" : "already_set_or_missing_day" });
+    results.push({
+      planId: plan.id, dayIndex, feedSource, videoId: picked.videoId,
+      status: syncResult?.updated ? "updated" : "already_set_or_missing_day"
+    });
   }
 
-  console.info("devotion_video_sync_finished", JSON.stringify({ invocationId, today, channelId, videoId: latest.videoId, updated, results }));
-  return respond({ date: today, channelId, videoId: latest.videoId, videoTitle: latest.title, updated, results, invocationId });
+  console.info("devotion_video_sync_finished", JSON.stringify({ invocationId, today, updated, results }));
+  return respond({ date: today, updated, results, invocationId });
 });

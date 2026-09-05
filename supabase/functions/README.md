@@ -118,27 +118,42 @@ trigger permanently blocks replacement, editing, and approval cancellation.
 
 ## 每日靈修影片自動抓取 (`sync-devotion-video`)
 
-The church's YouTube channel (`@NewLifeChurch` by default) usually publishes
-that day's devotion video around 07:00 Asia/Taipei. This scheduled function
-runs shortly after, reads the channel's public Atom/RSS feed
-(`youtube.com/feeds/videos.xml` — no login, no API key, no quota; the same
-public data a browser or any RSS reader sees), and fills `video_url` /
-`video_title` on today's row in `plan_devotion_days` for whichever devotional
-plan (`plan_kind = 'devotional'`) is currently active.
+The church publishes that day's devotion video around 07:00 Asia/Taipei. This
+scheduled function runs shortly after and fills `video_url` / `video_title` on
+today's row in `plan_devotion_days` for whichever devotional plan
+(`plan_kind = 'devotional'`) is currently active. It reads YouTube's public
+Atom/RSS feed (`youtube.com/feeds/videos.xml` — no login, no API key, no
+quota; the same public data a browser or any RSS reader sees).
+
+**Video source, in priority order:**
+
+1. **The devotional playlist** — `global_plans.rules.devotionPlaylistId` (set
+   in the admin "每日靈修" page, migration `0157`), or the
+   `DEVOTION_YOUTUBE_PLAYLIST_ID` env fallback. The function reads
+   `?playlist_id=…`, which contains **only devotion videos**, and picks the
+   entry whose publish date is today (Asia/Taipei). This is the safe path —
+   it can't pick up a sermon, event trailer, or worship clip.
+2. **The whole channel** (fallback, only when no playlist is configured) —
+   `?channel_id=…` via `DEVOTION_YOUTUBE_CHANNEL_ID`, or resolved from
+   `DEVOTION_YOUTUBE_HANDLE` (`@NewLifeChurch` by default). Takes the single
+   most recent upload **and only if it was published today**. Risky, because
+   the channel's newest video might not be the devotion — prefer configuring
+   the playlist.
 
 It only writes when that day's `video_url` is still blank — if an
 administrator already pasted a different link by hand, the sync never
 overwrites it (see `sync_devotion_day_video` in the migration below, which
 runs the update `WHERE video_url IS NULL`). It also refuses to backfill: if
-the channel's latest video isn't actually published today, the row is left
-alone rather than attaching an old video to today's date.
+there is no matching video for today, the row is left alone rather than
+attaching some other video to today's date.
 
 Required Edge Function secrets:
 
 ```bash
 DEVOTION_VIDEO_SYNC_CRON_SECRET=<random shared secret>
-DEVOTION_YOUTUBE_HANDLE=NewLifeChurch          # optional, this is the default
-DEVOTION_YOUTUBE_CHANNEL_ID=<UCxxxxxxxx...>    # optional; skips the @handle → channel_id lookup when set
+DEVOTION_YOUTUBE_PLAYLIST_ID=<PLxxxxxxxx...>   # optional; per-plan rules.devotionPlaylistId takes precedence
+DEVOTION_YOUTUBE_HANDLE=NewLifeChurch          # optional, only used for the channel fallback
+DEVOTION_YOUTUBE_CHANNEL_ID=<UCxxxxxxxx...>    # optional; channel fallback, skips the @handle → channel_id lookup
 ```
 
 Deploy without Supabase JWT verification, same reason as the quiz generator —

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
-const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+// 正規化換行：有些檔案在 Windows checkout 下是 CRLF，斷言一律用 \n 比對。
+const read = path => readFileSync(new URL(`../${path}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const migration = read("supabase/migrations/0155_devotion_video_sync.sql");
 const fn = read("supabase/functions/sync-devotion-video/index.ts");
 const readme = read("supabase/functions/README.md");
@@ -48,17 +49,38 @@ describe("sync-devotion-video edge function", () => {
     expect(fn).toContain('Deno.env.get("DEVOTION_YOUTUBE_CHANNEL_ID")');
   });
 
-  it("reads the channel's public RSS feed (no auth, no API key, no quota) for the latest video", () => {
+  it("reads the channel's public RSS feed (no auth, no API key, no quota) as the fallback for the latest video", () => {
     const idx = fn.indexOf("async function fetchLatestVideo(channelId: string)");
     expect(idx).toBeGreaterThan(-1);
-    const body = fn.slice(idx, idx + 900);
+    const body = fn.slice(idx, idx + 700);
     expect(body).toContain("https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}");
-    expect(body).toContain("<yt:videoId>([^<]+)<\\/yt:videoId>");
-    expect(body).toContain("<published>([^<]+)<\\/published>");
+    // 欄位解析抽成共用的 parseFeedEntry（頻道與播放清單都用同一份）
+    const pIdx = fn.indexOf("function parseFeedEntry(entry: string)");
+    expect(pIdx).toBeGreaterThan(-1);
+    const pBody = fn.slice(pIdx, pIdx + 500);
+    expect(pBody).toContain("<yt:videoId>([^<]+)<\\/yt:videoId>");
+    expect(pBody).toContain("<published>([^<]+)<\\/published>");
   });
 
-  it("skips instead of backfilling when the channel's latest video isn't actually from today", () => {
-    const idx = fn.indexOf("if (latest.publishedTaipeiDate !== today)");
+  it("prefers the devotional playlist (only devotional videos) over the whole channel, and matches by today's date", () => {
+    // 播放清單 ID 從計畫的 rules.devotionPlaylistId 來（migration 0157），
+    // 也接受 DEVOTION_YOUTUBE_PLAYLIST_ID 環境變數當退路。
+    expect(fn).toContain('.select("id, name, start_date, end_date, rules")');
+    expect(fn).toContain("planRules.devotionPlaylistId");
+    expect(fn).toContain('Deno.env.get("DEVOTION_YOUTUBE_PLAYLIST_ID")');
+    const idx = fn.indexOf("async function fetchPlaylistVideoForDate(");
+    expect(idx).toBeGreaterThan(-1);
+    const body = fn.slice(idx, idx + 700);
+    expect(body).toContain("https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}");
+    // 掃過所有 <entry>，不是只看第一則
+    expect(body).toContain("/<entry>([\\s\\S]*?)<\\/entry>/g");
+    expect(body).toContain("parsed.publishedTaipeiDate === targetTaipeiDate");
+  });
+
+  it("skips instead of backfilling when there is no video for today (playlist miss, or channel latest not from today)", () => {
+    // 播放清單找不到今天那一支 -> picked 為 null；頻道退路仍守「發布日 = 今天」
+    expect(fn).toContain("latest.publishedTaipeiDate === today ? latest : null");
+    const idx = fn.indexOf("if (!picked)");
     expect(idx).toBeGreaterThan(-1);
     const body = fn.slice(idx, idx + 400);
     expect(body).toContain('status: "no_new_video_today"');
@@ -67,10 +89,10 @@ describe("sync-devotion-video edge function", () => {
   it("writes through the blank-only RPC, keyed by day_index derived from the plan's start_date", () => {
     const idx = fn.indexOf("for (const plan of plans)");
     expect(idx).toBeGreaterThan(-1);
-    const body = fn.slice(idx, idx + 700);
+    const body = fn.slice(idx);
     expect(body).toContain("dayDifference(today, String(plan.start_date)) + 1");
     expect(body).toContain('supabase.rpc("sync_devotion_day_video"');
-    expect(body).toContain("p_video_url: videoUrl, p_video_title: latest.title");
+    expect(body).toContain("p_video_url: videoUrl, p_video_title: picked.title");
   });
 });
 
