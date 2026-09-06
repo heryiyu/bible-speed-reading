@@ -87,9 +87,10 @@ describe("startup performance contract", () => {
 // black-screened production for users with an expired session. The static
 // <script> in index.html / exam.html / grade.html is intentional; do not remove.
 describe("@supabase/supabase-js stays on the critical path (A1 reverted)", () => {
-  it("every HTML entry point still loads the supabase CDN bundle synchronously", () => {
+  it("every HTML entry point still loads the supabase CDN bundle synchronously, pinned to an exact version (A5)", () => {
     for (const html of [indexHtml, examHtml, gradeHtml]) {
-      expect(html).toMatch(/<script[^>]+cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/);
+      expect(html).toMatch(/<script[^>]+cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@\d+\.\d+\.\d+/);
+      expect(html).not.toMatch(/@supabase\/supabase-js@2["']/);
     }
   });
 
