@@ -126,6 +126,30 @@ describe("Chart.js is off the critical path (A2)", () => {
   });
 });
 
+describe("html2canvas is off the critical path (A3)", () => {
+  const home = readFileSync("js/modules/home.js", "utf8");
+
+  it("index.html no longer loads html2canvas with a static <script>", () => {
+    expect(indexHtml).not.toMatch(/<script[^>]+html2canvas/);
+  });
+
+  it("home.js lazy-loads html2canvas via ensureHtml2CanvasLib, pinned to an exact version", () => {
+    expect(home).toContain("function ensureHtml2CanvasLib()");
+    expect(home).toMatch(/cdnjs\.cloudflare\.com\/ajax\/libs\/html2canvas\/\d+\.\d+\.\d+\/html2canvas\.min\.js/);
+  });
+
+  it("shareAsImage awaits the lazy loader before calling html2canvas, and stays inside the existing try/catch", () => {
+    const fn = home.slice(home.indexOf("async function shareAsImage("), home.indexOf("function fallbackDownload("));
+    const awaitIdx = fn.indexOf("await ensureHtml2CanvasLib()");
+    const callIdx = fn.indexOf("await html2canvas(card");
+    expect(awaitIdx).toBeGreaterThan(-1);
+    expect(callIdx).toBeGreaterThan(awaitIdx);
+    // both must sit after the `try {` so a load failure hits the "分享失敗" catch
+    expect(fn.indexOf("try {")).toBeGreaterThan(-1);
+    expect(fn.indexOf("try {")).toBeLessThan(awaitIdx);
+  });
+});
+
 describe("a stale NLC session must never black-screen the first render", () => {
   it("boot loads role definitions + user data with allSettled, not all", () => {
     const slice = app.slice(app.indexOf("// Load all user data in one shot"), app.indexOf('await appRouter.switchTab(resumePlan ? "plan-view"'));

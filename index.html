@@ -65,9 +65,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
   <!-- Chart.js — loaded lazily by js/modules/plan.js (ensureChartLib) the first time a
        stats/ranking chart needs to render. Kept off the first-paint critical path. -->
-  <!-- html2canvas for exporting high-quality cards -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
-    crossorigin="anonymous"></script>
+  <!-- html2canvas — loaded lazily by js/modules/home.js (ensureHtml2CanvasLib) the first
+       time the user taps "分享" on the verse card. Never used on boot or in the data path. -->
   <!-- Tailwind CSS CDN scoped (no preflight to prevent conflict with index.css) -->
   <script>
     (function() {
@@ -2841,7 +2840,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260906_a1_revert"></script>
+  <script type="module" src="js/app.js?v=20260906_a1_revert_a3"></script>
 </body>
 
 </html>

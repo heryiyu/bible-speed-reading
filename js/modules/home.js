@@ -1696,6 +1696,34 @@ async function fetchRandomVerse(event, options = {}) {
   applyVerseCardContent(result, finalLoadedUrl);
 }
 
+// 效能重構 A3：html2canvas（~200KB）以前是 index.html <head> 的 render-blocking
+// <script>，但只有「分享今日經文卡片為圖片」會用到。改成使用者按下分享時才動態
+// 載入 CDN bundle（鎖版），完全不碰首屏與資料層。
+let _html2canvasLibPromise = null;
+function ensureHtml2CanvasLib() {
+  if (typeof html2canvas !== "undefined") return Promise.resolve();
+  if (_html2canvasLibPromise) return _html2canvasLibPromise;
+  _html2canvasLibPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-html2canvas-lib="1"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("html2canvas 載入失敗")));
+      return;
+    }
+    const el = document.createElement("script");
+    el.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    el.crossOrigin = "anonymous";
+    el.dataset.html2canvasLib = "1";
+    el.onload = () => resolve();
+    el.onerror = () => {
+      _html2canvasLibPromise = null;
+      reject(new Error("html2canvas 載入失敗"));
+    };
+    document.head.appendChild(el);
+  });
+  return _html2canvasLibPromise;
+}
+
 async function shareAsImage(e) {
   if (e) {
     e.preventDefault();
@@ -1715,6 +1743,8 @@ async function shareAsImage(e) {
   const toolbar = document.getElementById("verse-card-toolbar");
 
   try {
+    await ensureHtml2CanvasLib();
+
     if (toolbar) toolbar.style.visibility = "hidden";
 
     const canvas = await html2canvas(card, {
