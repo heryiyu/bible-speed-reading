@@ -81,6 +81,13 @@ export function copyLazyModuleRuntime(root, outDir) {
   assertRelativeModuleImportsResolve(join(outDir, "modules"));
   return true;
 }
+
+// NOTE: lazy `js/modules/*` minification was tried (per-file `esbuild --minify
+// --charset=utf8`) and reverted: ~500KB was saved but spawning esbuild ~40× per
+// build added 2-4 minutes, which slowed every deploy and timed out the
+// bundle.test.mjs integration test. The correct fix is esbuild's in-process
+// transform API (one node process); do that as its own change, not inline here.
+
 // Matches a local <script src="..."></script> with `src` in ANY attribute position
 const SCRIPT_RE = /<script\b[^>]*?\ssrc="(?!https?:|\/\/)([^"?#]+)(?:[?#][^"]*)?"[^>]*>\s*<\/script>/g;
 const CSS_RE = /<link\s+rel="stylesheet"\s+href="(?!https?:|\/\/)([^"?#]+)(?:[?#][^"]*)?"[^>]*>/g;
@@ -164,7 +171,7 @@ export function emitBundle({ root, outDir }) {
     const cssOutFile = join(cssTmpDir, "out.css");
     try {
       writeFileSync(cssInFile, rawCssContent, "utf8");
-      execSync(`${esbuildCmd} "${cssInFile}" --minify --outfile="${cssOutFile}"`, {
+      execSync(`${esbuildCmd} "${cssInFile}" --minify --charset=utf8 --outfile="${cssOutFile}"`, {
         encoding: "utf8",
         cwd: root,
         stdio: ["ignore", "pipe", "pipe"],
