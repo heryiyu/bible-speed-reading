@@ -46,115 +46,59 @@ describe("profile name heuristic (js/utils.js)", () => {
     expect(fn("a")).toBe(false); // too short to judge
   });
 
-  it("defines getPlanEligibilityBlock using the same user-completion predicate as the login card", () => {
-    expect(utils).toContain("function getPlanEligibilityBlock(user)");
-    const fnMatch = utils.match(/function getPlanEligibilityBlock\(user\) \{[\s\S]*?\nwindow\.getPlanEligibilityBlock/);
-    expect(fnMatch, "getPlanEligibilityBlock source").toBeTruthy();
-    const fn = fnMatch[0];
-    expect(fn).toMatch(/getUserOnboardingBlock\(u\)|getCanonicalMemberPrerequisiteBlock\(u\)/);
-    expect(fn).not.toContain('!String(u.pastoral_zone || "").trim()');
-    // Hub-complete (null canonical block) wins over local name flags, and is
-    // remembered so a later stale-timestamp block doesn't re-interrupt an
-    // already-verified session.
-    expect(fn).toMatch(/if \(!canonicalBlock\) \{[\s\S]*?return null;[\s\S]*?\}/);
-    expect(fn).toContain("planEligibilityVerifiedThisSession");
-    expect(fn).not.toContain("getProfileNameFlags");
-    expect(utils).toContain("window.getPlanEligibilityBlock = getPlanEligibilityBlock");
-    // Demo accounts must not be locked out of a feature they use for local/dev testing.
-    expect(utils).toMatch(/if \(!u \|\| u\.is_demo\) return null;/);
+  it("no longer defines a plan-tab eligibility gate — the check moved to login", () => {
+    // 計畫資格改成只在登入時判斷（db.init → getUserOnboardingBlock → getLoginGateCopy）。
+    expect(utils).not.toContain("function getPlanEligibilityBlock(");
+    expect(utils).not.toContain("window.getPlanEligibilityBlock");
+    expect(utils).not.toContain("getPlanEligibilitySoftState");
+    expect(utils).not.toContain("planEligibilityVerifiedThisSession");
+    expect(utils).not.toContain("plan_elig_hub_verified");
   });
 });
 
-describe("plan-entry blocking gate (js/app.js + index.html + index.css)", () => {
-  it("checks eligibility before loading the plan module on plan-view entry", () => {
+describe("plan entry: eligibility judged at login only (js/app.js + js/db.js)", () => {
+  it("plan-view switchTab branch renders the plan module directly, no eligibility re-check", () => {
     const planBranch = app.match(/\} else if \(tabId === "plan-view"\) \{[\s\S]*?\n {4}\} else if \(tabId === "stats-view"\)/);
     expect(planBranch, "plan-view switchTab branch").toBeTruthy();
-    expect(planBranch[0]).toContain("getPlanEligibilityBlock(state.currentUser)");
-    expect(planBranch[0]).toContain("renderPlanEligibilityGate(eligibilityBlock)");
+    expect(planBranch[0]).not.toContain("getPlanEligibilityBlock");
+    expect(planBranch[0]).not.toContain("renderPlanEligibilityGate");
+    expect(planBranch[0]).not.toContain("getPlanEligibilitySoftState");
     expect(planBranch[0]).toContain("hidePlanEligibilityGate()");
-    // The gate must short-circuit before the (large) plan module is fetched.
-    const gatedIndex = planBranch[0].indexOf("if (eligibilityBlock)");
-    const loadIndex = planBranch[0].indexOf("loadModule('plan'");
-    expect(gatedIndex).toBeGreaterThan(-1);
-    expect(loadIndex).toBeGreaterThan(gatedIndex);
+    expect(planBranch[0]).toContain("loadModule('plan'");
   });
 
-  it("blocks dashboard reading shortcuts and every direct plan reader entry", () => {
+  it("guardPlanEligibility is a no-op so its existing call sites never block", () => {
+    expect(app).toMatch(/function guardPlanEligibility\(\)\s*\{\s*return false;\s*\}/);
+    expect(app).toContain("window.guardPlanEligibility = guardPlanEligibility");
+    // Call sites stay (harmless no-op) — no need to touch home.js / plan.js.
     expect(homeModule).toMatch(/openActivePlanFromDashboard[\s\S]*guardPlanEligibility\(\)/);
-    expect(homeModule).toMatch(/startReadingCurrentChapter[\s\S]*guardPlanEligibility\(\)/);
     expect(planModule).toMatch(/openPlanChapterInReader[\s\S]*guardPlanEligibility\(\)/);
-    expect(planModule).toMatch(/openPlanInlineReader[\s\S]*guardPlanEligibility\(\)/);
   });
 
-  it("returns blocked members to the plan root before showing the explanation", () => {
-    expect(app).toContain("function resetPlanNavigationForEligibilityGate()");
-    expect(app).toContain('window.currentPlanViewState = "LIST"');
-    expect(app).toContain("state.planDetailOpen = false");
-    expect(app).toContain("if (state.inlineReader) state.inlineReader.active = false");
-    expect(app).toContain("resetPlanNavigationForEligibilityGate();");
-    expect(app).toContain("appRouter.updateNavigationChrome();");
+  it("removes the dead plan-eligibility gate machinery from app.js", () => {
+    expect(app).not.toContain("function renderPlanEligibilityGate");
+    expect(app).not.toContain("function retryPlanEligibilityQuietly");
+    expect(app).not.toContain("function getPlanEligibilityGateCopy");
+    expect(app).not.toContain("function resetPlanNavigationForEligibilityGate");
+    expect(app).not.toContain("function bindPlanEligibilityHubReturnSync");
+    expect(app).not.toContain("resyncPlanEligibilityAfterHubReturn");
   });
 
-  it("re-syncs from Member Hub on return and never offers a local edit form", () => {
-    expect(app).toContain("function bindPlanEligibilityHubReturnSync");
-    expect(app).toContain("db.syncNlcSessionWithSupabase(true)");
-    expect(app).toContain("launchMemberHubContinue");
-    expect(app).toContain("BIBLE_HUB_CONTINUE_RETURN_TO");
-    expect(app).toContain("consumeBibleHubResume");
-    expect(app).toContain('switchTab(resumePlan ? "plan-view" : "dashboard-view")');
-    expect(app).not.toContain('getMemberHubUrl("onboarding")');
-    expect(app).toContain("window.renderPlanEligibilityGate = renderPlanEligibilityGate");
-    expect(app).toContain("window.hidePlanEligibilityGate = hidePlanEligibilityGate");
-    // Regression guard: the gate is read-only. Members fix their own data
-    // exclusively through the Member Hub, never through an in-app form —
-    // js/db.js syncProfileStatsToSupabase() must not be reachable from here.
-    expect(app).not.toContain("bindPlanEligibilityNameForm");
-    expect(app).not.toContain("plan-eligibility-gate-name-save");
-    expect(app).not.toContain("db.syncProfileStatsToSupabase()");
+  it("db.init evaluates the login gate right after a fresh member-context sync", () => {
+    // 登入流程：同步 → getUserOnboardingBlock → getLoginGateCopy → 進 App 或停在登入卡
+    const initSlice = db.slice(db.indexOf("if (auth.isLoggedIn())"), db.indexOf("if (auth.isLoggedIn())") + 2000);
+    expect(initSlice).toContain("await this.syncNlcSessionWithSupabase(true)");
+    expect(initSlice).toContain("const block = getUserOnboardingBlock(state.currentUser)");
+    expect(initSlice).toContain("getLoginGateCopy(block");
+    expect(initSlice).toContain("applyLoginGateView");
   });
 
-  it("keeps fail-closed copy and the Member Hub continue link, without coaching 牧區", () => {
-    const copyMatch = app.match(/function getPlanEligibilityGateCopy\(block\) \{[\s\S]*?\nfunction resetPlanNavigationForEligibilityGate/);
-    expect(copyMatch, "getPlanEligibilityGateCopy").toBeTruthy();
-    const src = copyMatch[0];
-    expect(src).toContain('block.reason === "member_context_unavailable"');
-    expect(src).toContain('block.reason === "inactive_membership"');
-    expect(src).toContain('block.reason === "unknown_member_hub_action"');
-    expect(src).toContain('block.reason === "unknown_member_hub_state"');
-    expect(src).toContain('block.reason === "membership_record_inconsistent"');
-    expect(src).not.toContain('block.reason === "missing_zone"');
-    expect(src).not.toContain('block.reason === "missing_name"');
-    expect(src).not.toContain("完成會員資料後即可進入計畫");
-    expect(src).not.toContain("牧區");
-    expect(app).toContain("BIBLE_HUB_CONTINUE_RETURN_TO");
-    expect(app).not.toContain('auth.getMemberHubUrl("member/continue?satellite=bible-app&returnTo=%2F")');
-    // Unlike the old design, the hub link is unconditional — no per-reason toggle.
-    expect(app).not.toContain("showHubLink");
-    expect(app).not.toContain("showNameForm");
-  });
-
-  it("renders read-only gate markup inside #plan-view with only a Member Hub link, no editable fields", () => {
-    const gateMarkup = html.slice(
-      html.indexOf('id="plan-eligibility-gate"'),
-      html.indexOf('id="plan-eligibility-gate-hub-link"') + 400
-    );
-    expect(html).toContain('<section id="plan-view" class="view-pane hidden">');
-    expect(html).toContain('id="plan-eligibility-gate"');
-    expect(html).toContain('id="plan-eligibility-gate-hub-link"');
-    expect(gateMarkup).toContain("member/continue?satellite=bible-app");
-    expect(gateMarkup).toContain("resume%3Dplan");
-    expect(gateMarkup).not.toContain('target="_blank"');
-    expect(html).not.toContain('id="plan-eligibility-gate-name-input"');
-    expect(html).not.toContain('id="plan-eligibility-gate-name-save"');
-    expect(html).not.toContain('id="plan-eligibility-gate-name-form"');
-  });
-
-  it("hides every other plan-view child while gated, using theme tokens only", () => {
-    const rule = css.match(/#plan-view\.plan-view--gated > \*:not\(#plan-eligibility-gate\) \{[^}]+\}/);
-    expect(rule, "#plan-view.plan-view--gated rule").toBeTruthy();
-    expect(rule[0]).toContain("display: none !important");
-    const gateBlock = css.match(/\.plan-eligibility-gate__desc \{[^}]+\}/);
-    expect(gateBlock[0]).toMatch(/var\(--text-secondary\)/);
+  it("login gate copy still covers every fail-closed member-hub reason", () => {
+    const gate = read("js/login-onboarding-gate.mjs");
+    expect(gate).toContain('block.reason === "member_profile_required"');
+    expect(gate).toContain('block.reason === "membership_application_required"');
+    expect(gate).toContain('block.reason === "member_context_unavailable"');
+    expect(gate).toContain('block.reason === "inactive_membership"');
   });
 });
 

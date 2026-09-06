@@ -11,10 +11,10 @@ import './design/design-system-helpers.js?v=20260901_round_schedule_restore';
 import './design/icon-registry.js?v=20260826_quiz_remove_duplicate_scope_filter';
 import './design/icons.js';
 import './state.js?v=20260901_r1final_monthly_split';
-import './auth.js?v=20260904_highlights_cross_user_leak_fix';
+import './auth.js?v=20260906_plan_gate_login_only';
 import './auth-launch.mjs';
-import './db.js?v=20260906_exam_grading_seq';
-import './utils.js?v=20260905_r1final_badge_puzzle';
+import './db.js?v=20260906_plan_gate_login_only';
+import './utils.js?v=20260906_plan_gate_login_only';
 import './gamification.js?v=20260826_quiz_remove_duplicate_scope_filter';
 import { initModalManager } from './modules/modal-manager.mjs';
 
@@ -39,7 +39,7 @@ let buildVersion = "__BUILD_VERSION__";
 if (!/^\d{14}$/.test(buildVersion)) {
   buildVersion = "dev_" + Date.now();
 }
-buildVersion += "_clean_demo_mode_v20_quiz_manual_retry_v1_member_hub_name_sync_v1_quiz_load_error_v1_group_filter_reset_fix_v1_quiz_publish_flow_redesign_v1_row_cap_pagination_fix_v1_quiz_entry_reading_gate_v1_quiz_feature_reopen_restore_v1_admin_mobile_layout_v1_reader_audio_resume_fix_v1_joined_plan_collapse_v1_admin_tabs_lead_v1_0830_quiz_pledge_banner_v1_big_exam_p1_v1_fullscreen_resilience_v1_exam_p2_admin_v1_result_review_v1_feature_toggle_move_v1_paper_picker_v1_section_config_v1_exam_p3_stats_notify_v1_exam_announcement_flag_v1_exam_p4_resilience_v1_exam_no_shortanswer_hide_v1_exam_mode_switch_v1_noflash_sweep_v1_exam_p4_two_track_v1_notif_admin_anon_v1_exam_autoscore_toggle_v1_answer_only_editor_v1_exam_publish_results_lock_v1_push_guards_v1_result_pending_label_v1_staff_preview_label_v1_exam_close_ux_o1o2o3_v1_finalize_expired_v1_stats_team_size_v1_stats_scope_teamrank_v1_exam_practice_review_autoclose_v1_exam_multi_paper_profile_v1_exam_practice_grace_day_v1_exam_batch_grading_v1_region_cohort_v1_exam_empty_shortanswer_zero_v1_exam_team_fixed_divisor_v1_exam_full_result_paper_v1_exam_red_correction_overlay_v1_announcement_live_only_v1_result_numeric_answers_v1_match_review_draw_v1_choice_mark_v1_practice_to_review_rename_v1_pledge_copy_v1_registration_current_plan_default_v1_corrected_label_wording_v2_exam_token_resilience_v1_grading_full_sheet_v1_answers_export_v1_result_row_declutter_v1_perf_foreground_coordinator_a1_v1_perf_token_no_wipe_a2_v1_perf_badge_throttle_a5_v1_perf_chart_update_b7_v1_cohort_stage_kind_v1_ranking_baseline_schedule_v1_progress_baseline_round1_v1_level_teardown_v1_round_schedule_restore_v1_missed_chapters_reminder_v1_care_reminder_edit_merge_v1_reader_position_fromplan_fix_v1_reading_log_pagination_fix_v1_db_pagination_audit_v1_highlights_notes_review_v1_reader_next_chapter_jump_fix_v1_ten_verse_chapter_load_fix_v1_member_hub_org_dedupe_v1_profile_subpage_overlay_fix_v1_cohort_materialized_schedule_v1_cohort_plain_plan_award_only_v1_admin_section_nav_step1_v1_emergency_announcement_editor_v1_admin_section_open_fix_v1_admin_section_unified_v2_admin_section_mobile_drilldown_v1_r1final_monthly_split_v1_r1final_discover_lock_v1_r1final_award_aggregate_v1_exam_grading_fixes_v1_score_input_validation_v1_login_continuation_return_fix_v1_profile_subpage_close_selector_fix_v1_r1final_badge_puzzle_v1_devotion_editor_modal_video_v1_devotion_progress_notes_v1_devotion_ui_polish_v1_devotion_publish_all_v1_home_feature_cards_v1_home_cards_login_race_v1_myplans_devotion_order_v1_home_cards_no_planjs_dep_v1_gm_topic_passage_inline_v1_match_lines_on_top_v1_match_align_button_v1_devotion_share_copy_v1_devotion_share_scripture_v1_devotion_sync_log_v1_devotion_group_hidden_v1_devotion_hidden_toggle_v1_lock_ended_stage_team_v1_exam_grading_seq_v1";
+buildVersion += "_clean_demo_mode_v20_quiz_manual_retry_v1_member_hub_name_sync_v1_quiz_load_error_v1_group_filter_reset_fix_v1_quiz_publish_flow_redesign_v1_row_cap_pagination_fix_v1_quiz_entry_reading_gate_v1_quiz_feature_reopen_restore_v1_admin_mobile_layout_v1_reader_audio_resume_fix_v1_joined_plan_collapse_v1_admin_tabs_lead_v1_0830_quiz_pledge_banner_v1_big_exam_p1_v1_fullscreen_resilience_v1_exam_p2_admin_v1_result_review_v1_feature_toggle_move_v1_paper_picker_v1_section_config_v1_exam_p3_stats_notify_v1_exam_announcement_flag_v1_exam_p4_resilience_v1_exam_no_shortanswer_hide_v1_exam_mode_switch_v1_noflash_sweep_v1_exam_p4_two_track_v1_notif_admin_anon_v1_exam_autoscore_toggle_v1_answer_only_editor_v1_exam_publish_results_lock_v1_push_guards_v1_result_pending_label_v1_staff_preview_label_v1_exam_close_ux_o1o2o3_v1_finalize_expired_v1_stats_team_size_v1_stats_scope_teamrank_v1_exam_practice_review_autoclose_v1_exam_multi_paper_profile_v1_exam_practice_grace_day_v1_exam_batch_grading_v1_region_cohort_v1_exam_empty_shortanswer_zero_v1_exam_team_fixed_divisor_v1_exam_full_result_paper_v1_exam_red_correction_overlay_v1_announcement_live_only_v1_result_numeric_answers_v1_match_review_draw_v1_choice_mark_v1_practice_to_review_rename_v1_pledge_copy_v1_registration_current_plan_default_v1_corrected_label_wording_v2_exam_token_resilience_v1_grading_full_sheet_v1_answers_export_v1_result_row_declutter_v1_perf_foreground_coordinator_a1_v1_perf_token_no_wipe_a2_v1_perf_badge_throttle_a5_v1_perf_chart_update_b7_v1_cohort_stage_kind_v1_ranking_baseline_schedule_v1_progress_baseline_round1_v1_level_teardown_v1_round_schedule_restore_v1_missed_chapters_reminder_v1_care_reminder_edit_merge_v1_reader_position_fromplan_fix_v1_reading_log_pagination_fix_v1_db_pagination_audit_v1_highlights_notes_review_v1_reader_next_chapter_jump_fix_v1_ten_verse_chapter_load_fix_v1_member_hub_org_dedupe_v1_profile_subpage_overlay_fix_v1_cohort_materialized_schedule_v1_cohort_plain_plan_award_only_v1_admin_section_nav_step1_v1_emergency_announcement_editor_v1_admin_section_open_fix_v1_admin_section_unified_v2_admin_section_mobile_drilldown_v1_r1final_monthly_split_v1_r1final_discover_lock_v1_r1final_award_aggregate_v1_exam_grading_fixes_v1_score_input_validation_v1_login_continuation_return_fix_v1_profile_subpage_close_selector_fix_v1_r1final_badge_puzzle_v1_devotion_editor_modal_video_v1_devotion_progress_notes_v1_devotion_ui_polish_v1_devotion_publish_all_v1_home_feature_cards_v1_home_cards_login_race_v1_myplans_devotion_order_v1_home_cards_no_planjs_dep_v1_gm_topic_passage_inline_v1_match_lines_on_top_v1_match_align_button_v1_devotion_share_copy_v1_devotion_share_scripture_v1_devotion_sync_log_v1_devotion_group_hidden_v1_devotion_hidden_toggle_v1_lock_ended_stage_team_v1_exam_grading_seq_v1_plan_gate_login_only_v1";
 const moduleCache = {};
 const RELEASE_ONBOARDING_MODULE_PATH = './modules/onboarding-helper.js?v=20260826_quiz_remove_duplicate_scope_filter';
 const RELEASE_ONBOARDING_STORAGE_KEY = "bible_onboarding_seen_version";
@@ -522,183 +522,12 @@ async function refreshCurrentAppView() {
   await refreshCareReminderBadge({ force: true });
 }
 
-// ─── Plan entry eligibility gate: fail-closed Hub states only ───
-// Login card already owns 姓名 / 會籍 speech. Plan-view uses the same
-// user-completion predicate and only explains fail-closed reasons.
-// Every remediation path points to the church Member Hub.
-let planEligibilityHubReturnBound = false;
-let planEligibilityAutoRetryPending = false;
-
-// member_context_unavailable almost always means the background Member Hub
-// sync job just hasn't caught up yet, not that the user's data is actually
-// incomplete — retry once quietly so people aren't stuck reading "go set up
-// your identity" for information that's already correct.
-function retryPlanEligibilityQuietly() {
-  if (planEligibilityAutoRetryPending) return;
-  if (typeof db === "undefined" || typeof db.syncNlcSessionWithSupabase !== "function") return;
-  planEligibilityAutoRetryPending = true;
-  const hubLink = document.getElementById("plan-eligibility-gate-hub-link");
-  const isRetryButton = hubLink && hubLink.dataset.gateMode === "retry";
-  if (isRetryButton) {
-    hubLink.setAttribute("aria-busy", "true");
-    hubLink.textContent = "重新確認中…";
-  }
-  db.syncNlcSessionWithSupabase(true)
-    .then(() => {
-      if (window.appRouter && window.appRouter.currentTab === "plan-view") {
-        window.appRouter.switchTab("plan-view", { keepPlanDetail: true });
-      }
-    })
-    .catch(err => console.warn("[PlanEligibilityGate] Retry sync failed:", err))
-    .finally(() => {
-      planEligibilityAutoRetryPending = false;
-      if (isRetryButton && hubLink.dataset.gateMode === "retry") {
-        hubLink.removeAttribute("aria-busy");
-        hubLink.textContent = "重新嘗試同步";
-      }
-    });
-}
-
-function getPlanEligibilityGateCopy(block) {
-  if (block.reason === "member_context_unavailable") {
-    return {
-      title: "登入已完成，正在重新確認會員資料",
-      desc: "會員中心目前暫時無法同步會籍與小組歸屬，系統已在背景自動重試。若這裡卡住沒有自動消失，可以按下方按鈕手動重試一次；不需要前往會員中心，也不需要重新註冊帳號。支援代碼：MEMBER_CONTEXT_UNAVAILABLE",
-      button: "重新嘗試同步",
-      mode: "retry"
-    };
-  }
-  if (block.reason === "inactive_membership") {
-    return {
-      title: "目前無法使用會員讀經計畫",
-      desc: "您的會籍目前不是可使用狀態。請前往會員中心查看狀態，或聯繫教會同工協助。",
-      button: "前往會員中心",
-      mode: "hub"
-    };
-  }
-  if (block.reason === "unknown_member_hub_action" || block.reason === "unknown_member_hub_state") {
-    return {
-      title: "需要在會員中心完成新的確認步驟",
-      desc: "此版本尚未識別會員中心回傳的新狀態。為保護您的會籍資料，請使用下方按鈕由會員中心安全地繼續。",
-      button: "前往會員中心",
-      mode: "hub"
-    };
-  }
-  if (block.reason === "membership_record_inconsistent") {
-    return {
-      title: "需要在會員中心確認會員資料",
-      desc: "會員中心回傳的會籍紀錄需要確認。請使用下方按鈕前往會員中心繼續。",
-      button: "前往會員中心",
-      mode: "hub"
-    };
-  }
-  return {
-    title: "需要在會員中心繼續",
-    desc: "請由會員中心安全地繼續。不要重複註冊帳號。",
-    button: "前往會員中心",
-    mode: "hub"
-  };
-}
-
-function resetPlanNavigationForEligibilityGate() {
-  window.currentPlanViewState = "LIST";
-  state.planDetailOpen = false;
-  state.planActiveSubTab = "today";
-  if (state.inlineReader) state.inlineReader.active = false;
-  if (state.readerState) {
-    state.readerState.fromPlan = false;
-    state.readerState.returnTab = null;
-  }
-}
-
-function resyncPlanEligibilityAfterHubReturn() {
-  const gate = document.getElementById("plan-eligibility-gate");
-  const gated = gate && !gate.classList.contains("hidden");
-  const onPlan = window.appRouter && window.appRouter.currentTab === "plan-view";
-  if (!gated && !onPlan) return;
-  retryPlanEligibilityQuietly();
-}
-
-function bindPlanEligibilityHubReturnSync() {
-  if (planEligibilityHubReturnBound || typeof document === "undefined") return;
-  planEligibilityHubReturnBound = true;
-  // visibilitychange / pageshow 的回前景重同步已由 onAppForeground() 統一處理，
-  // 這裡只留下閘門上「前往會員中心」連結的點擊綁定。
-  const hubLink = document.getElementById("plan-eligibility-gate-hub-link");
-  if (hubLink && !hubLink.dataset.hubContinueBound) {
-    hubLink.dataset.hubContinueBound = "1";
-    hubLink.addEventListener("click", (event) => {
-      event.preventDefault();
-      // member_context_unavailable is a "please wait" state, not a "go fix
-      // something" state — the button retries in place instead of sending
-      // people who already did everything right off to the Member Hub.
-      if (hubLink.dataset.gateMode === "retry") {
-        retryPlanEligibilityQuietly();
-        return;
-      }
-      launchMemberHubContinue(typeof auth !== "undefined" ? auth : null);
-    });
-  }
-}
-
-function renderPlanEligibilityGate(block) {
-  const planView = document.getElementById("plan-view");
-  const gate = document.getElementById("plan-eligibility-gate");
-  if (!planView || !gate) return;
-  planView.classList.add("plan-view--gated");
-  gate.classList.remove("hidden");
-
-  const copy = getPlanEligibilityGateCopy(block);
-  const titleEl = document.getElementById("plan-eligibility-gate-title");
-  const descEl = document.getElementById("plan-eligibility-gate-desc");
-  const hubLink = document.getElementById("plan-eligibility-gate-hub-link");
-
-  if (titleEl) titleEl.textContent = copy.title;
-  if (descEl) descEl.textContent = copy.desc;
-  if (hubLink) {
-    hubLink.dataset.gateMode = copy.mode;
-    hubLink.textContent = copy.button;
-    hubLink.removeAttribute("aria-busy");
-    const fallback = hubContinueHref(typeof auth !== "undefined" ? auth : null);
-    try {
-      const fallbackUrl = new URL(fallback);
-      const upstreamUrl = block.requiredActionUrl ? new URL(block.requiredActionUrl) : null;
-      const resolverUrl = upstreamUrl
-        && upstreamUrl.origin === fallbackUrl.origin
-        && upstreamUrl.pathname === "/member/continue"
-        ? upstreamUrl
-        : fallbackUrl;
-      resolverUrl.searchParams.set("satellite", "bible-app");
-      resolverUrl.searchParams.set("returnTo", BIBLE_HUB_CONTINUE_RETURN_TO);
-      hubLink.href = resolverUrl.toString();
-    } catch {
-      hubLink.href = fallback;
-    }
-  }
-
-  if (typeof hydrateIcons === "function") hydrateIcons(gate);
-  bindPlanEligibilityHubReturnSync();
-
-  if (block.reason === "member_context_unavailable") {
-    retryPlanEligibilityQuietly();
-  }
-}
-
-function guardPlanEligibility() {
-  const block = typeof getPlanEligibilityBlock === "function"
-    ? getPlanEligibilityBlock(state.currentUser)
-    : null;
-  if (!block) return false;
-
-  resetPlanNavigationForEligibilityGate();
-  if (appRouter.currentTab === "plan-view") {
-    renderPlanEligibilityGate(block);
-    appRouter.updateNavigationChrome();
-  } else {
-    void appRouter.switchTab("plan-view");
-  }
-  return true;
-}
+// ─── 計畫資格：只在登入時判斷 ───
+// 登入流程（db.init → getUserOnboardingBlock → getLoginGateCopy）已經在「會員
+// 資料剛同步過」的當下判斷過一次；通過了才會進到 App。計畫分頁 / 首頁的讀經
+// 捷徑不再自己重新判斷——這樣冷啟動時 member_context_synced_at 看起來過期，也
+// 不會把整個計畫分頁擋掉閃一下。會員資料若之後真的變動（例如會籍被停用），
+// 下次登入時會重新判斷。
 
 function hidePlanEligibilityGate() {
   const planView = document.getElementById("plan-view");
@@ -707,7 +536,11 @@ function hidePlanEligibilityGate() {
   if (gate) gate.classList.add("hidden");
 }
 
-window.renderPlanEligibilityGate = renderPlanEligibilityGate;
+// 保留成 no-op：既有呼叫端（home.js 的 openActivePlanFromDashboard /
+// startReadingCurrentChapter、plan.js 的 openPlanChapterInReader /
+// openPlanInlineReader）不用改，行為就是「不再攔」。
+function guardPlanEligibility() { return false; }
+
 window.hidePlanEligibilityGate = hidePlanEligibilityGate;
 window.guardPlanEligibility = guardPlanEligibility;
 
@@ -868,27 +701,21 @@ appRouter.switchTab = async function (tabId, options = {}) {
       }
 
     } else if (tabId === "plan-view") {
-      const eligibilityBlock = typeof getPlanEligibilityBlock === "function"
-        ? getPlanEligibilityBlock(state.currentUser)
-        : null;
-      if (eligibilityBlock) {
-        resetPlanNavigationForEligibilityGate();
-        renderPlanEligibilityGate(eligibilityBlock);
-      } else {
-        hidePlanEligibilityGate();
-        const mod = await loadModule('plan', './modules/plan.js?v=' + buildVersion);
-        await ensurePlanFeatureModulesLoaded();
-        if (mod && typeof mod.renderPlanView === 'function') {
-          await mod.renderPlanView();
-        } else if (typeof window.renderPlanView === 'function') {
-          await window.renderPlanView();
-        }
-        if (options.onboardingPlanDestination === "discover") {
-          if (mod && typeof mod.showDiscoverPlans === "function") {
-            await mod.showDiscoverPlans();
-          } else if (typeof window.showDiscoverPlans === "function") {
-            await window.showDiscoverPlans();
-          }
+      // 計畫資格只在登入時判斷（db.init）。這裡不再重新判斷、不再擋整頁，
+      // 直接把計畫分頁渲染出來。
+      hidePlanEligibilityGate();
+      const mod = await loadModule('plan', './modules/plan.js?v=' + buildVersion);
+      await ensurePlanFeatureModulesLoaded();
+      if (mod && typeof mod.renderPlanView === 'function') {
+        await mod.renderPlanView();
+      } else if (typeof window.renderPlanView === 'function') {
+        await window.renderPlanView();
+      }
+      if (options.onboardingPlanDestination === "discover") {
+        if (mod && typeof mod.showDiscoverPlans === "function") {
+          await mod.showDiscoverPlans();
+        } else if (typeof window.showDiscoverPlans === "function") {
+          await window.showDiscoverPlans();
         }
       }
 
@@ -1087,11 +914,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }).catch(() => {});
     }
 
-    // 3) 特定情境的 Member Hub 回來重同步（取代 profile.js / db.js / 計畫閘門各自的 listener）
-    const gate = document.getElementById("plan-eligibility-gate");
-    if ((gate && !gate.classList.contains("hidden")) || currentTab === "plan-view") {
-      resyncPlanEligibilityAfterHubReturn();
-    }
+    // 3) Member Hub 回來時：只在「登入閘門」還開著的情況下重同步 + 重新套用登入
+    //    閘門（計畫資格只在登入時判斷，計畫分頁本身不再有自己的閘門）。
     const loginGate = document.getElementById("login-gate");
     if (loginGate && !loginGate.classList.contains("hidden") && typeof db.syncNlcSessionWithSupabase === "function") {
       db.syncNlcSessionWithSupabase(true).then(() => db.applyLoginOnboardingGate && db.applyLoginOnboardingGate()).catch(() => {});

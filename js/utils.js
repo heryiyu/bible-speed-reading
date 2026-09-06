@@ -268,44 +268,11 @@ window.INVENTED_DISPLAY_NAMES = INVENTED_DISPLAY_NAMES;
 window.getProfileNameFlags = getProfileNameFlags;
 window.isProfileNameValid = isProfileNameValid;
 
-/**
- * Whether a profile is complete enough to enter reading plans.
- * Uses the same user-completion predicate as the login card; pending
- * members without confirmed placement are not blocked here.
- * @param {object|null} [user]
- * @returns {{reason: string, flags?: string[], requiredAction?: string, requiredActionUrl?: string|null}|null}
- */
-// Once the Hub context has been confirmed fine at least once in this
-// session, a later member_context_unavailable (the background sync
-// timestamp merely looking stale) shouldn't interrupt the user again —
-// only a genuine data issue (missing profile, unsubmitted membership,
-// inactive membership, etc.) should. Resets naturally on logout/reload
-// since auth.logout() does a full page navigation.
-//
-// 存到 sessionStorage：只要這個分頁的 session 內確認過一次 Hub context 正常，
-// 之後每次「重新整理」就不要再因為 member_context_synced_at 看起來太舊而彈出
-// 整頁閘門——背景 retry 照跑，真的有資料問題（缺 profile / 會籍 inactive…）
-// 還是會用別的 reason 擋下來。logout 時由 auth._clearStoredTokens() 清掉。
-const PLAN_ELIG_VERIFIED_KEY = "plan_elig_hub_verified";
-let planEligibilityVerifiedThisSession = (() => {
-  try { return sessionStorage.getItem(PLAN_ELIG_VERIFIED_KEY) === "1"; } catch (_) { return false; }
-})();
-
-function getPlanEligibilityBlock(user) {
-  const u = user || (typeof state !== "undefined" ? state.currentUser : null) || {};
-  if (!u || u.is_demo) return null;
-  const canonicalBlock = getUserOnboardingBlock(u);
-  if (!canonicalBlock) {
-    planEligibilityVerifiedThisSession = true;
-    try { sessionStorage.setItem(PLAN_ELIG_VERIFIED_KEY, "1"); } catch (_) {}
-    return null;
-  }
-  if (canonicalBlock.reason === "member_context_unavailable" && planEligibilityVerifiedThisSession) {
-    return null;
-  }
-  return canonicalBlock;
-}
-window.getPlanEligibilityBlock = getPlanEligibilityBlock;
+// 計畫資格（能不能進讀經計畫）改成「只在登入時判斷」——由 db.init 的
+// getUserOnboardingBlock() → getLoginGateCopy() 在會員資料剛同步過的當下決定，
+// 通過了才進 App。計畫分頁本身不再有獨立的資格閘門（那個閘門會在冷啟動
+// member_context_synced_at 看起來過期時整頁閃一下）。所以這裡不再需要
+// getPlanEligibilityBlock / 「本 session 已確認過」的旗標。
 
 /**
  * Resolve a displayable person name. Returns null when missing or invented.

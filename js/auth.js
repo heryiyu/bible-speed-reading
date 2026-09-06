@@ -895,6 +895,7 @@ const auth = {
     localStorage.removeItem("bible_highlight_timestamps");
     localStorage.removeItem("bible_highlights_owner");
     try { sessionStorage.removeItem("plan_elig_hub_verified"); } catch (_) {}
+    try { localStorage.removeItem("plan_elig_hub_verified"); } catch (_) {}
 
     if (typeof state !== "undefined" && state.supabase && state.supabase.auth && typeof state.supabase.auth.signOut === "function") {
       try {
