@@ -382,17 +382,27 @@ class GradingWorkspace {
   }
 
   _rosterPanel() {
+    const hasSeq = this.roster.some((r) => r.seq != null);
     const rows = this.roster.map((r) => {
       const org = [r.pastoralZone, r.smallGroup].filter(Boolean).join("・") || "—";
       return `<button type="button" class="grade-rrow${r.attemptId === this.currentId ? " grade-rrow--on" : ""}" data-g-open="${esc(r.attemptId)}">
-        ${r.seq != null ? `<span class="grade-rrow__seq">${r.seq}</span>` : ""}
+        ${r.seq != null ? `<span class="grade-rrow__seq">第 ${r.seq} 份</span>` : ""}
         <span class="grade-rrow__name">${esc(r.name || "（未命名）")}</span>
         <span class="grade-rrow__org">${esc(org)}</span>
         ${this._statusBadge(r)}
       </button>`;
     }).join("");
-    return `<details class="grade-roster">
+    const seqs = this.roster.map((r) => r.seq).filter((s) => s != null);
+    const jump = hasSeq && seqs.length ? `
+      <form class="grade-roster__jump" data-g-jump>
+        <label>跳到第 <input type="number" inputmode="numeric" min="${Math.min(...seqs)}" max="${Math.max(...seqs)}"
+          data-g-jump-seq placeholder="${Math.min(...seqs)}–${Math.max(...seqs)}" aria-label="輸入批改序號"> 份</label>
+        <button type="submit" class="secondary-btn">前往</button>
+        <span class="grade-roster__jump-msg" data-g-jump-msg></span>
+      </form>` : "";
+    return `<details class="grade-roster" open>
       <summary>名單（${this.roster.length}）</summary>
+      ${jump}
       <div class="grade-roster__list">${rows}</div>
     </details>`;
   }
@@ -403,6 +413,20 @@ class GradingWorkspace {
     r.querySelector("[data-g-next]")?.addEventListener("click", () => this._nav(1));
     r.querySelectorAll("[data-g-open]").forEach((b) =>
       b.addEventListener("click", () => this.openAttempt(b.getAttribute("data-g-open"))));
+
+    r.querySelector("[data-g-jump]")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const inp = r.querySelector("[data-g-jump-seq]");
+      const msg = r.querySelector("[data-g-jump-msg]");
+      const n = Number(inp && inp.value);
+      const hit = Number.isFinite(n) ? this.roster.find((row) => Number(row.seq) === n) : null;
+      if (hit) {
+        if (msg) msg.textContent = "";
+        this.openAttempt(hit.attemptId);
+      } else if (msg) {
+        msg.textContent = "沒有第 " + (inp ? inp.value : "") + " 份";
+      }
+    });
 
     const onEdit = () => {
       this._readInputs();

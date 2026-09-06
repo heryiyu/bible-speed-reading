@@ -16119,10 +16119,24 @@ textarea::placeholder {
 .grade-rrow:last-child { border-bottom: none; }
 .grade-rrow--on { background: color-mix(in srgb, var(--color-brand) 10%, transparent); }
 .grade-rrow__seq {
-  flex-shrink: 0; min-width: 1.6rem; text-align: center;
-  font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);
+  flex-shrink: 0; text-align: center; white-space: nowrap;
+  font-size: 0.875rem; font-weight: 500; color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--color-brand) 28%, var(--border-card));
+  border-radius: 999px; padding: 0.05rem 0.5rem;
   font-variant-numeric: tabular-nums;
 }
+.grade-roster__jump {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.55rem 0.85rem; border-top: 1px solid var(--border-card);
+  font-size: 0.9375rem; color: var(--text-secondary);
+}
+.grade-roster__jump input {
+  width: 5rem; padding: 0.3rem 0.5rem; border-radius: 8px;
+  border: 1px solid var(--border-card); background: var(--bg-input); color: var(--text-primary);
+  font: inherit; font-variant-numeric: tabular-nums;
+}
+.grade-roster__jump-msg { font-size: 0.875rem; color: var(--color-danger); }
 .grade-rrow__name { font-size: 0.9375rem; }
 .grade-rrow__org { font-size: 0.875rem; color: var(--text-muted); margin-left: auto; }
 
