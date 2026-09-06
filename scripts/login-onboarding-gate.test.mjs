@@ -184,4 +184,17 @@ describe("login gate wiring", () => {
     expect(app).toContain("function onAppForeground");
     expect(app).toMatch(/login-gate[\s\S]*syncNlcSessionWithSupabase\(true\)[\s\S]*applyLoginOnboardingGate/);
   });
+
+  it("surfaces the login card on foreground when the session died while the app was open", () => {
+    // Symmetric to the above: gate is HIDDEN, app shell is showing, but the
+    // session was rejected mid-use (auth cleared the tokens → isLoggedIn() false).
+    // Nothing else brings the card back — onAppForeground must, via showConnectionError.
+    const fn = app.slice(app.indexOf("function onAppForeground"), app.indexOf("document.addEventListener(\"visibilitychange\""));
+    expect(fn).toContain("if (!loggedIn) {");
+    expect(fn).toContain('querySelector(".app-layout")');
+    expect(fn).toContain('getElementById("login-gate")');
+    expect(fn).toContain("db.showConnectionError(");
+    // must not fall into the reload/re-render path for a dead session
+    expect(fn).toMatch(/if \(!loggedIn\) \{[\s\S]*?return;\s*\n\s*\}/);
+  });
 });
