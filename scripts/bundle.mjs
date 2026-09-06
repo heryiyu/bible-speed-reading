@@ -151,7 +151,37 @@ export function emitBundle({ root, outDir }) {
 
   assertParses(bundleJs);
 
-  const cssContent = stylesheets.map((stylesheet) => readSource(stylesheet)).join("\n\n");
+  const rawCssContent = stylesheets.map((stylesheet) => readSource(stylesheet)).join("\n\n");
+
+  // Minify the concatenated stylesheet with esbuild's CSS minifier (selectors are
+  // never renamed — only whitespace/comments/color/shorthand collapsing). This is
+  // strictly a size win and cannot regress the build: any failure, or an output
+  // that looks wrong, falls straight back to the raw concatenated CSS.
+  let cssContent = rawCssContent;
+  try {
+    const cssTmpDir = mkdtempSync(join(tmpdir(), "bible-css-"));
+    const cssInFile = join(cssTmpDir, "in.css");
+    const cssOutFile = join(cssTmpDir, "out.css");
+    try {
+      writeFileSync(cssInFile, rawCssContent, "utf8");
+      execSync(`${esbuildCmd} "${cssInFile}" --minify --outfile="${cssOutFile}"`, {
+        encoding: "utf8",
+        cwd: root,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      const minifiedCss = readFileSync(cssOutFile, "utf8");
+      if (minifiedCss && minifiedCss.length > rawCssContent.length * 0.3) {
+        cssContent = minifiedCss;
+        console.log(`⚡ [esbuild] CSS minified ${rawCssContent.length} → ${minifiedCss.length} bytes`);
+      } else {
+        console.warn("[bundle] CSS minify output looked wrong; keeping raw CSS.");
+      }
+    } finally {
+      rmDirRecursive(cssTmpDir);
+    }
+  } catch (err) {
+    console.warn("[bundle] CSS minify failed; keeping raw CSS.", err.stderr || err.message);
+  }
 
   // 💡 一勞永逸的快取清除法：動態產生當次建置版號，並替換程式中的 placeholder 欄位
   const buildVer = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
