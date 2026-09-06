@@ -148,9 +148,38 @@ Deno.serve(async req => {
 
   const results: Array<Record<string, unknown>> = [];
   let updated = 0;
+
+  // 每個計畫每天寫一筆狀態，管理端「每日靈修」頁面用它顯示「今天自動抓取：…」
+  // （migration 0161）。寫 log 失敗不影響主流程。
+  const writeLog = async (
+    planId: string, dayIndex: number | null, status: string,
+    extra: { videoId?: string | null; videoTitle?: string | null; feedSource?: string | null; message?: string | null; updated?: boolean } = {}
+  ) => {
+    try {
+      await supabase.from("devotion_video_sync_log").upsert({
+        global_plan_id: planId,
+        sync_date: today,
+        day_index: dayIndex,
+        status,
+        video_id: extra.videoId ?? null,
+        video_title: extra.videoTitle ?? null,
+        feed_source: extra.feedSource ?? null,
+        message: extra.message ?? null,
+        updated: extra.updated === true,
+        updated_at: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("devotion_video_sync_log_write_failed", JSON.stringify({ invocationId, planId, error: String(e) }));
+    }
+  };
+
   for (const plan of plans) {
     const dayIndex = dayDifference(today, String(plan.start_date)) + 1;
-    if (dayIndex < 1) { results.push({ planId: plan.id, status: "before_plan_start" }); continue; }
+    if (dayIndex < 1) {
+      results.push({ planId: plan.id, status: "before_plan_start" });
+      await writeLog(plan.id, null, "before_plan_start");
+      continue;
+    }
 
     const planRules = (plan.rules && typeof plan.rules === "object") ? plan.rules as Record<string, unknown> : {};
     const playlistId = String(planRules.devotionPlaylistId || "").trim() || configuredPlaylistId;
@@ -170,6 +199,7 @@ Deno.serve(async req => {
       const message = String((error as Error)?.message || error);
       console.error("devotion_video_sync_feed_fetch_failed", JSON.stringify({ invocationId, planId: plan.id, feedSource, error: message }));
       results.push({ planId: plan.id, dayIndex, status: "failed", error: message, feedSource });
+      await writeLog(plan.id, dayIndex, "failed", { feedSource, message });
       continue;
     }
 
@@ -178,6 +208,7 @@ Deno.serve(async req => {
       // 也不要把不是今天的影片誤植到今天的靈修內容。
       console.info("devotion_video_sync_no_new_video_today", JSON.stringify({ invocationId, planId: plan.id, today, feedSource }));
       results.push({ planId: plan.id, dayIndex, status: "no_new_video_today", feedSource });
+      await writeLog(plan.id, dayIndex, "no_new_video_today", { feedSource });
       continue;
     }
 
@@ -189,13 +220,14 @@ Deno.serve(async req => {
     if (syncError) {
       console.error("devotion_video_sync_rpc_failed", JSON.stringify({ invocationId, planId: plan.id, dayIndex, error: syncError.message }));
       results.push({ planId: plan.id, dayIndex, status: "failed", error: syncError.message });
+      await writeLog(plan.id, dayIndex, "failed", { feedSource, message: syncError.message, videoId: picked.videoId, videoTitle: picked.title });
       continue;
     }
-    if (syncResult?.updated) updated += 1;
-    results.push({
-      planId: plan.id, dayIndex, feedSource, videoId: picked.videoId,
-      status: syncResult?.updated ? "updated" : "already_set_or_missing_day"
-    });
+    const didUpdate = syncResult?.updated === true;
+    if (didUpdate) updated += 1;
+    const outcome = didUpdate ? "updated" : "already_set_or_missing_day";
+    results.push({ planId: plan.id, dayIndex, feedSource, videoId: picked.videoId, status: outcome });
+    await writeLog(plan.id, dayIndex, outcome, { feedSource, videoId: picked.videoId, videoTitle: picked.title, updated: didUpdate });
   }
 
   console.info("devotion_video_sync_finished", JSON.stringify({ invocationId, today, updated, results }));

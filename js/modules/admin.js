@@ -80,12 +80,30 @@ function updateDevotionMasterFeatureControl(enabled, options = {}) {
     : "已關閉：「個人」分頁不會出現「功能設定」；所有會友已經自己開啟的個人偏好也會一併清空。";
 }
 
+// 政策審核期間的「完全隱藏」開關（app_feature_settings.devotion_group_hidden）。
+// 開啟＝每日靈修 + 小組聚會對所有人隱藏（含系統管理員本人）。這是唯一凌駕角色
+// 判斷的旗標；平常維持關閉。
+function updateDevotionHiddenControl(enabled, options = {}) {
+  const toggle = document.getElementById("admin-devotion-hidden-toggle");
+  const status = document.getElementById("admin-devotion-hidden-status");
+  if (!toggle || !status) return;
+  toggle.setAttribute("aria-checked", enabled ? "true" : "false");
+  toggle.setAttribute("aria-label", enabled ? "目前完全隱藏中" : "目前未隱藏");
+  toggle.disabled = options.disabled === true;
+  status.textContent = options.error
+    ? "讀取設定失敗。"
+    : (enabled
+      ? "鎖定中：每日靈修與小組聚會對所有人隱藏，包含管理員本人。政策通過後關閉即恢復。"
+      : "未鎖定：功能依上方總開關與各會友個人偏好正常運作。");
+}
+
 // 「每日靈修」計劃管理分頁：admin / pastor 一律看得到（功能對會友暫不開放時
 // 也要能先建內容）。參數保留以相容既有呼叫，但不再拿來 gate。
 function applyAdminDevotionVisibility(_enabled) {
   const roleCode = state.currentUser && typeof getUserRoleCode === "function"
     ? getUserRoleCode(state.currentUser) : null;
-  const canSee = ["admin", "pastor"].includes(roleCode);
+  // 政策審核期間 devotion_group_hidden = TRUE → 連 admin/pastor 也隱藏。
+  const canSee = ["admin", "pastor"].includes(roleCode) && window.devotionGroupHidden !== true;
   const panel = document.getElementById("admin-section-devotions");
   if (!canSee && activeAdminSection === "devotions") setAdminSection("join-status");
   if (!canSee && panel) panel.classList.add("hidden");
@@ -96,7 +114,7 @@ function applyAdminDevotionVisibility(_enabled) {
 function applyAdminGroupMeetingVisibility(_enabled) {
   const roleCode = state.currentUser && typeof getUserRoleCode === "function"
     ? getUserRoleCode(state.currentUser) : null;
-  const canSee = ["admin", "pastor"].includes(roleCode);
+  const canSee = ["admin", "pastor"].includes(roleCode) && window.devotionGroupHidden !== true;
   const panel = document.getElementById("admin-section-group-meeting");
   if (!canSee && activeAdminSection === "group-meeting") setAdminSection("join-status");
   if (!canSee && panel) panel.classList.add("hidden");
@@ -131,10 +149,18 @@ export async function renderAdminFeatureSettings() {
   const isAdmin = state.currentUser && getUserRoleCode(state.currentUser) === "admin";
   card.classList.toggle("hidden", !isAdmin);
 
-  // 「計劃管理」分頁的每日靈修/小組聚會子分頁看不看得到純粹依角色，跟功能設定
-  // 總開關無關，不用等旗標抓回來才判斷。
+  // 「計劃管理」分頁的每日靈修/小組聚會子分頁看不看得到依角色 + 政策審核「完全
+  // 隱藏」旗標。先套一次（依角色），旗標抓回來後再套一次。
   applyAdminDevotionVisibility();
   applyAdminGroupMeetingVisibility();
+  if (db.getFeatureSetting) {
+    db.getFeatureSetting("devotion_group_hidden", false).then((r) => {
+      window.devotionGroupHidden = !!(r && r.enabled === true);
+      applyAdminDevotionVisibility();
+      applyAdminGroupMeetingVisibility();
+      updateDevotionHiddenControl(window.devotionGroupHidden, { error: !!(r && r.error) });
+    }).catch(() => {});
+  }
 
   const masterToggle = document.getElementById("admin-devotion-master-toggle");
   const masterFeedback = document.getElementById("admin-devotion-master-feedback");
@@ -236,6 +262,38 @@ export async function renderAdminFeatureSettings() {
         showToast(nextEnabled
           ? "功能設定已開啟。「個人」分頁會多出「功能設定」，會友可以自己選擇要不要啟用。"
           : `功能設定已關閉。${Number.isFinite(resetCount) && resetCount > 0 ? `已一併清空 ${resetCount} 位會友自己開啟過的個人偏好。` : ""}`);
+      }
+    });
+  }
+
+  const hiddenToggle = document.getElementById("admin-devotion-hidden-toggle");
+  const hiddenFeedback = document.getElementById("admin-devotion-hidden-feedback");
+  if (hiddenToggle && !hiddenToggle.dataset.featureSettingBound) {
+    hiddenToggle.dataset.featureSettingBound = "true";
+    hiddenToggle.addEventListener("click", async () => {
+      const currentEnabled = hiddenToggle.getAttribute("aria-checked") === "true";
+      const nextEnabled = !currentEnabled;
+      if (nextEnabled && typeof window.confirm === "function"
+        && !window.confirm("開啟後，每日靈修與小組聚會會對「所有人」隱藏，包含你自己。確定要現在鎖定嗎？")) return;
+      updateDevotionHiddenControl(currentEnabled, { disabled: true });
+      hiddenFeedback?.classList.add("hidden");
+      const saveResult = await db.updateFeatureSetting("devotion_group_hidden", nextEnabled);
+      if (saveResult.error) {
+        updateDevotionHiddenControl(currentEnabled);
+        if (hiddenFeedback) {
+          hiddenFeedback.textContent = "更新設定失敗：無法將設定儲存至伺服器。";
+          hiddenFeedback.classList.remove("hidden");
+        }
+        return;
+      }
+      window.devotionGroupHidden = nextEnabled;
+      updateDevotionHiddenControl(nextEnabled);
+      applyAdminDevotionVisibility();
+      applyAdminGroupMeetingVisibility();
+      if (typeof showToast === "function") {
+        showToast(nextEnabled
+          ? "已鎖定：每日靈修與小組聚會現在對所有人（含你）隱藏。"
+          : "已解除鎖定：功能恢復，依上方總開關與各會友個人偏好運作。");
       }
     });
   }
@@ -2847,6 +2905,8 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
         </span>
       </div>
 
+      <p class="admin-devotion__sync-status" id="admin-devotion-sync-status">今天自動抓取：查詢中…</p>
+
       <p class="admin-feature-setting-feedback hidden" id="admin-devotion-feedback" role="status"></p>
 
       <details class="admin-devotion__import">
@@ -2878,6 +2938,34 @@ async function renderAdminDevotionPlan(root, forceRefresh = false) {
       showToast('預覽功能載入中，請切到「計畫」分頁再試一次。');
     }
   });
+
+  // 每早自動抓取影片（sync-devotion-video）的今日狀態（migration 0161）
+  (async () => {
+    const el = root.querySelector('#admin-devotion-sync-status');
+    if (!el) return;
+    let r;
+    try { r = await db.getDevotionVideoSyncStatus(planId); } catch (_) { r = null; }
+    if (!r || !r.success) { el.textContent = '今天自動抓取：狀態查不到（排程 / 後端可能尚未部署）。'; el.dataset.tone = 'muted'; return; }
+    const d = r.data || {};
+    const map = {
+      updated: ['ok', `✓ 今天（${d.today || ''}）已自動填入影片${d.todayVideoTitle ? '：' + d.todayVideoTitle : ''}`],
+      already_set_or_missing_day: ['muted', '今天已有影片，或今天不在計畫日期範圍內。'],
+      no_new_video_today: ['warn', '今天還沒有可抓的影片（可能上片延後），排程明早會再試，也可以在下方逐日手動補。'],
+      failed: ['bad', `✗ 今天自動抓取失敗：${d.todayMessage || '原因不明，請看 Edge Function log'}`],
+      before_plan_start: ['muted', '計畫還沒開始。']
+    };
+    if (d.hasToday && map[d.todayStatus]) {
+      const [tone, text] = map[d.todayStatus];
+      el.textContent = '今天自動抓取：' + text;
+      el.dataset.tone = tone;
+    } else if (d.latestDate) {
+      el.textContent = `今天還沒有自動抓取紀錄。最近一次：${d.latestDate}（${d.latestStatus || '—'}）。`;
+      el.dataset.tone = 'muted';
+    } else {
+      el.textContent = '尚無自動抓取紀錄——排程可能還沒部署，或今天還沒執行（每早約 07:10）。';
+      el.dataset.tone = 'muted';
+    }
+  })();
 
   const feedback = root.querySelector('#admin-devotion-feedback');
   const showFeedback = (msg, isError = true) => {

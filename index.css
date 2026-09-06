@@ -15862,6 +15862,26 @@ textarea::placeholder {
 .admin-devotion__future { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); }
 .admin-devotion__import summary { cursor: pointer; font-size: 0.9375rem; font-weight: var(--type-weight-strong, 500); }
 .admin-devotion__hint { font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; margin: 0.4rem 0; }
+.admin-devotion__sync-status {
+  font-size: 0.875rem; line-height: 1.5; margin: 0.2rem 0 0.4rem;
+  padding: 0.4rem 0.65rem; border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border-card); background: var(--bg-input); color: var(--text-secondary);
+}
+.admin-devotion__sync-status[data-tone="ok"] {
+  color: var(--color-success-foreground, var(--color-success));
+  border-color: color-mix(in srgb, var(--color-success) 35%, var(--border-card));
+  background: color-mix(in srgb, var(--color-success) 10%, var(--bg-card));
+}
+.admin-devotion__sync-status[data-tone="warn"] {
+  color: var(--color-warning-foreground, var(--color-warning));
+  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--border-card));
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--bg-card));
+}
+.admin-devotion__sync-status[data-tone="bad"] {
+  color: var(--color-danger-foreground, var(--color-danger));
+  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--border-card));
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--bg-card));
+}
 .admin-devotion__list-wrap { overflow-x: auto; }
 .admin-devotion__table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
 .admin-devotion__table th, .admin-devotion__table td {

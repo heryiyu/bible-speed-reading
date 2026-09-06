@@ -147,6 +147,13 @@ runs the update `WHERE video_url IS NULL`). It also refuses to backfill: if
 there is no matching video for today, the row is left alone rather than
 attaching some other video to today's date.
 
+Every run also upserts one status row per plan per day into
+`devotion_video_sync_log` (migration `0161`) — `updated` / `no_new_video_today`
+/ `already_set_or_missing_day` / `failed` (+ message). The admin "每日靈修"
+page shows today's row at the top ("今天自動抓取：…") via the
+`get_devotion_video_sync_status` RPC, so nobody has to read Edge Function
+logs to know whether it worked.
+
 Required Edge Function secrets:
 
 ```bash

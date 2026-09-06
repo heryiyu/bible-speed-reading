@@ -54,7 +54,8 @@ describe("home dashboard: independent daily-devotion card", () => {
   it("computes devotion/group-meeting visibility inline (role + 0156 flags), not via lazy-loaded plan.js", () => {
     const idx = home.indexOf("function homeCanSeeDevotionGroupFeature(");
     expect(idx).toBeGreaterThan(-1);
-    const body = home.slice(idx, idx + 500);
+    const body = home.slice(idx, idx + 700);
+    expect(body).toContain("window.devotionGroupHidden === true) return false"); // 政策審核完全隱藏優先
     expect(body).toContain('role === "admin" || role === "pastor"');
     expect(body).toContain("window.devotionGroupFeaturesMasterEnabled !== true");
     expect(body).toContain("window.dailyDevotionFeatureEnabled === true");

@@ -187,6 +187,7 @@ const DEVOTION_RPC_FUNCTIONS = new Set([
   "set_devotional_plan_future_open",
   "set_devotional_plan_playlist_id",
   "set_all_devotion_days_published",
+  "get_devotion_video_sync_status",
   "list_devotion_progress",
   "upsert_devotion_progress"
 ]);

@@ -5427,6 +5427,9 @@ const db = {
       p_published: published !== false
     });
   },
+  async getDevotionVideoSyncStatus(globalPlanId) {
+    return this._callDevotionRpc("get_devotion_video_sync_status", { p_global_plan_id: globalPlanId });
+  },
   // 會友端：每日靈修的個人打勾 + 思想經文心得（migration 0158，一律 RPC）。
   async listDevotionProgress(globalPlanId) {
     return this._callDevotionRpc("list_devotion_progress", { p_global_plan_id: globalPlanId });
@@ -5595,7 +5598,7 @@ const db = {
   },
 
   async getFeatureSetting(key, fallback = false) {
-    const allowedKeys = new Set(["pastoral_sharing_wall", "daily_quiz", "speed_reading_exam", "daily_devotion", "group_meeting_plan", "devotion_group_features_master"]);
+    const allowedKeys = new Set(["pastoral_sharing_wall", "daily_quiz", "speed_reading_exam", "daily_devotion", "group_meeting_plan", "devotion_group_features_master", "devotion_group_hidden"]);
     if (!allowedKeys.has(key)) {
       return { enabled: Boolean(fallback), error: new Error("unknown_feature_setting") };
     }
@@ -5622,7 +5625,7 @@ const db = {
   },
 
   async updateFeatureSetting(key, enabled) {
-    const allowedKeys = new Set(["pastoral_sharing_wall", "daily_quiz", "speed_reading_exam", "daily_devotion", "group_meeting_plan"]);
+    const allowedKeys = new Set(["pastoral_sharing_wall", "daily_quiz", "speed_reading_exam", "daily_devotion", "group_meeting_plan", "devotion_group_hidden"]);
     if (!allowedKeys.has(key)) return { error: new Error("unknown_feature_setting") };
     if (!state.currentUser || getUserRoleCode(state.currentUser) !== "admin") {
       return { error: new Error("admin_required") };

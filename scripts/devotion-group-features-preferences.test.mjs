@@ -120,10 +120,12 @@ describe("js/modules/plan.js: visibility now depends on master gate + the curren
     expect(body).toContain("window.groupMeetingPlanFeatureEnabled = data.groupMeetingPlan === true");
   });
 
-  it("isDevotionalPlanVisibleToUser: admin/pastor always see it; everyone else needs the master gate AND their own preference", () => {
+  it("isDevotionalPlanVisibleToUser: hard-hidden > admin/pastor always > master gate AND own preference", () => {
     const idx = plan.indexOf("function isDevotionalPlanVisibleToUser(plan)");
     expect(idx).toBeGreaterThan(-1);
-    const body = plan.slice(idx, idx + 500);
+    const body = plan.slice(idx, idx + 700);
+    // 政策審核期間的完全隱藏，優先於角色判斷
+    expect(body).toContain("window.devotionGroupHidden === true) return false");
     expect(body).toContain('role === "admin" || role === "pastor"');
     expect(body).toContain("window.devotionGroupFeaturesMasterEnabled !== true) return false");
     expect(body).toContain("return window.dailyDevotionFeatureEnabled === true");
@@ -132,24 +134,34 @@ describe("js/modules/plan.js: visibility now depends on master gate + the curren
   it("isGroupMeetingPlanVisibleToUser follows the same rule for group_meeting_plan", () => {
     const idx = plan.indexOf("function isGroupMeetingPlanVisibleToUser(plan)");
     expect(idx).toBeGreaterThan(-1);
-    const body = plan.slice(idx, idx + 500);
+    const body = plan.slice(idx, idx + 700);
+    expect(body).toContain("window.devotionGroupHidden === true) return false");
     expect(body).toContain('role === "admin" || role === "pastor"');
     expect(body).toContain("window.devotionGroupFeaturesMasterEnabled !== true) return false");
     expect(body).toContain("return window.groupMeetingPlanFeatureEnabled === true");
   });
 
-  it("dev-mode badges now key off the master gate, not the old per-feature global flags", () => {
+  it("dev-mode badges key off the master gate and are suppressed while hard-hidden", () => {
     const devoIdx = plan.indexOf("function isDevotionalPlanDevMode(plan)");
     expect(devoIdx).toBeGreaterThan(-1);
-    const devoBody = plan.slice(devoIdx, devoIdx + 200);
+    const devoBody = plan.slice(devoIdx, devoIdx + 320);
     expect(devoBody).toContain('(plan.planKind || plan.plan_kind) === "devotional"');
+    expect(devoBody).toContain("window.devotionGroupHidden !== true");
     expect(devoBody).toContain("window.devotionGroupFeaturesMasterEnabled !== true");
 
     const groupIdx = plan.indexOf("function isGroupMeetingPlanDevMode(plan)");
     expect(groupIdx).toBeGreaterThan(-1);
-    const groupBody = plan.slice(groupIdx, groupIdx + 200);
+    const groupBody = plan.slice(groupIdx, groupIdx + 320);
     expect(groupBody).toContain('(plan.planKind || plan.plan_kind) === "group_meeting"');
+    expect(groupBody).toContain("window.devotionGroupHidden !== true");
     expect(groupBody).toContain("window.devotionGroupFeaturesMasterEnabled !== true");
+  });
+
+  it("migration 0162: devotion_group_hidden feature flag exists and is set TRUE now", () => {
+    const m = read("supabase/migrations/0162_devotion_group_hidden.sql");
+    expect(m).toContain("'devotion_group_hidden'");
+    expect(m).toContain("SET enabled = TRUE");
+    expect(m).toContain("SET enabled = FALSE WHERE key = 'devotion_group_hidden'"); // 恢復用的指令有寫在註解
   });
 });
 

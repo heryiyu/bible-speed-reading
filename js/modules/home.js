@@ -2026,13 +2026,18 @@ let devotionHomeCardRequestId = 0;
 // （使用者回報：每次重新登入靈修 / 小組聚會卡都不出現）。這裡自己確保載入一次；
 // plan.js 之後真的載入時，ensureDevotionGroupPreferencesLoaded 會沿用同一份值。
 async function ensureDevotionGroupFlagsForHome() {
-  if (typeof window.devotionGroupFeaturesMasterEnabled === "boolean") return;
+  if (typeof window.devotionGroupFeaturesMasterEnabled === "boolean"
+      && typeof window.devotionGroupHidden === "boolean") return;
   if (typeof window.ensureDevotionGroupPreferencesLoaded === "function") {
     try { await window.ensureDevotionGroupPreferencesLoaded(); return; } catch (_) { /* 往下自己抓 */ }
   }
   if (typeof db === "undefined" || typeof db.getMyDevotionGroupPreferences !== "function") return;
   try {
-    const r = await db.getMyDevotionGroupPreferences();
+    const [r, hiddenRes] = await Promise.all([
+      db.getMyDevotionGroupPreferences(),
+      db.getFeatureSetting ? db.getFeatureSetting("devotion_group_hidden", false) : Promise.resolve({ enabled: false })
+    ]);
+    window.devotionGroupHidden = !!(hiddenRes && hiddenRes.enabled === true);
     if (r && r.success && r.data) {
       window.devotionGroupFeaturesMasterEnabled = r.data.masterEnabled === true;
       window.dailyDevotionFeatureEnabled = r.data.dailyDevotion === true;
@@ -2047,6 +2052,7 @@ async function ensureDevotionGroupFlagsForHome() {
 // "function"` 為 false → 卡片永遠找不到計畫。邏輯本身很小且穩定（角色 + 兩個
 // 旗標，跟 migration 0156 一致），內聯即可。
 function homeCanSeeDevotionGroupFeature(featureKey) {
+  if (window.devotionGroupHidden === true) return false; // 政策審核期間：對所有人隱藏（含 admin/pastor）
   const role = typeof getUserRoleCode === "function" ? getUserRoleCode(state.currentUser) : null;
   if (role === "admin" || role === "pastor") return true;
   if (window.devotionGroupFeaturesMasterEnabled !== true) return false;

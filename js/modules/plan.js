@@ -3251,8 +3251,12 @@ async function ensureDevotionGroupPreferencesLoaded() {
     };
   }
   if (!devotionGroupPreferencesRequest) {
-    devotionGroupPreferencesRequest = db.getMyDevotionGroupPreferences().then(res => {
+    devotionGroupPreferencesRequest = Promise.all([
+      db.getMyDevotionGroupPreferences(),
+      db.getFeatureSetting ? db.getFeatureSetting("devotion_group_hidden", false) : Promise.resolve({ enabled: false })
+    ]).then(([res, hiddenRes]) => {
       const data = (res && res.success && res.data) || {};
+      window.devotionGroupHidden = !!(hiddenRes && hiddenRes.enabled === true);
       window.devotionGroupFeaturesMasterEnabled = data.masterEnabled === true;
       window.dailyDevotionFeatureEnabled = data.dailyDevotion === true;
       window.groupMeetingPlanFeatureEnabled = data.groupMeetingPlan === true;
@@ -3279,6 +3283,7 @@ window.isDailyDevotionFeatureEnabled = isDailyDevotionFeatureEnabled;
 //    是每個人各自的偏好，不是全教會共用一個值。
 function isDevotionalPlanVisibleToUser(plan) {
   if (!plan || (plan.planKind || plan.plan_kind) !== "devotional") return true; // 非靈修計畫不受此限
+  if (window.devotionGroupHidden === true) return false; // 政策審核期間：對所有人隱藏（含 admin/pastor）
   const role = typeof getUserRoleCode === "function" ? getUserRoleCode(state.currentUser) : null;
   if (role === "admin" || role === "pastor") return true;
   if (window.devotionGroupFeaturesMasterEnabled !== true) return false;
@@ -3288,6 +3293,7 @@ window.isDevotionalPlanVisibleToUser = isDevotionalPlanVisibleToUser;
 // 總開關還沒開＝功能整個還沒對會友開放（只有管理員/牧者看得到，可以先建內容）。
 function isDevotionalPlanDevMode(plan) {
   return (plan && (plan.planKind || plan.plan_kind) === "devotional")
+    && window.devotionGroupHidden !== true
     && window.devotionGroupFeaturesMasterEnabled !== true;
 }
 window.isDevotionalPlanDevMode = isDevotionalPlanDevMode;
@@ -3320,6 +3326,7 @@ async function isGroupMeetingFeatureEnabled() {
 window.isGroupMeetingFeatureEnabled = isGroupMeetingFeatureEnabled;
 function isGroupMeetingPlanVisibleToUser(plan) {
   if (!plan || (plan.planKind || plan.plan_kind) !== "group_meeting") return true;
+  if (window.devotionGroupHidden === true) return false; // 政策審核期間：對所有人隱藏（含 admin/pastor）
   const role = typeof getUserRoleCode === "function" ? getUserRoleCode(state.currentUser) : null;
   if (role === "admin" || role === "pastor") return true;
   if (window.devotionGroupFeaturesMasterEnabled !== true) return false;
@@ -3328,6 +3335,7 @@ function isGroupMeetingPlanVisibleToUser(plan) {
 window.isGroupMeetingPlanVisibleToUser = isGroupMeetingPlanVisibleToUser;
 function isGroupMeetingPlanDevMode(plan) {
   return (plan && (plan.planKind || plan.plan_kind) === "group_meeting")
+    && window.devotionGroupHidden !== true
     && window.devotionGroupFeaturesMasterEnabled !== true;
 }
 window.isGroupMeetingPlanDevMode = isGroupMeetingPlanDevMode;
