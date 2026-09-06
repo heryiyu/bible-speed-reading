@@ -728,8 +728,11 @@ const db = {
         const headersAt = performance.now();
         const payload = await response.json().catch(() => ({}));
         const completedAt = performance.now();
+        const metricLabel = request.action === "batch"
+          ? `batch:${Array.isArray(request.queries) ? request.queries.length : "?"}`
+          : `${request.action || "select"}:${request.table || request.function || "unknown"}`;
         networkMetrics.record({
-          name: `${request.action || "select"}:${request.table || request.function || "unknown"}`,
+          name: metricLabel,
           status: response.status,
           ttfbMs: headersAt - startedAt,
           totalMs: completedAt - startedAt,

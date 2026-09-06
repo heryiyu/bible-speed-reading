@@ -84,6 +84,11 @@ describe("db.batchSelect (js/db.js)", () => {
   it("batch requests are still retried on a transient 503 (read-only, idempotent)", () => {
     expect(db).toContain('request.action === "select" || request.action === "batch"');
   });
+
+  it("records a batch POST as `batch:<n>` in the network metrics, not `batch:unknown`", () => {
+    expect(db).toContain('request.action === "batch"');
+    expect(db).toContain('`batch:${Array.isArray(request.queries) ? request.queries.length : "?"}`');
+  });
 });
 
 describe("db.batchSelect — switched call sites (js/db.js)", () => {
