@@ -3,6 +3,11 @@ import { readFileSync } from "node:fs";
 
 const app = readFileSync("js/app.js", "utf8");
 const home = readFileSync("js/modules/home.js", "utf8");
+const db = readFileSync("js/db.js", "utf8");
+const authJs = readFileSync("js/auth.js", "utf8");
+const indexHtml = readFileSync("index.html", "utf8");
+const examHtml = readFileSync("exam.html", "utf8");
+const gradeHtml = readFileSync("grade.html", "utf8");
 
 describe("startup performance contract", () => {
   it("keeps React issue-report UI out of the initial app bundle", () => {
@@ -72,5 +77,44 @@ describe("startup performance contract", () => {
   it("defers secondary dashboard widgets after the core dashboard card renders", () => {
     expect(home).toContain("scheduleDashboardSecondaryWork");
     expect(home).not.toContain("calculateAndRenderPersonalRankings();\n  renderPastoralZoneRankingList();\n  loadTodayDevotional();");
+  });
+});
+
+describe("@supabase/supabase-js is off the critical path (A1)", () => {
+  it("no HTML entry point loads the supabase CDN bundle with a static <script>", () => {
+    for (const html of [indexHtml, examHtml, gradeHtml]) {
+      expect(html).not.toMatch(/<script[^>]+cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/);
+    }
+  });
+
+  it("db.js loads the CDN bundle lazily via ensureSupabaseLib, pinned to an exact version", () => {
+    expect(db).toContain("ensureSupabaseLib()");
+    expect(db).toMatch(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@\d+\.\d+\.\d+/);
+    expect(db).not.toMatch(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2["']/);
+  });
+
+  it("createSupabaseClient awaits the lazy loader before touching the global", () => {
+    const fn = db.slice(db.indexOf("async createSupabaseClient("), db.indexOf("async createSupabaseClient(") + 900);
+    expect(fn).toContain("await this.ensureSupabaseLib()");
+    expect(fn).toContain("supabase.createClient(");
+  });
+
+  it("db.init only eager-builds the real client on the localhost Google path", () => {
+    const initSlice = db.slice(db.indexOf("state.supabaseConfig = { url: sbUrl"), db.indexOf("state.supabaseConfig = { url: sbUrl") + 600);
+    expect(initSlice).toContain("if (allowGoogleLogin) {");
+    expect(initSlice).toContain("state.supabase = await this.createSupabaseClient();");
+    expect(initSlice).toContain("state.supabase = this.createNlcDataClient();");
+  });
+
+  it("the Supabase Auth session fallback is guarded so the NLC shim never hits .auth", () => {
+    const fallback = db.slice(db.indexOf("// Fallback: Standard Supabase email/Google session"), db.indexOf("// Fallback: Standard Supabase email/Google session") + 500);
+    expect(fallback).toContain("if (allowGoogleLogin) {");
+    expect(fallback).toContain("state.supabase.auth.getSession()");
+  });
+
+  it("auth.resetLocalLogin resets to the shim instead of building a real client", () => {
+    const reset = authJs.slice(authJs.indexOf("async resetLocalLogin()"), authJs.indexOf("async resetLocalLogin()") + 900);
+    expect(reset).toContain("db.createNlcDataClient()");
+    expect(reset).not.toContain("db.createSupabaseClient()");
   });
 });

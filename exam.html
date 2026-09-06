@@ -22,15 +22,15 @@
     #exam-boot { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh;
       color: var(--text-secondary, #9aa0a6); font-family: "Noto Sans TC", system-ui, sans-serif; font-size: 0.95rem; }
   </style>
-  <!-- 只載入測驗需要的核心：Supabase client + 專案 CSS。不載 app 的 Tailwind / Chart / html2canvas。 -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+  <!-- 只載入測驗需要的核心：專案 CSS。不載 app 的 Tailwind / Chart / html2canvas。
+       Supabase JS client 由 js/db.js 需要時才動態載入（正式站的 NLC 會友路徑用不到）。 -->
   <link rel="stylesheet" href="index.css?v=20260904_team_carryover_skip_conflicts">
 </head>
 
 <body class="light-theme">
   <div id="exam-boot">載入測驗中…</div>
   <div id="exam-root"></div>
-  <script type="module" src="js/exam-entry.js?v=20260906_exam_grading_seq"></script>
+  <script type="module" src="js/exam-entry.js?v=20260906_lazy_supabase_lib"></script>
 </body>
 
 </html>

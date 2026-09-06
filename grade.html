@@ -16,8 +16,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet">
-  <!-- 只載入批改頁需要的核心：Supabase client + 專案 CSS。不載 app 的 Tailwind / Chart / html2canvas。 -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+  <!-- 只載入批改頁需要的核心：專案 CSS。不載 app 的 Tailwind / Chart / html2canvas。
+       Supabase JS client 由 js/db.js 需要時才動態載入（正式站的 NLC 會友路徑用不到）。 -->
   <link rel="stylesheet" href="index.css?v=20260906_exam_grading_seq">
   <style>
     /* index.css 的全域 `html, body { height:100%; overflow:hidden }` 是給 SPA
@@ -43,7 +43,7 @@
 <body class="light-theme">
   <div id="grade-boot">載入批改頁中…</div>
   <div id="grade-root"></div>
-  <script type="module" src="js/grade-entry.js?v=20260906_exam_grading_seq"></script>
+  <script type="module" src="js/grade-entry.js?v=20260906_lazy_supabase_lib"></script>
 </body>
 
 </html>

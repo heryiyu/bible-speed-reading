@@ -465,8 +465,11 @@ const auth = {
     localStorage.removeItem("nlc_edge_session_expires_at");
     if (typeof state !== "undefined") {
       state.currentProfileId = null;
-      if (state.supabaseConfig && typeof db !== "undefined" && db.createSupabaseClient) {
-        state.supabase = db.createSupabaseClient();
+      // Reset to the NlcDataClient shim (no network, no lib load). The next login
+      // is always a full redirect flow — db.init() rebuilds the right client
+      // afterwards (real @supabase/supabase-js only on the localhost Google path).
+      if (state.supabaseConfig && typeof db !== "undefined" && db.createNlcDataClient) {
+        state.supabase = db.createNlcDataClient();
       }
     }
     try {
