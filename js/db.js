@@ -751,7 +751,7 @@ const db = {
       }
 
       // ── 503 / Edge Runtime 暫時中斷：指数退避重試（最多 3 次）──
-      const mayRetry = !request.action || request.action === "select";
+      const mayRetry = !request.action || request.action === "select" || request.action === "batch";
       const isServiceDegraded = mayRetry && !tokenRejected && (
         response.status === 503 ||
         payload?.code === "SUPABASE_EDGE_RUNTIME_SERVICE_DEGRADED" ||
@@ -873,6 +873,38 @@ const db = {
       from(table) {
         return new NlcQueryBuilder(table);
       },
+      // Send many read-only .from(...).select() builders as ONE nlc-data POST
+      // (one Logto verification, one round trip). Returns an array of
+      // { data, error } in the SAME order as `builders` — a drop-in replacement
+      // for `await Promise.all([builder1, builder2, ...])`.
+      async batchSelect(builders) {
+        const list = Array.isArray(builders) ? builders : [];
+        const queries = list.map((builder) => {
+          const request = builder && builder.request;
+          if (!request || !request.table) {
+            throw new Error("batchSelect expects NlcQueryBuilder select instances");
+          }
+          if (request.action && request.action !== "select") {
+            throw new Error("batchSelect is read-only");
+          }
+          return request;
+        });
+        if (!queries.length) return [];
+        const { data, error } = await callEdge({ action: "batch", queries });
+        if (error) {
+          // Whole-batch failure (auth / malformed) — surface it on every slot so
+          // each caller's `.error` check fires, exactly like Promise.all rejecting.
+          return queries.map(() => ({ data: null, error }));
+        }
+        const results = Array.isArray(data) ? data : [];
+        return queries.map((_, index) => {
+          const row = results[index] || { error: "batch_result_missing" };
+          if (row.error) {
+            return { data: null, error: { message: row.error, code: row.code || null } };
+          }
+          return { data: row.data, error: null };
+        });
+      },
       rpc(functionName, args = {}) {
         return {
           execute: () => callEdge({ action: "rpc", function: functionName, args }),
@@ -893,6 +925,30 @@ const db = {
         }
       }
     };
+  },
+
+  // Collapse `Promise.all([ builder1, builder2, ... ])` of read-only
+  // `state.supabase.from(t).select(...)` calls into ONE request when the NLC
+  // data-layer shim is active (one Logto verification + one HTTP round trip on
+  // the nlc-data Edge Function). On the real Supabase client (localhost dev) it
+  // transparently falls back to running the builders individually. Returns an
+  // array of `{ data, error }` in the same order as `builders`.
+  async batchSelect(builders) {
+    const list = Array.isArray(builders) ? builders : [];
+    if (!list.length) return [];
+    const client = state.supabase;
+    if (client && typeof client.batchSelect === "function") {
+      return client.batchSelect(list);
+    }
+    // Real Supabase client / demo / anything without the shim: just execute each
+    // builder on its own. Builders are thenable, so awaiting one runs it.
+    return Promise.all(list.map(async (builder) => {
+      try {
+        return await builder;
+      } catch (error) {
+        return { data: null, error };
+      }
+    }));
   },
 
   applyNlcProfile(profile, lockedFields = null) {

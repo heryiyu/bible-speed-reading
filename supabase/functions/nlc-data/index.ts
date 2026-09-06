@@ -572,6 +572,54 @@ async function applyForcedScope(query: any, table: string, action: string, profi
   return { query };
 }
 
+// Run one read-only query spec through the SAME allowlist + forced-scope + option
+// pipeline as the single-query `action:"select"` path near the bottom of
+// Deno.serve. Kept deliberately in sync with that block; if you change one, change
+// both. Returns { data } on success or { error, code? } for an expected failure
+// (forbidden table, PostgREST error). Never throws for expected conditions — a
+// thrown error is caught by the batch loop and reported per-query.
+async function runSelectPipeline(
+  spec: {
+    table?: unknown; select?: unknown; filters?: any[]; or?: unknown;
+    order?: any; range?: any; limit?: unknown; returning?: unknown;
+  },
+  profile: any,
+  supabaseAdmin: any,
+): Promise<{ data?: any; error?: string; code?: string }> {
+  const table = typeof spec.table === "string" ? spec.table : "";
+  if (!table) return { error: "missing_table" };
+
+  const canReportOwnSelect = table === "issue_reports" && (
+    isAdmin(profile) || (
+      Array.isArray(spec.filters) && spec.filters.some((f: any) => f && f.column === "user_id" && f.value === profile.id)
+    )
+  );
+  if (!(READ_TABLES.has(table) || canReportOwnSelect)) return { error: "forbidden" };
+
+  const devotionalTables = new Set(["devotional_notes", "devotional_likes", "devotional_comments"]);
+  if (devotionalTables.has(table) && !(await isFeatureEnabled(supabaseAdmin, "pastoral_sharing_wall"))) {
+    return { data: [] };
+  }
+
+  let query: any = supabaseAdmin.from(table).select(typeof spec.select === "string" ? spec.select : "*");
+  query = applyFilters(query, spec.filters || []);
+  if (spec.or) query = query.or(spec.or);
+  ({ query } = await applyForcedScope(query, table, "select", profile, supabaseAdmin));
+  if (spec.order?.column) query = query.order(spec.order.column, { ascending: spec.order.ascending !== false });
+  if (spec.range && Number.isInteger(spec.range.from) && Number.isInteger(spec.range.to)) {
+    const rangeFrom = Math.max(0, spec.range.from);
+    const rangeTo = Math.min(Math.max(rangeFrom, spec.range.to), rangeFrom + 199);
+    query = query.range(rangeFrom, rangeTo);
+  }
+  if (spec.limit) query = query.limit(Math.min(200, Math.max(1, Number(spec.limit) || 1)));
+  if (spec.returning === "single") query = query.single();
+  else if (spec.returning === "maybeSingle") query = query.maybeSingle();
+
+  const { data, error } = await query;
+  if (error) return { error: error.message, code: error.code };
+  return { data };
+}
+
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("origin") || "*";
   const localCorsHeaders = {
@@ -608,7 +656,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const table = body.table;
     const action = body.action || "select";
-    if (!["save_profile", "rpc", "send_care_reminder", "mark_issue_report_reply_seen", "sync_registration_stats_sheet", "issue_thread_get", "issue_thread_post", "issue_thread_attachment_delete", "devotion_fetch_playlist_videos"].includes(action) && (!table || typeof table !== "string")) {
+    if (!["save_profile", "rpc", "batch", "send_care_reminder", "mark_issue_report_reply_seen", "sync_registration_stats_sheet", "issue_thread_get", "issue_thread_post", "issue_thread_attachment_delete", "devotion_fetch_playlist_videos"].includes(action) && (!table || typeof table !== "string")) {
       return jsonResponse({ error: "missing_table" }, 400);
     }
 
@@ -681,6 +729,34 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await supabaseAdmin.rpc(rpcName, rpcArgs);
       if (error) return jsonResponse({ error: error.message, code: error.code }, 400);
       return jsonResponse({ data });
+    }
+
+    // ── batch: many read-only selects, one Logto verification, one HTTP round
+    //    trip. body.queries = [{ table, select, filters, or, order, range, limit,
+    //    returning }, ...]. Each runs through runSelectPipeline (same allowlist +
+    //    forced scope as the single-query path). Response: { data: [{data}|{error,code}, ...] }
+    //    in request order — one bad query never fails the others. Read-only:
+    //    any non-select spec is rejected in its slot. ──
+    if (action === "batch") {
+      const queries = Array.isArray(body.queries) ? body.queries : null;
+      if (!queries) return jsonResponse({ error: "missing_queries" }, 400);
+      if (queries.length === 0) return jsonResponse({ data: [] });
+      if (queries.length > 25) return jsonResponse({ error: "batch_too_large" }, 400);
+
+      const results: Array<{ data?: any; error?: string; code?: string }> = [];
+      for (const spec of queries) {
+        if (spec && spec.action && spec.action !== "select") {
+          results.push({ error: "batch_read_only" });
+          continue;
+        }
+        try {
+          results.push(await runSelectPipeline(spec || {}, profile, supabaseAdmin));
+        } catch (queryErr) {
+          const message = queryErr instanceof Error ? queryErr.message : String(queryErr);
+          results.push({ error: message });
+        }
+      }
+      return jsonResponse({ data: results });
     }
 
     // ── send_care_reminder: server-side forced sender_id ──

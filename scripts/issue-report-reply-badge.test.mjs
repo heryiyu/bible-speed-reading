@@ -31,7 +31,11 @@ describe("countUnseenReplies (badge count logic)", () => {
 // (scripts/issue-report-submission.test.mjs) — we assert on its source.
 describe("mark_issue_report_reply_seen (nlc-data)", () => {
   it("is reachable without a table param, like the other narrow special actions", () => {
-    expect(edge).toContain('"save_profile", "rpc", "send_care_reminder", "mark_issue_report_reply_seen"');
+    const guard = edge.match(/if \(!\[([^\]]*)\]\.includes\(action\) && \(!table \|\| typeof table !== "string"\)\)/);
+    expect(guard, "missing_table guard").toBeTruthy();
+    for (const action of ['"save_profile"', '"rpc"', '"send_care_reminder"', '"mark_issue_report_reply_seen"']) {
+      expect(guard[1]).toContain(action);
+    }
   });
 
   it("only lets the report's own owner clear their badge, never another user's report", () => {
