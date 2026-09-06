@@ -47,10 +47,47 @@ const PLAN_ROUTE = Object.freeze({
 
 window.currentPlanViewState = window.currentPlanViewState || PLAN_ROUTE.LIST;
 
+// 效能重構 A2：Chart.js（~200KB）以前是 index.html <head> 的 render-blocking
+// <script>，但只有計畫分頁的統計 / 排名子分頁會畫圖。改成第一次要畫圖時才動態
+// 載入 CDN bundle（鎖版），把它移出首屏關鍵路徑。
+let _chartLibPromise = null;
+function ensureChartLib() {
+  if (typeof Chart !== "undefined") return Promise.resolve();
+  if (_chartLibPromise) return _chartLibPromise;
+  _chartLibPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-chartjs-lib="1"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Chart.js 載入失敗")));
+      return;
+    }
+    const el = document.createElement("script");
+    el.src = "https://cdn.jsdelivr.net/npm/chart.js@4.5.1";
+    el.crossOrigin = "anonymous";
+    el.dataset.chartjsLib = "1";
+    el.onload = () => resolve();
+    el.onerror = () => {
+      _chartLibPromise = null;
+      reject(new Error("Chart.js 載入失敗"));
+    };
+    document.head.appendChild(el);
+  });
+  return _chartLibPromise;
+}
+window.ensureChartLib = ensureChartLib;
+
 // 效能重構 B7：同一個 <canvas> 還在就只 chart.update()，不要每次 destroy + new Chart。
 // destroy+new 會丟掉整個圖、重跑動畫、增加 GC，也是「Canvas is already in use」錯誤來源。
 function renderOrUpdateChart(key, canvasEl, config) {
-  if (!canvasEl || typeof Chart === "undefined") return null;
+  if (!canvasEl) return null;
+  // Chart.js 還沒載進來（A2 lazy load）：先觸發載入，好了以後用同樣的參數補畫一次。
+  // 呼叫端都是同步函式、不看回傳值，所以這樣自我修復最省事。
+  if (typeof Chart === "undefined") {
+    ensureChartLib()
+      .then(() => { if (typeof Chart !== "undefined") renderOrUpdateChart(key, canvasEl, config); })
+      .catch(() => {});
+    return null;
+  }
   state.statsCharts = state.statsCharts || {};
   const existing = state.statsCharts[key];
   if (existing && existing.canvas === canvasEl) {
@@ -5799,6 +5836,7 @@ function populateMembersSelector() {
 }
 
 async function renderPlanStatsView() {
+  ensureChartLib().catch(() => {}); // A2：統計分頁一開就開始抓 Chart.js，減少補畫延遲
   if (typeof window.syncActivePlanContext === 'function') window.syncActivePlanContext();
   if (!state.activePlan) return;
 
@@ -6936,6 +6974,7 @@ function bindPastoralRankingToggle(container) {
 }
 
 async function renderPlanRankingView() {
+  ensureChartLib().catch(() => {}); // A2：排名分頁也有成長趨勢圖，提前開始抓 Chart.js
   const rankingResults = await Promise.allSettled([
     Promise.resolve().then(() => renderReadingTeamLeaderboards()),
     Promise.resolve().then(() => renderMyPersonalRankings())
@@ -8224,6 +8263,7 @@ function snapCalendarToMyProgress() {
 
 
 async function updateStatsView(filterPresetKey = null) {
+  ensureChartLib().catch(() => {}); // A2：管理端統計儀表板圖多，提前開始抓 Chart.js
   // If no filter is provided, fallback to the current active plan's global key.
   if (!filterPresetKey && state.activePlan) {
     filterPresetKey = state.activePlan.globalPlanId || state.activePlan.presetKey || state.activePlan.name || state.activePlan.id;

@@ -8,6 +8,7 @@ const authJs = readFileSync("js/auth.js", "utf8");
 const indexHtml = readFileSync("index.html", "utf8");
 const examHtml = readFileSync("exam.html", "utf8");
 const gradeHtml = readFileSync("grade.html", "utf8");
+const planModule = readFileSync("js/modules/plan.js", "utf8");
 
 describe("startup performance contract", () => {
   it("keeps React issue-report UI out of the initial app bundle", () => {
@@ -116,5 +117,30 @@ describe("@supabase/supabase-js is off the critical path (A1)", () => {
     const reset = authJs.slice(authJs.indexOf("async resetLocalLogin()"), authJs.indexOf("async resetLocalLogin()") + 900);
     expect(reset).toContain("db.createNlcDataClient()");
     expect(reset).not.toContain("db.createSupabaseClient()");
+  });
+});
+
+describe("Chart.js is off the critical path (A2)", () => {
+  it("index.html no longer loads Chart.js with a static <script>", () => {
+    expect(indexHtml).not.toMatch(/<script[^>]+cdn\.jsdelivr\.net\/npm\/chart\.js/);
+  });
+
+  it("plan.js lazy-loads Chart.js via ensureChartLib, pinned to an exact version", () => {
+    expect(planModule).toContain("function ensureChartLib()");
+    expect(planModule).toMatch(/cdn\.jsdelivr\.net\/npm\/chart\.js@\d+\.\d+\.\d+/);
+    expect(planModule).not.toMatch(/cdn\.jsdelivr\.net\/npm\/chart\.js["']/);
+  });
+
+  it("renderOrUpdateChart self-heals when Chart is not loaded yet", () => {
+    const fn = planModule.slice(planModule.indexOf("function renderOrUpdateChart("), planModule.indexOf("function renderOrUpdateChart(") + 700);
+    expect(fn).toContain('if (typeof Chart === "undefined") {');
+    expect(fn).toContain("ensureChartLib()");
+    expect(fn).toContain("renderOrUpdateChart(key, canvasEl, config)");
+  });
+
+  it("warms the Chart.js fetch when a chart-bearing sub-view opens", () => {
+    expect(planModule).toMatch(/async function renderPlanStatsView\(\)\s*\{\s*\n\s*ensureChartLib\(\)/);
+    expect(planModule).toMatch(/async function renderPlanRankingView\(\)\s*\{\s*\n\s*ensureChartLib\(\)/);
+    expect(planModule).toMatch(/async function updateStatsView\([^)]*\)\s*\{\s*\n\s*ensureChartLib\(\)/);
   });
 });

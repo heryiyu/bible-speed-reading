@@ -63,8 +63,8 @@
 
   <!-- Supabase JS Client library — loaded lazily by js/db.js (ensureSupabaseLib) only on the
        localhost Google/email dev path. Production (NLC Logto → NlcDataClient shim) never needs it. -->
-  <!-- Chart.js for premium stats dashboard -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
+  <!-- Chart.js — loaded lazily by js/modules/plan.js (ensureChartLib) the first time a
+       stats/ranking chart needs to render. Kept off the first-paint critical path. -->
   <!-- html2canvas for exporting high-quality cards -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
     crossorigin="anonymous"></script>
@@ -2841,7 +2841,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260906_lazy_supabase_lib"></script>
+  <script type="module" src="js/app.js?v=20260906_lazy_chartjs"></script>
 </body>
 
 </html>
