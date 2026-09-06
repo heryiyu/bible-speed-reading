@@ -14,7 +14,7 @@ import './design/design-system-helpers.js?v=20260901_round_schedule_restore';
 import './design/icon-registry.js?v=20260826_quiz_remove_duplicate_scope_filter';
 import './design/icons.js';
 import './state.js?v=20260901_highlights_notes_review';
-import './auth.js?v=20260906_a1_revert';
+import './auth.js?v=20260906_session_expired_event';
 import './auth-launch.mjs';
 import './db.js?v=20260906_plan_audience_region_gate';
 import './utils.js?v=20260905_r1final_badge_puzzle';

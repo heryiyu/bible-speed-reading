@@ -313,6 +313,18 @@ const auth = {
     if (typeof showToast === "function") showToast(message);
     else alert(message);
   },
+
+  // Fired when getValidAccessToken() has given up (tokens already cleared, app
+  // auth state reset). Lets the app surface the login card right away instead of
+  // waiting for the next foreground. Best-effort — never let this throw.
+  _signalSessionExpired() {
+    try {
+      if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+        window.dispatchEvent(new CustomEvent("auth:session-expired"));
+      }
+    } catch (_) { /* noop */ }
+  },
+
   markLoginFailure() {
     window.__nlcLoginRepairRequired = true;
     try {
@@ -846,12 +858,16 @@ const auth = {
         }
         this._clearStoredTokens();
         this._resetAppAuthState();
+        this._signalSessionExpired();
         throw new Error("登入狀態已失效，請重新登入。");
       }
     }
 
     const nextToken = localStorage.getItem(this.keys.accessToken);
-    if (!nextToken) throw new Error("登入狀態已失效，請重新登入。");
+    if (!nextToken) {
+      this._signalSessionExpired();
+      throw new Error("登入狀態已失效，請重新登入。");
+    }
     if (this.config.platformResource && nextToken.split(".").length !== 3) {
       console.warn(
         "Logto access token is not a JWT. Platform API requires resource=",

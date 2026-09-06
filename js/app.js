@@ -11,7 +11,7 @@ import './design/design-system-helpers.js?v=20260901_round_schedule_restore';
 import './design/icon-registry.js?v=20260826_quiz_remove_duplicate_scope_filter';
 import './design/icons.js';
 import './state.js?v=20260901_r1final_monthly_split';
-import './auth.js?v=20260906_a1_revert';
+import './auth.js?v=20260906_session_expired_event';
 import './auth-launch.mjs';
 import './db.js?v=20260906_plan_audience_region_gate';
 import './utils.js?v=20260906_plan_gate_login_only';
@@ -39,7 +39,7 @@ let buildVersion = "__BUILD_VERSION__";
 if (!/^\d{14}$/.test(buildVersion)) {
   buildVersion = "dev_" + Date.now();
 }
-buildVersion += "_clean_demo_mode_v20_quiz_manual_retry_v1_member_hub_name_sync_v1_quiz_load_error_v1_group_filter_reset_fix_v1_quiz_publish_flow_redesign_v1_row_cap_pagination_fix_v1_quiz_entry_reading_gate_v1_quiz_feature_reopen_restore_v1_admin_mobile_layout_v1_reader_audio_resume_fix_v1_joined_plan_collapse_v1_admin_tabs_lead_v1_0830_quiz_pledge_banner_v1_big_exam_p1_v1_fullscreen_resilience_v1_exam_p2_admin_v1_result_review_v1_feature_toggle_move_v1_paper_picker_v1_section_config_v1_exam_p3_stats_notify_v1_exam_announcement_flag_v1_exam_p4_resilience_v1_exam_no_shortanswer_hide_v1_exam_mode_switch_v1_noflash_sweep_v1_exam_p4_two_track_v1_notif_admin_anon_v1_exam_autoscore_toggle_v1_answer_only_editor_v1_exam_publish_results_lock_v1_push_guards_v1_result_pending_label_v1_staff_preview_label_v1_exam_close_ux_o1o2o3_v1_finalize_expired_v1_stats_team_size_v1_stats_scope_teamrank_v1_exam_practice_review_autoclose_v1_exam_multi_paper_profile_v1_exam_practice_grace_day_v1_exam_batch_grading_v1_region_cohort_v1_exam_empty_shortanswer_zero_v1_exam_team_fixed_divisor_v1_exam_full_result_paper_v1_exam_red_correction_overlay_v1_announcement_live_only_v1_result_numeric_answers_v1_match_review_draw_v1_choice_mark_v1_practice_to_review_rename_v1_pledge_copy_v1_registration_current_plan_default_v1_corrected_label_wording_v2_exam_token_resilience_v1_grading_full_sheet_v1_answers_export_v1_result_row_declutter_v1_perf_foreground_coordinator_a1_v1_perf_token_no_wipe_a2_v1_perf_badge_throttle_a5_v1_perf_chart_update_b7_v1_cohort_stage_kind_v1_ranking_baseline_schedule_v1_progress_baseline_round1_v1_level_teardown_v1_round_schedule_restore_v1_missed_chapters_reminder_v1_care_reminder_edit_merge_v1_reader_position_fromplan_fix_v1_reading_log_pagination_fix_v1_db_pagination_audit_v1_highlights_notes_review_v1_reader_next_chapter_jump_fix_v1_ten_verse_chapter_load_fix_v1_member_hub_org_dedupe_v1_profile_subpage_overlay_fix_v1_cohort_materialized_schedule_v1_cohort_plain_plan_award_only_v1_admin_section_nav_step1_v1_emergency_announcement_editor_v1_admin_section_open_fix_v1_admin_section_unified_v2_admin_section_mobile_drilldown_v1_r1final_monthly_split_v1_r1final_discover_lock_v1_r1final_award_aggregate_v1_exam_grading_fixes_v1_score_input_validation_v1_login_continuation_return_fix_v1_profile_subpage_close_selector_fix_v1_r1final_badge_puzzle_v1_devotion_editor_modal_video_v1_devotion_progress_notes_v1_devotion_ui_polish_v1_devotion_publish_all_v1_home_feature_cards_v1_home_cards_login_race_v1_myplans_devotion_order_v1_home_cards_no_planjs_dep_v1_gm_topic_passage_inline_v1_match_lines_on_top_v1_match_align_button_v1_devotion_share_copy_v1_devotion_share_scripture_v1_devotion_sync_log_v1_devotion_group_hidden_v1_devotion_hidden_toggle_v1_lock_ended_stage_team_v1_exam_grading_seq_v1_plan_gate_login_only_v1_lazy_supabase_lib_v1_lazy_chartjs_v1_boot_resilient_settled_v1_a1_revert_v1_lazy_html2canvas_v1_font_light_drop_v1_plan_audience_region_gate_v1_session_expiry_foreground_gate_v1";
+buildVersion += "_clean_demo_mode_v20_quiz_manual_retry_v1_member_hub_name_sync_v1_quiz_load_error_v1_group_filter_reset_fix_v1_quiz_publish_flow_redesign_v1_row_cap_pagination_fix_v1_quiz_entry_reading_gate_v1_quiz_feature_reopen_restore_v1_admin_mobile_layout_v1_reader_audio_resume_fix_v1_joined_plan_collapse_v1_admin_tabs_lead_v1_0830_quiz_pledge_banner_v1_big_exam_p1_v1_fullscreen_resilience_v1_exam_p2_admin_v1_result_review_v1_feature_toggle_move_v1_paper_picker_v1_section_config_v1_exam_p3_stats_notify_v1_exam_announcement_flag_v1_exam_p4_resilience_v1_exam_no_shortanswer_hide_v1_exam_mode_switch_v1_noflash_sweep_v1_exam_p4_two_track_v1_notif_admin_anon_v1_exam_autoscore_toggle_v1_answer_only_editor_v1_exam_publish_results_lock_v1_push_guards_v1_result_pending_label_v1_staff_preview_label_v1_exam_close_ux_o1o2o3_v1_finalize_expired_v1_stats_team_size_v1_stats_scope_teamrank_v1_exam_practice_review_autoclose_v1_exam_multi_paper_profile_v1_exam_practice_grace_day_v1_exam_batch_grading_v1_region_cohort_v1_exam_empty_shortanswer_zero_v1_exam_team_fixed_divisor_v1_exam_full_result_paper_v1_exam_red_correction_overlay_v1_announcement_live_only_v1_result_numeric_answers_v1_match_review_draw_v1_choice_mark_v1_practice_to_review_rename_v1_pledge_copy_v1_registration_current_plan_default_v1_corrected_label_wording_v2_exam_token_resilience_v1_grading_full_sheet_v1_answers_export_v1_result_row_declutter_v1_perf_foreground_coordinator_a1_v1_perf_token_no_wipe_a2_v1_perf_badge_throttle_a5_v1_perf_chart_update_b7_v1_cohort_stage_kind_v1_ranking_baseline_schedule_v1_progress_baseline_round1_v1_level_teardown_v1_round_schedule_restore_v1_missed_chapters_reminder_v1_care_reminder_edit_merge_v1_reader_position_fromplan_fix_v1_reading_log_pagination_fix_v1_db_pagination_audit_v1_highlights_notes_review_v1_reader_next_chapter_jump_fix_v1_ten_verse_chapter_load_fix_v1_member_hub_org_dedupe_v1_profile_subpage_overlay_fix_v1_cohort_materialized_schedule_v1_cohort_plain_plan_award_only_v1_admin_section_nav_step1_v1_emergency_announcement_editor_v1_admin_section_open_fix_v1_admin_section_unified_v2_admin_section_mobile_drilldown_v1_r1final_monthly_split_v1_r1final_discover_lock_v1_r1final_award_aggregate_v1_exam_grading_fixes_v1_score_input_validation_v1_login_continuation_return_fix_v1_profile_subpage_close_selector_fix_v1_r1final_badge_puzzle_v1_devotion_editor_modal_video_v1_devotion_progress_notes_v1_devotion_ui_polish_v1_devotion_publish_all_v1_home_feature_cards_v1_home_cards_login_race_v1_myplans_devotion_order_v1_home_cards_no_planjs_dep_v1_gm_topic_passage_inline_v1_match_lines_on_top_v1_match_align_button_v1_devotion_share_copy_v1_devotion_share_scripture_v1_devotion_sync_log_v1_devotion_group_hidden_v1_devotion_hidden_toggle_v1_lock_ended_stage_team_v1_exam_grading_seq_v1_plan_gate_login_only_v1_lazy_supabase_lib_v1_lazy_chartjs_v1_boot_resilient_settled_v1_a1_revert_v1_lazy_html2canvas_v1_font_light_drop_v1_plan_audience_region_gate_v1_session_expiry_foreground_gate_v1_session_expired_event_v1";
 const moduleCache = {};
 const RELEASE_ONBOARDING_MODULE_PATH = './modules/onboarding-helper.js?v=20260826_quiz_remove_duplicate_scope_filter';
 const RELEASE_ONBOARDING_STORAGE_KEY = "bible_onboarding_seen_version";
@@ -879,6 +879,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 只有偵測到 state 真的壞掉才重抓 + 重繪。
   let _lastForegroundRunAt = 0;
   const FOREGROUND_MIN_INTERVAL_MS = 45000;
+
+  // Session died while the app was open — a data call hit auth.js's authRejected
+  // path, which cleared the tokens and blanked state.currentUser. Nothing else
+  // brings the login card back up mid-session, so if the app shell is still on
+  // screen, surface it. Same !isLoggedIn() guard the online-event handler uses:
+  // it only goes false after a confirmed rejection, never a transient network
+  // failure (those keep the tokens), so this won't fire on a flaky reconnect.
+  // Called both from onAppForeground and from the auth:session-expired event.
+  function surfaceLoginCardIfSessionLost() {
+    if (typeof db === "undefined" || typeof db.showConnectionError !== "function") return;
+    const loggedIn = typeof auth !== "undefined" && typeof auth.isLoggedIn === "function" && auth.isLoggedIn();
+    if (loggedIn) return;
+    const appLayout = document.querySelector(".app-layout");
+    const gate = document.getElementById("login-gate");
+    const showingApp = appLayout && !appLayout.classList.contains("hidden")
+      && (!gate || gate.classList.contains("hidden"));
+    if (state.isSupabaseMode && showingApp) {
+      db.showConnectionError("登入狀態已失效，請重新登入。");
+    }
+  }
+
   function onAppForeground() {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     const now = Date.now();
@@ -900,20 +921,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const loggedIn = typeof auth !== "undefined" && typeof auth.isLoggedIn === "function" && auth.isLoggedIn();
     if (typeof db === "undefined") return;
     if (!loggedIn) {
-      // Session died while the app was open — a data call hit auth.js's
-      // authRejected path, which cleared the tokens and blanked state.currentUser.
-      // Nothing else brings the login card back up mid-session, so if the app
-      // shell is still on screen, surface it now instead of leaving the user on a
-      // stale/empty view. Same !isLoggedIn() guard the online-event handler uses:
-      // it only goes false after a confirmed rejection, never a transient network
-      // failure (those keep the tokens), so this won't fire on a flaky reconnect.
-      const appLayout = document.querySelector(".app-layout");
-      const gate = document.getElementById("login-gate");
-      const showingApp = appLayout && !appLayout.classList.contains("hidden")
-        && (!gate || gate.classList.contains("hidden"));
-      if (state.isSupabaseMode && showingApp && typeof db.showConnectionError === "function") {
-        db.showConnectionError("登入狀態已失效，請重新登入。");
-      }
+      surfaceLoginCardIfSessionLost();
       return;
     }
 
@@ -946,6 +954,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   document.addEventListener("visibilitychange", () => onAppForeground());
   window.addEventListener("pageshow", (e) => { if (e && e.persisted) onAppForeground(); });
+  // auth.js fires this the moment getValidAccessToken() gives up (tokens already
+  // cleared). Surface the login card immediately, not only on the next foreground.
+  window.addEventListener("auth:session-expired", () => surfaceLoginCardIfSessionLost());
 
   // Initialize Theme
   try {

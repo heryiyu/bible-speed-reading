@@ -9,6 +9,7 @@ import {
 
 const db = readFileSync("js/db.js", "utf8");
 const app = readFileSync("js/app.js", "utf8");
+const authJs = readFileSync("js/auth.js", "utf8");
 const html = readFileSync("index.html", "utf8");
 
 function makeEl(initialClass = "") {
@@ -185,16 +186,26 @@ describe("login gate wiring", () => {
     expect(app).toMatch(/login-gate[\s\S]*syncNlcSessionWithSupabase\(true\)[\s\S]*applyLoginOnboardingGate/);
   });
 
-  it("surfaces the login card on foreground when the session died while the app was open", () => {
-    // Symmetric to the above: gate is HIDDEN, app shell is showing, but the
-    // session was rejected mid-use (auth cleared the tokens → isLoggedIn() false).
-    // Nothing else brings the card back — onAppForeground must, via showConnectionError.
-    const fn = app.slice(app.indexOf("function onAppForeground"), app.indexOf("document.addEventListener(\"visibilitychange\""));
-    expect(fn).toContain("if (!loggedIn) {");
-    expect(fn).toContain('querySelector(".app-layout")');
-    expect(fn).toContain('getElementById("login-gate")');
-    expect(fn).toContain("db.showConnectionError(");
-    // must not fall into the reload/re-render path for a dead session
-    expect(fn).toMatch(/if \(!loggedIn\) \{[\s\S]*?return;\s*\n\s*\}/);
+  it("surfaces the login card when the session died while the app was open", () => {
+    // Shared helper: gate HIDDEN + app shell showing + !isLoggedIn() → showConnectionError.
+    const helper = app.slice(app.indexOf("function surfaceLoginCardIfSessionLost"), app.indexOf("function onAppForeground"));
+    expect(helper).toContain("auth.isLoggedIn()");
+    expect(helper).toContain("if (loggedIn) return");
+    expect(helper).toContain('querySelector(".app-layout")');
+    expect(helper).toContain('getElementById("login-gate")');
+    expect(helper).toContain("state.isSupabaseMode && showingApp");
+    expect(helper).toContain('db.showConnectionError("登入狀態已失效');
+
+    // onAppForeground uses the helper for the !loggedIn branch (no reload/re-render).
+    const fn = app.slice(app.indexOf("function onAppForeground"), app.indexOf('document.addEventListener("visibilitychange"'));
+    expect(fn).toMatch(/if \(!loggedIn\) \{\s*\n\s*surfaceLoginCardIfSessionLost\(\);\s*\n\s*return;\s*\n\s*\}/);
+
+    // And auth.js fires an event so the card comes up immediately, not only next foreground.
+    expect(app).toContain('window.addEventListener("auth:session-expired", () => surfaceLoginCardIfSessionLost())');
+    expect(authJs).toContain("_signalSessionExpired()");
+    expect(authJs).toMatch(/dispatchEvent\(new CustomEvent\("auth:session-expired"\)\)/);
+    // fired on both getValidAccessToken give-up paths
+    const gvat = authJs.slice(authJs.indexOf("async getValidAccessToken("), authJs.indexOf("getLogtoSubject()"));
+    expect((gvat.match(/this\._signalSessionExpired\(\);/g) || []).length).toBe(2);
   });
 });
