@@ -2514,17 +2514,26 @@ const db = {
       state.roleDefinitions = fallback;
       return fallback;
     }
-    const { data, error } = await state.supabase
-      .from("role_definitions")
-      .select("id, code, label, sort_order, is_assignable, can_manage_plans, can_manage_permissions, scope_type")
-      .order("sort_order", { ascending: true });
-    if (error) {
-      console.warn("Role definitions are not available yet; using compatibility labels.", error);
+    try {
+      const { data, error } = await state.supabase
+        .from("role_definitions")
+        .select("id, code, label, sort_order, is_assignable, can_manage_plans, can_manage_permissions, scope_type")
+        .order("sort_order", { ascending: true });
+      if (error) {
+        console.warn("Role definitions are not available yet; using compatibility labels.", error);
+        state.roleDefinitions = fallback;
+        return fallback;
+      }
+      state.roleDefinitions = Array.isArray(data) && data.length ? data : fallback;
+      return state.roleDefinitions;
+    } catch (err) {
+      // The NLC data-layer shim rejects (rather than returning {error}) when the
+      // session is stale — getValidAccessToken throws. This helper is meant to
+      // degrade to compatibility labels, never to crash the caller.
+      console.warn("Role definitions fetch threw; using compatibility labels.", err);
       state.roleDefinitions = fallback;
       return fallback;
     }
-    state.roleDefinitions = Array.isArray(data) && data.length ? data : fallback;
-    return state.roleDefinitions;
   },
   async fetchMergedUsersList(filterPresetKey = null, ignorePlanFilter = false) {
     if (ignorePlanFilter) {

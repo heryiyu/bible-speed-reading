@@ -144,3 +144,21 @@ describe("Chart.js is off the critical path (A2)", () => {
     expect(planModule).toMatch(/async function updateStatsView\([^)]*\)\s*\{\s*\n\s*ensureChartLib\(\)/);
   });
 });
+
+describe("a stale NLC session must never black-screen the first render", () => {
+  it("boot loads role definitions + user data with allSettled, not all", () => {
+    const slice = app.slice(app.indexOf("// Load all user data in one shot"), app.indexOf('await appRouter.switchTab(resumePlan ? "plan-view"'));
+    expect(slice).toContain("Promise.allSettled([");
+    expect(slice).toContain("db.fetchRoleDefinitions()");
+    expect(slice).toContain("db.loadUserData(true)");
+    expect(slice).not.toContain("await Promise.all([\n      db.fetchRoleDefinitions()");
+    // switchTab still runs after, so the dashboard (or the login gate on top of it) always paints.
+    expect(app).toMatch(/userDataResult\.status === "fulfilled" && userDataResult\.value === true/);
+  });
+
+  it("fetchRoleDefinitions degrades to compatibility labels even when the shim throws", () => {
+    const fn = db.slice(db.indexOf("async fetchRoleDefinitions()"), db.indexOf("async fetchMergedUsersList("));
+    expect(fn).toContain("try {");
+    expect(fn).toMatch(/catch \(err\) \{[\s\S]*state\.roleDefinitions = fallback;[\s\S]*return fallback;/);
+  });
+});
