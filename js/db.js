@@ -484,23 +484,22 @@ const db = {
       btnGoogleGateEarly.disabled = !allowGoogleLogin;
       btnGoogleGateEarly.addEventListener("click", async (e) => {
         e.preventDefault();
-        loader.show("引導至 Google 登入中...");
-        try {
-          // @supabase/supabase-js is loaded lazily now; make sure we have a real
-          // client (not the NlcDataClient shim) before starting the OAuth flow.
-          if (!state.supabase || typeof state.supabase.auth?.signInWithOAuth !== "function") {
-            state.supabase = await this.createSupabaseClient();
+        if (state.supabase) {
+          loader.show("引導至 Google 登入中...");
+          try {
+            const { error } = await state.supabase.auth.signInWithOAuth({
+              provider: 'google',
+              options: {
+                redirectTo: window.location.origin
+              }
+            });
+            if (error) throw error;
+          } catch (err) {
+            alert(`Google 登入失敗: ${err.message || err}`);
+            loader.hide();
           }
-          const { error } = await state.supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-              redirectTo: window.location.origin
-            }
-          });
-          if (error) throw error;
-        } catch (err) {
-          alert(`Google 登入失敗: ${err.message || err}`);
-          loader.hide();
+        } else {
+          alert("Supabase 尚未初始化！");
         }
       });
     }
@@ -564,15 +563,7 @@ const db = {
       try {
         // Initialize Supabase SDK
         state.supabaseConfig = { url: sbUrl, anonKey: sbKey, allowGoogleLogin };
-        // Only the localhost Google/email path needs the real @supabase/supabase-js
-        // client. Everywhere else (NLC Logto) uses the NlcDataClient shim, so we
-        // avoid loading the CDN bundle by defaulting straight to the shim; the NLC
-        // session sync below reassigns state.supabase to a fresh shim anyway.
-        if (allowGoogleLogin) {
-          state.supabase = await this.createSupabaseClient();
-        } else {
-          state.supabase = this.createNlcDataClient();
-        }
+        state.supabase = this.createSupabaseClient();
         state.isSupabaseMode = true;
 
         // Update Status Badge
@@ -645,36 +636,31 @@ const db = {
           }
         }
 
-        // Fallback: Standard Supabase email/Google session. This only applies to
-        // the localhost dev path — production never has a Supabase Auth session
-        // (auth is NLC Logto) and state.supabase is the NlcDataClient shim here,
-        // which has no .auth, so guard the whole block behind allowGoogleLogin.
-        if (allowGoogleLogin) {
-          const { data: { session } } = await state.supabase.auth.getSession();
-          this.updateAuthUI(session);
+        // Fallback: Standard Supabase email/Google session
+        const { data: { session } } = await state.supabase.auth.getSession();
+        this.updateAuthUI(session);
 
-          // Setup session listener
-          state.supabase.auth.onAuthStateChange(async (event, session) => {
-            try {
-              console.log("Auth state changed:", event, !!session);
-              this.updateAuthUI(session);
-              await this.loadUserData();
-              if (typeof updateAdminNavVisibility === 'function') updateAdminNavVisibility();
+        // Setup session listener
+        state.supabase.auth.onAuthStateChange(async (event, session) => {
+          try {
+            console.log("Auth state changed:", event, !!session);
+            this.updateAuthUI(session);
+            await this.loadUserData();
+            if (typeof updateAdminNavVisibility === 'function') updateAdminNavVisibility();
 
-              if (appRouter.currentTab === "dashboard-view") {
-                if (typeof updateDashboardView === 'function') updateDashboardView();
-              } else if (appRouter.currentTab === "plan-view") {
-                if (typeof window.renderPlanView === 'function') window.renderPlanView();
-              } else if (appRouter.currentTab === "profile-view") {
-                if (typeof renderProfileView === 'function') renderProfileView();
-              } else if (appRouter.currentTab === "stats-view") {
-                if (typeof window.updateStatsView === 'function') window.updateStatsView();
-              }
-            } catch (err) {
-              console.error("Error in onAuthStateChange callback:", err);
+            if (appRouter.currentTab === "dashboard-view") {
+              if (typeof updateDashboardView === 'function') updateDashboardView();
+            } else if (appRouter.currentTab === "plan-view") {
+              if (typeof window.renderPlanView === 'function') window.renderPlanView();
+            } else if (appRouter.currentTab === "profile-view") {
+              if (typeof renderProfileView === 'function') renderProfileView();
+            } else if (appRouter.currentTab === "stats-view") {
+              if (typeof window.updateStatsView === 'function') window.updateStatsView();
             }
-          });
-        }
+          } catch (err) {
+            console.error("Error in onAuthStateChange callback:", err);
+          }
+        });
         return false;
       } catch (e) {
         console.error("Supabase connection failed:", e);
@@ -697,40 +683,7 @@ const db = {
     }
   },
 
-  // The @supabase/supabase-js CDN bundle (~120KB gz) used to be a render-blocking
-  // <script> in every HTML entry point. Production auth is NLC Logto → every data
-  // call goes through the NlcDataClient shim, which never touches this lib. The
-  // real client is only needed on the localhost Google/email dev path, so we load
-  // the CDN bundle on demand here instead of on the critical path.
-  _supabaseLibPromise: null,
-  ensureSupabaseLib() {
-    if (typeof supabase !== "undefined" && supabase && typeof supabase.createClient === "function") {
-      return Promise.resolve();
-    }
-    if (this._supabaseLibPromise) return this._supabaseLibPromise;
-    this._supabaseLibPromise = new Promise((resolve, reject) => {
-      const existing = document.querySelector('script[data-supabase-lib="1"]');
-      if (existing) {
-        existing.addEventListener("load", () => resolve());
-        existing.addEventListener("error", () => reject(new Error("Supabase JS 函式庫載入失敗")));
-        return;
-      }
-      const el = document.createElement("script");
-      el.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0";
-      el.crossOrigin = "anonymous";
-      el.dataset.supabaseLib = "1";
-      el.onload = () => resolve();
-      el.onerror = () => {
-        this._supabaseLibPromise = null;
-        reject(new Error("Supabase JS 函式庫載入失敗"));
-      };
-      document.head.appendChild(el);
-    });
-    return this._supabaseLibPromise;
-  },
-
-  async createSupabaseClient(externalJwt = null) {
-    await this.ensureSupabaseLib();
+  createSupabaseClient(externalJwt = null) {
     const cfg = state.supabaseConfig || {};
     const options = {
       auth: {

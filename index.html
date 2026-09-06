@@ -61,8 +61,8 @@
   <link rel="stylesheet" href="css/admin-registration-statistics.css?v=20260812_clean-user-directory-ui" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/team-registration.css?v=20260906_plan_gate_login_only" onerror="window.showAppStyleRecovery(this)">
 
-  <!-- Supabase JS Client library — loaded lazily by js/db.js (ensureSupabaseLib) only on the
-       localhost Google/email dev path. Production (NLC Logto → NlcDataClient shim) never needs it. -->
+  <!-- Supabase JS Client library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
   <!-- Chart.js — loaded lazily by js/modules/plan.js (ensureChartLib) the first time a
        stats/ranking chart needs to render. Kept off the first-paint critical path. -->
   <!-- html2canvas for exporting high-quality cards -->
@@ -2841,7 +2841,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260906_boot_resilient"></script>
+  <script type="module" src="js/app.js?v=20260906_a1_revert"></script>
 </body>
 
 </html>
