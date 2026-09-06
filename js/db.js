@@ -5715,9 +5715,12 @@ const db = {
     if (!state.currentUser || getUserRoleCode(state.currentUser) !== "admin") {
       return { success: false, message: "只有系統管理員可以切換這個總開關。" };
     }
-    return this._callDevotionGroupFeatureRpc("set_devotion_group_features_master", {
+    const result = await this._callDevotionGroupFeatureRpc("set_devotion_group_features_master", {
       p_enabled: enabled === true
     });
+    // devotion_group_features_master lives in app_feature_settings — bust the cache.
+    this._invalidateFeatureSettings();
+    return result;
   },
 
   // 回報對話串（migration 0153）：未讀數字，餵鈴鐺 / 通知中心。
@@ -5736,24 +5739,49 @@ const db = {
     });
   },
 
-  async getFeatureSetting(key, fallback = false) {
-    const allowedKeys = new Set(["pastoral_sharing_wall", "daily_quiz", "speed_reading_exam", "daily_devotion", "group_meeting_plan", "devotion_group_features_master", "devotion_group_hidden"]);
-    if (!allowedKeys.has(key)) {
-      return { enabled: Boolean(fallback), error: new Error("unknown_feature_setting") };
+  // Every getFeatureSetting(key) call used to be its own `.eq("key",…)` request
+  // — a cold load asks for 3-4 different keys → 3-4 nlc-data POSTs. Fetch the
+  // whole (tiny) allowlist in one `.in("key",[…])` and serve every key from a
+  // short-lived per-load cache. Writes invalidate it; a 10 s TTL self-heals.
+  FEATURE_SETTING_KEYS: ["pastoral_sharing_wall", "daily_quiz", "speed_reading_exam", "daily_devotion", "group_meeting_plan", "devotion_group_features_master", "devotion_group_hidden"],
+  _featureSettings: null,        // { map: {key:bool}, at: number } | null
+  _featureSettingsInflight: null,
+  _invalidateFeatureSettings() { this._featureSettings = null; },
+  async _featureSettingsMap() {
+    const FRESH_MS = 10000;
+    if (this._featureSettings && Date.now() - this._featureSettings.at < FRESH_MS) {
+      return this._featureSettings.map;
     }
-
-    if (state.isSupabaseMode && state.supabase && !(state.currentUser && state.currentUser.is_demo)) {
+    if (this._featureSettingsInflight) return this._featureSettingsInflight;
+    this._featureSettingsInflight = (async () => {
       try {
         const { data, error } = await state.supabase
           .from("app_feature_settings")
           .select("key, enabled")
-          .eq("key", key)
-          .maybeSingle();
-        if (error) return { enabled: Boolean(fallback), error };
-        return { enabled: data ? data.enabled === true : Boolean(fallback), error: null };
-      } catch (error) {
-        return { enabled: Boolean(fallback), error };
+          .in("key", this.FEATURE_SETTING_KEYS);
+        if (error) return null;
+        const map = {};
+        (data || []).forEach(row => { map[row.key] = row.enabled === true; });
+        this._featureSettings = { map, at: Date.now() };
+        return map;
+      } catch (_) {
+        return null;
       }
+    })().finally(() => { this._featureSettingsInflight = null; });
+    return this._featureSettingsInflight;
+  },
+
+  async getFeatureSetting(key, fallback = false) {
+    if (!this.FEATURE_SETTING_KEYS.includes(key)) {
+      return { enabled: Boolean(fallback), error: new Error("unknown_feature_setting") };
+    }
+
+    if (state.isSupabaseMode && state.supabase && !(state.currentUser && state.currentUser.is_demo)) {
+      const map = await this._featureSettingsMap();
+      if (map) {
+        return { enabled: key in map ? map[key] : Boolean(fallback), error: null };
+      }
+      // map load failed → fall through to the localStorage / fallback path below.
     }
 
     const stored = localStorage.getItem(`nlc_feature_${key}`);
@@ -5783,6 +5811,7 @@ const db = {
           .select("key, enabled")
           .single();
         if (error) return { error };
+        this._invalidateFeatureSettings();
         return { data, error: null };
       } catch (error) {
         return { error };
@@ -5790,6 +5819,7 @@ const db = {
     }
 
     localStorage.setItem(`nlc_feature_${key}`, String(normalized));
+    this._invalidateFeatureSettings();
     return { data: { key, enabled: normalized }, error: null };
   },
 

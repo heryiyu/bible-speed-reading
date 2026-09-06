@@ -89,3 +89,28 @@ describe("_dedupRead — behaviour", () => {
     expect(runs).toBe(2);
   });
 });
+
+describe("getFeatureSetting — one .in() query for the whole allowlist (js/db.js)", () => {
+  it("fetches every key at once and serves each from a short-lived cache", () => {
+    const fn = db.slice(db.indexOf("async _featureSettingsMap()"), db.indexOf("async updateFeatureSetting("));
+    expect(fn).toContain('.in("key", this.FEATURE_SETTING_KEYS)');
+    expect(fn).toContain("_featureSettings = { map, at: Date.now() }");
+    expect(fn).toContain("_featureSettingsInflight");           // in-flight dedup
+    expect(fn).toMatch(/FRESH_MS = \d+/);                       // TTL
+  });
+
+  it("getFeatureSetting reads from the map, no per-key .eq() request", () => {
+    const fn = db.slice(db.indexOf("async getFeatureSetting("), db.indexOf("async updateFeatureSetting("));
+    expect(fn).toContain("const map = await this._featureSettingsMap()");
+    expect(fn).toContain("key in map ? map[key] : Boolean(fallback)");
+    expect(fn).not.toContain('.eq("key", key)');               // the old per-key query is gone
+  });
+
+  it("writes bust the cache so an admin toggle re-reads fresh", () => {
+    expect(db).toContain("_invalidateFeatureSettings() { this._featureSettings = null; }");
+    const upd = db.slice(db.indexOf("async updateFeatureSetting("), db.indexOf("_maskAdminSender(rows)"));
+    expect((upd.match(/this\._invalidateFeatureSettings\(\)/g) || []).length).toBe(2); // supabase + localStorage path
+    const master = db.slice(db.indexOf("async setDevotionGroupFeaturesMaster("), db.indexOf("async setDevotionGroupFeaturesMaster(") + 500);
+    expect(master).toContain("this._invalidateFeatureSettings()");
+  });
+});
