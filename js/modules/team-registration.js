@@ -40,6 +40,19 @@ import {
     return String(plan.id || "");
   };
 
+  // 這個階段計畫的結束日已過（Asia/Taipei）→ 團隊名單不能再動。防止「改到已結束
+  // 的舊階段、跟現行階段對不起來」（後端 migration 0163 的 trigger 是真正的護欄，
+  // 這裡只是把會失敗的按鈕先藏起來、給清楚訊息）。
+  const isCampaignStageEnded = plan => {
+    if (!plan || !isCampaignStageKind(plan)) return false;
+    const end = String(plan.endDate || plan.end_date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(end)) return false;
+    let today = "";
+    try { today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Taipei" }); } catch (_) { today = ""; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) today = new Date().toISOString().slice(0, 10);
+    return end < today;
+  };
+
   const isSupportedPlan = plan => {
     if (!plan) return false;
     if (!/^[0-9a-f-]{36}$/i.test(getPlanId(plan))) return false;
@@ -499,6 +512,7 @@ import {
     const renderTeam = (context, allContexts = [context]) => {
       const team = context.team;
       returnDivision = Number(team.division);
+      const stageEnded = isCampaignStageEnded(plan);
       const members = Array.isArray(context.members) ? context.members : [];
       const totalChapters = Number(plan.currentRoundTotalChapters || plan.totalChapters || 0);
       const { averageProgress } = getTeamOverallPlanProgress(members, totalChapters);
@@ -528,12 +542,13 @@ import {
           <div class="reading-team-summary__progress"><span>團隊平均進度</span><strong>${averageProgress}%</strong></div>
         </div>
         ${!isReady ? `<div class="reading-team-invite"><div><span>隊伍邀請碼</span><strong>${escapeHTML(team.inviteCode)}</strong></div><button type="button" class="secondary-btn" data-copy-team-code><span class="nlc-icon nlc-icon--sm" data-icon="share" aria-hidden="true"></span>複製邀請碼</button></div>` : `<div class="reading-team-ready"><span class="nlc-icon nlc-icon--sm" data-icon="checkCircle" aria-hidden="true"></span><span>名單已滿員並鎖定，團隊統計會固定以 ${Number(team.capacity)} 人計算。</span></div>`}
+        ${stageEnded ? '<p class="reading-team-stage-ended-note">這個階段已經結束，團隊名單不能再調整。若要換人，請到「目前進行中」的階段計畫裡調整。</p>' : ""}
         <section class="reading-team-members" aria-labelledby="reading-team-members-title">
           <div class="reading-team-section-title"><h4 id="reading-team-members-title">隊員狀況</h4><span>只有同隊成員可查看</span></div>
-          <div class="reading-team-member-list">${members.map(member => renderMember(member, totalChapters, plan, { canRemoveMembers: isCaptain, canTransferCaptain: isCaptain })).join("")}</div>
+          <div class="reading-team-member-list">${members.map(member => renderMember(member, totalChapters, plan, { canRemoveMembers: isCaptain && !stageEnded, canTransferCaptain: isCaptain && !stageEnded })).join("")}</div>
         </section>
         <footer class="reading-team-dialog__footer">
-          ${isCaptain
+          ${isCaptain && !stageEnded
             ? '<button type="button" class="reading-team-danger-link" data-disband-team>解散團隊</button>'
             : ""}
           ${nextAvailableDivision ? `<button type="button" class="secondary-btn" data-add-other-team>建立另一種人數團隊（${nextAvailableDivision} 人）</button>` : ""}
@@ -804,6 +819,7 @@ import {
     const captainId = team.captainId || team.captain_id;
     const isCurrentUserCaptain = Boolean((currentMember && currentMember.role === "captain")
       || (currentUserId && captainId && String(captainId) === String(currentUserId)));
+    const canManageRosterInline = isCurrentUserCaptain && !isCampaignStageEnded(plan);
     const isAdminUser = Boolean(state.currentUser && typeof getUserRoleCode === "function" && (getUserRoleCode(state.currentUser) === "admin" || state.currentUser.role === "admin"));
     const canEditTeamNameInline = isCurrentUserCaptain || isAdminUser;
     const summary = mode === "stats" ? `
@@ -838,17 +854,21 @@ import {
       </div>
       ${mode === "stats" ? renderTeamStatGrid(members, totalChapters, plan) : ""}
       <section class="reading-team-members" aria-label="團隊成員">
-        ${mode === "members" ? renderTeamMemberRoster(members, plan, { canRemoveMembers: isCurrentUserCaptain, canTransferCaptain: isCurrentUserCaptain }) : `<div class="reading-team-member-list">${members.map(member => renderMember(member, totalChapters, plan, { canRemoveMembers: isCurrentUserCaptain, canTransferCaptain: isCurrentUserCaptain })).join("")}</div>`}
-      </section>`;
+        ${mode === "members" ? renderTeamMemberRoster(members, plan, { canRemoveMembers: canManageRosterInline, canTransferCaptain: canManageRosterInline }) : `<div class="reading-team-member-list">${members.map(member => renderMember(member, totalChapters, plan, { canRemoveMembers: canManageRosterInline, canTransferCaptain: canManageRosterInline })).join("")}</div>`}
+      </section>
+      ${isCurrentUserCaptain && !canManageRosterInline ? '<p class="reading-team-stage-ended-note">這個階段已經結束，團隊名單不能再調整。請到「目前進行中」的階段計畫裡調整。</p>' : ""}`;
 
     // Only the captain may manage the roster or dissolve the whole team.
 
     if (isCurrentUserCaptain) {
+      // 容器一定要在（carry 按鈕靠它 insertBefore）；解散按鈕只在階段還沒結束時放。
       container.innerHTML += `
         <div class="reading-team-inline-actions" style="margin-top: 1.2rem; display: flex; justify-content: flex-end; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 0.8rem;">
-          <button type="button" class="text-xs text-danger" data-disband-team-inline style="background:none; border:none; padding:0.5rem; cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem; font-size:0.875rem; font-weight:500; opacity:0.7;"><span class="nlc-icon nlc-icon--sm" data-icon="trash"></span><span>解散團隊</span></button>
+          ${canManageRosterInline ? '<button type="button" class="text-xs text-danger" data-disband-team-inline style="background:none; border:none; padding:0.5rem; cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem; font-size:0.875rem; font-weight:500; opacity:0.7;"><span class="nlc-icon nlc-icon--sm" data-icon="trash"></span><span>解散團隊</span></button>' : ''}
         </div>`;
+    }
 
+    if (canManageRosterInline) {
       const disbandBtn = container.querySelector("[data-disband-team-inline]");
       disbandBtn.addEventListener("click", async () => {
         const confirmed = await window.showConfirmDialog({
@@ -873,7 +893,11 @@ import {
           alert("解散團隊失敗: " + ((result && (result.message || result.error && result.error.message)) || "未知錯誤"));
         }
       });
+    }
 
+    // 「帶隊進入下一階段」即使目前這個階段已結束也要能用（那正是往前走的正途）——
+    // 只綁隊長身分，不受 stageEnded 影響。
+    if (isCurrentUserCaptain) {
       void renderCaptainCarryoverAction(container, plan, team);
     }
 
@@ -952,6 +976,11 @@ import {
 
   window.renderReadingTeamRegistrationInline = async function renderReadingTeamRegistrationInline(container, plan, options = {}) {
     if (!container || !isSupportedPlan(plan)) return;
+
+    if (isCampaignStageEnded(plan)) {
+      container.innerHTML = '<div class="p-6 text-center text-muted"><p class="reading-team-stage-ended-note">這個階段已經結束，不能再建立或加入團隊。請到「目前進行中」的階段計畫報名團隊。</p></div>';
+      return;
+    }
 
     // Get existing team memberships first
     const result = await db.getMyReadingTeam(plan);

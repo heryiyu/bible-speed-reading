@@ -652,6 +652,17 @@ body.reading-team-modal-open .main-content {
   justify-content: flex-start;
 }
 
+.reading-team-stage-ended-note {
+  margin: 0.6rem 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, var(--border-card));
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--bg-card));
+  color: var(--color-warning-foreground, var(--color-warning));
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .reading-team-section-title {
   justify-content: space-between;
   margin-bottom: 8px;

@@ -3223,6 +3223,7 @@ const db = {
       already_in_other_team: "你已經在這個計畫的團隊裡了，沒辦法直接加入另一隊。要換隊的話，請先離開現在的團隊（或請隊長把你移出），再輸入新的邀請碼。",
       team_invite_not_found: "找不到這組邀請碼，請向隊長確認。",
       reading_team_full: "這個團隊已額滿。",
+      reading_team_stage_ended: "這個階段已經結束，團隊名單不能再調整。請到「目前進行中」的階段計畫裡調整。",
       ready_team_roster_locked: "團隊已額滿，名單目前不能調整。",
       captain_must_disband_team: "隊長需解散尚未成隊的團隊，不能直接退出。",
       team_carryover_captain_required: "只有上一階段的原隊長可以帶領全隊進入下一階段。",

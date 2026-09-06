@@ -33,9 +33,11 @@ describe("reading team captain transfer", () => {
     expect(db).toContain("p_new_captain_id: newCaptainId");
   });
 
-  it("shows and binds the transfer action only from captain-scoped render options", () => {
-    expect(teamRegistration).toContain("canTransferCaptain: isCaptain");
-    expect(teamRegistration).toContain("canTransferCaptain: isCurrentUserCaptain");
+  it("shows and binds the transfer action only from captain-scoped render options (and not on an ended stage)", () => {
+    // 隊長專屬 + 階段未結束才給（migration 0163 / isCampaignStageEnded 護欄）
+    expect(teamRegistration).toContain("canTransferCaptain: isCaptain && !stageEnded");
+    expect(teamRegistration).toContain("canTransferCaptain: canManageRosterInline");
+    expect(teamRegistration).toContain("const canManageRosterInline = isCurrentUserCaptain && !isCampaignStageEnded(plan)");
     expect(teamRegistration).toContain("data-team-transfer-captain-user");
     expect(teamRegistration).toContain("bindTeamCaptainTransferButtons");
     expect(teamRegistration).toContain("db.transferReadingTeamCaptain(team.id, member.userId)");
