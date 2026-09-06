@@ -70,20 +70,17 @@ describe("reading team stage carryover", () => {
     expect(migrationSkip).toContain("source_plan.audience_regions IS NOT DISTINCT FROM target_plan.audience_regions");
   });
 
-  it("its reading_plans INSERT does not name the dropped `level` column (P0: 0165 hotfix)", () => {
+  it("its reading_plans INSERT does not name the dropped `level` column (P0 regression)", () => {
     // migration 0138 dropped reading_plans.level; 0154's CREATE OR REPLACE must
     // not re-introduce it, or every carry_reading_teams_to_stage call raises
-    // `column "level" of relation "reading_plans" does not exist`.
+    // `column "level" of relation "reading_plans" does not exist`. (Fixed by
+    // re-running the corrected 0154 — it is only CREATE OR REPLACE + GRANT, idempotent.)
     const insert = migrationSkip.slice(
       migrationSkip.indexOf("INSERT INTO public.reading_plans("),
       migrationSkip.indexOf("FROM public.reading_team_members carried_member"),
     );
     expect(insert).not.toMatch(/^\s*level,/m);
     expect(insert).not.toMatch(/^\s*'normal',/m);
-
-    // The immediate unblock: 0165 re-adds the column as a harmless no-op.
-    const hotfix = read("supabase/migrations/0165_readd_reading_plan_level_hotfix.sql");
-    expect(hotfix).toContain("ADD COLUMN IF NOT EXISTS level TEXT DEFAULT 'normal'");
   });
 
   // The old flow was a single auto-fired confirm dialog (once per session,

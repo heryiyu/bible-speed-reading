@@ -18,7 +18,7 @@ import './design/icons.js';
 import './state.js?v=20260901_highlights_notes_review';
 import './auth.js?v=20260906_session_expired_event';
 import './auth-launch.mjs';
-import './db.js?v=20260906_batch_select_capability';
+import './db.js?v=20260906_batch_select_globalplans';
 import './utils.js?v=20260905_r1final_badge_puzzle';
 import './gamification.js?v=20260826_quiz_remove_duplicate_scope_filter';
 import { mountGradingWorkspace } from './modules/grading.js?v=20260906_exam_grading_seq';

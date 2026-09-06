@@ -891,19 +891,28 @@ const db = {
         });
         if (!queries.length) return [];
         const { data, error } = await callEdge({ action: "batch", queries });
-        if (error) {
-          // Whole-batch failure (auth / malformed) — surface it on every slot so
-          // each caller's `.error` check fires, exactly like Promise.all rejecting.
-          return queries.map(() => ({ data: null, error }));
+        if (Array.isArray(data)) {
+          return queries.map((_, index) => {
+            const row = data[index] || { error: "batch_result_missing" };
+            if (row.error) {
+              return { data: null, error: { message: row.error, code: row.code || null } };
+            }
+            return { data: row.data, error: null };
+          });
         }
-        const results = Array.isArray(data) ? data : [];
-        return queries.map((_, index) => {
-          const row = results[index] || { error: "batch_result_missing" };
-          if (row.error) {
-            return { data: null, error: { message: row.error, code: row.code || null } };
-          }
-          return { data: row.data, error: null };
-        });
+        // No results array. If the deployed nlc-data doesn't know `action:"batch"`
+        // yet it answers with missing_table / unsupported_action — signal the
+        // caller to fall back to individual queries (deploy-order safety: the
+        // frontend switch can ship before the Edge Function does).
+        const code = error && (error.error || error.message || error);
+        if (code === "missing_table" || code === "unsupported_action") {
+          const unsupported = new Error("nlc_data_batch_unsupported");
+          unsupported.batchUnsupported = true;
+          throw unsupported;
+        }
+        // A real batch-level failure (auth rejected, 503 after retries). Surface
+        // it on every slot — retrying 5 individual calls would hit the same wall.
+        return queries.map(() => ({ data: null, error: error || { message: "batch_failed" } }));
       },
       rpc(functionName, args = {}) {
         return {
@@ -933,22 +942,33 @@ const db = {
   // the nlc-data Edge Function). On the real Supabase client (localhost dev) it
   // transparently falls back to running the builders individually. Returns an
   // array of `{ data, error }` in the same order as `builders`.
+  _batchSelectUnsupported: false,
   async batchSelect(builders) {
     const list = Array.isArray(builders) ? builders : [];
     if (!list.length) return [];
     const client = state.supabase;
-    if (client && typeof client.batchSelect === "function") {
-      return client.batchSelect(list);
-    }
-    // Real Supabase client / demo / anything without the shim: just execute each
-    // builder on its own. Builders are thenable, so awaiting one runs it.
-    return Promise.all(list.map(async (builder) => {
+    const runIndividually = () => Promise.all(list.map(async (builder) => {
       try {
         return await builder;
       } catch (error) {
         return { data: null, error };
       }
     }));
+    // Real Supabase client / demo, or a prior call proved the Edge Function
+    // doesn't know `action:"batch"` yet → run each builder on its own.
+    if (this._batchSelectUnsupported || !client || typeof client.batchSelect !== "function") {
+      return runIndividually();
+    }
+    try {
+      return await client.batchSelect(list);
+    } catch (err) {
+      if (err && err.batchUnsupported) {
+        this._batchSelectUnsupported = true;
+        console.warn("[db] nlc-data 尚未支援 batch，改用逐筆查詢（部署 nlc-data 後即生效）。");
+        return runIndividually();
+      }
+      throw err;
+    }
   },
 
   applyNlcProfile(profile, lockedFields = null) {
@@ -1290,11 +1310,19 @@ const db = {
       }
 
       if (user) {
-        // 💡 效能優化：平行化載入 global_plans, profiles, reading_logs, reading_plans
-        // 避開多個 sequential 網路請求產生的累積延遲與 cold start 問題！
-        const [globalPlansResult, profileResult, logsResult, plansResult, highlightsResult] = await Promise.all([
-          fetchAllRows(() => state.supabase.from("global_plans").select("id, name, description, start_date, end_date, target_books, is_hidden, is_fixed, plan_kind, rules, rule_version, published_at, audience_regions").order("start_date", { ascending: true })),
-          state.supabase.from("profiles").select("id, name, email, avatar_url, great_region, pastoral_zone, small_group, role_id, is_demo, is_active, name_review_approved, managed_regions, managed_zones, managed_groups, member_context_synced_at, member_context_sync_attempted_at, member_context_sync_status, member_context_sync_error, member_context_leadership_display_label, member_context_leadership_primary_assignment_id, member_context_leadership_assignments, role_definition:role_definitions!profiles_role_definition_fkey(id, code, label, sort_order, is_assignable, can_manage_plans, can_manage_permissions, scope_type)").eq("id", user.id).maybeSingle(),
+        // 💡 效能優化：平行化載入 global_plans, profiles, reading_logs, reading_plans。
+        // global_plans + profiles + reading_plans 併成 nlc-data 的一個 batch 請求
+        // （一次 Logto 驗證、一次往返）。三張都不會超過 supabase-js 無 limit 時的
+        // 1000 列預設：global_plans 目前 <100 列（教會活動計畫，每季增幾筆）、
+        // profiles 這裡是 .eq(id) 單列、reading_plans 是 user-scoped 個位數。
+        // reading_logs（走 repository 快取 + SWR onData）、highlights（fetchAllRows，
+        // 重度使用者可能 >200）維持獨立。
+        const [[globalPlansResult, profileResult, plansResult], logsResult, highlightsResult] = await Promise.all([
+          this.batchSelect([
+            state.supabase.from("global_plans").select("id, name, description, start_date, end_date, target_books, is_hidden, is_fixed, plan_kind, rules, rule_version, published_at, audience_regions").order("start_date", { ascending: true }),
+            state.supabase.from("profiles").select("id, name, email, avatar_url, great_region, pastoral_zone, small_group, role_id, is_demo, is_active, name_review_approved, managed_regions, managed_zones, managed_groups, member_context_synced_at, member_context_sync_attempted_at, member_context_sync_status, member_context_sync_error, member_context_leadership_display_label, member_context_leadership_primary_assignment_id, member_context_leadership_assignments, role_definition:role_definitions!profiles_role_definition_fkey(id, code, label, sort_order, is_assignable, can_manage_plans, can_manage_permissions, scope_type)").eq("id", user.id).maybeSingle(),
+            state.supabase.from("reading_plans").select("id, user_id, global_plan_id, name, start_date, end_date, target_books, preset_key, current_round, upgrade_prompt_handled, current_round_started_at, is_fixed, reading_days_per_week, rest_weekdays, created_at").eq("user_id", user.id).order("created_at", { ascending: false })
+          ]),
           window.readingLogRepository
             ? window.readingLogRepository.fetch({
               cacheKey: `reading_logs:${user.id}`,
@@ -1302,7 +1330,6 @@ const db = {
               onData: (rows, meta) => this.applyReadingLogsSnapshot(rows, { notify: true, source: meta.source })
             })
             : state.supabase.from("reading_logs").select("book, chapter, read_at, plan_id, round").eq("user_id", user.id),
-          state.supabase.from("reading_plans").select("id, user_id, global_plan_id, name, start_date, end_date, target_books, preset_key, current_round, upgrade_prompt_handled, current_round_started_at, is_fixed, reading_days_per_week, rest_weekdays, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
           this.fetchAllHighlights()
         ]);
 
@@ -1803,7 +1830,10 @@ const db = {
           // 大區/牧區的顯示順序統一從資料庫的 sort_order 抓（見 migration
           // 0133），不在前端另外維護一份清單——教會要調整順序只要改資料庫。
           // 抓失敗就靜默退回字母排序，不讓這個非必要的查詢卡住整個組織結構。
-          const [regionSortResult, zoneSortResult] = await Promise.all([
+          // 兩張都是小參考表、無分頁疑慮 → 併成一個 nlc-data batch 請求。
+          // （上面的 profiles 掃全教會、常常 >1000 列，必須維持 fetchAllRows 分頁，
+          //   不能進 batch，否則會被 supabase-js 預設的 1000 列上限截斷、少算組織結構。）
+          const [regionSortResult, zoneSortResult] = await this.batchSelect([
             state.supabase.from("great_regions").select("name, sort_order"),
             state.supabase.from("pastoral_zones").select("name, sort_order")
           ]);
