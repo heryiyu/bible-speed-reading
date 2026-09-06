@@ -208,6 +208,8 @@ BEGIN
       SET status = CASE WHEN carried_count = source_team.division THEN 'ready' ELSE 'forming' END
       WHERE id = target_team.id;
 
+      -- reading_plans.level 已由 migration 0138 廢除（日程永遠是教會原始一遍，
+      -- 靠 current_round 累加）。這裡不再寫 level 欄。
       INSERT INTO public.reading_plans(
         user_id,
         global_plan_id,
@@ -216,7 +218,6 @@ BEGIN
         end_date,
         target_books,
         preset_key,
-        level,
         current_round,
         upgrade_prompt_handled,
         is_fixed
@@ -229,7 +230,6 @@ BEGIN
         target_plan.end_date,
         target_plan.target_books,
         target_plan.rules->>'presetKey',
-        'normal',
         1,
         FALSE,
         target_plan.is_fixed
