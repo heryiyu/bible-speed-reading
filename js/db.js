@@ -4490,6 +4490,23 @@ const db = {
     return result.success ? { error: null } : { error: new Error(result.message || "提醒傳送失敗。") };
   },
 
+  // Map the raw server codes from a plan-join insert (assert_campaign_stage_open
+  // in migration 0127, plus the common profile/plan failures) to a sentence a
+  // church member can act on. Unknown codes keep the previous "加入讀經計畫失敗：<raw>".
+  _planJoinErrorMessage(error) {
+    const raw = String(error && (error.message || error.error || error.details) || error || "");
+    const messages = {
+      plan_audience_restricted: "這個計畫只開放特定大區參加。如果你的牧區／大區資料還沒設定，請先到會員中心補齊，再回來加入。",
+      campaign_stage_not_open: "這個計畫階段尚未開放報名，請稍後再試。",
+      campaign_stage_progress_not_open: "這個計畫階段尚未開放，暫時無法加入或記錄進度。",
+      profile_required: "目前找不到你的會員資料，請重新登入後再試。",
+      profile_identity_not_found: "目前找不到你的會員資料，請重新登入後再試。",
+      plan_not_found: "找不到所選計畫，請重新整理後再試。"
+    };
+    const key = Object.keys(messages).find(code => raw.includes(code));
+    return key ? messages[key] : ("加入讀經計畫失敗：" + (raw || error));
+  },
+
   async joinPresetPlan(key, scheduleSettings = null) {
     let preset = (state.globalPlans || []).find(p => p.presetKey === key || p.id === key);
     if (!preset) {
@@ -4604,7 +4621,7 @@ const db = {
             if (error) {
               console.error("Failed to insert plan in Supabase:", error);
               loader.hide();
-              showToast("加入讀經計畫失敗：" + (error.message || error.error || error));
+              showToast(this._planJoinErrorMessage(error));
               return null;
             }
 
@@ -4628,7 +4645,7 @@ const db = {
       } catch (e) {
         console.error("Error inserting plan in Supabase:", e);
         loader.hide();
-        showToast("加入讀經計畫失敗：" + (e.message || e));
+        showToast(this._planJoinErrorMessage(e));
         return null;
       }
     } else {

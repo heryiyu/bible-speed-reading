@@ -56,8 +56,10 @@ describe("campaign stage release control", () => {
     // 鎖住的教會階段在探索清單卡片不顯示任何動作。每日靈修 / 小組聚會這類「只看
     // 內容」的計畫已經整個搬到「我的計畫」（見 buildViewerOnlyPlanCard），不再
     // 出現在探索清單，所以這裡不用再管它們的按鈕文案。
-    expect(planModule).toContain("actions: isLockedStage");
-    expect(planModule).toContain("if (isLockedStage) {");
+    // 「不能加入」現在含兩種：鎖住的階段 + 延後大區梯次但使用者未設定牧區。
+    expect(planModule).toContain("const isJoinBlocked = isLockedStage || needsRegionSetup");
+    expect(planModule).toContain("actions: isJoinBlocked");
+    expect(planModule).toContain("if (isJoinBlocked) {");
     expect(planModule).toContain("openPlanDetailsDialog(plan);");
     expect(planModule).toContain('icon: "lock"');
   });

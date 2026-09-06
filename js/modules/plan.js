@@ -2495,6 +2495,15 @@ function renderPresetPlansList() {
     [plan.id, plan.globalPlanId, plan.presetKey, plan.name].filter(Boolean).forEach(v => managerOnlyPlanKeys.add(String(v)));
   };
 
+  // 延後大區梯次（audience_regions 非空）計畫，且使用者「還沒設定牧區/大區」→
+  // 卡片仍顯示，但停用「加入」並提示先補會員資料。若使用者有大區、只是不在
+  // 名單內（那是別的大區的梯次）→ 直接濾掉、不顯示。
+  const regionSetupPlanKeys = new Set();
+  const markRegionSetup = plan => {
+    [plan.id, plan.globalPlanId, plan.presetKey, plan.name].filter(Boolean).forEach(v => regionSetupPlanKeys.add(String(v)));
+  };
+  const viewerRegionMissing = !String((state.currentUser && state.currentUser.great_region) || "").trim();
+
   const visiblePlans = sourcePlans.filter(plan => {
     if (!plan) return false;
     const isObsolete = isObsoleteCategoryPlan(plan);
@@ -2526,6 +2535,18 @@ function renderPresetPlansList() {
     if (isHidden && !canManageHiddenPlans() && !showAsLocked) return false;
     if (!matchesSearch) return false;
     if (isAlreadyJoined) return false;
+
+    // 延後大區梯次：非本大區就不顯示；本人沒設定大區則保留卡片但停用加入。
+    const audienceList = plan.audienceRegions || plan.audience_regions;
+    const hasAudience = Array.isArray(audienceList) && audienceList.length > 0;
+    if (hasAudience && !window.isPlanAudienceMatch(plan)) {
+      if (viewerRegionMissing && !canManageHiddenPlans()) {
+        markRegionSetup(plan);
+      } else {
+        return false;
+      }
+    }
+
     // 走到這裡代表這張卡會顯示。如果它只是因為「我是管理員 / 有隱藏計畫管理權」
     // 才沒被濾掉（會友端其實看不到），就標記起來。
     if (!showAsLocked && (isFullyHiddenCampaignStage || (isHidden && canManageHiddenPlans()))) {
@@ -2560,6 +2581,10 @@ function renderPresetPlansList() {
     // 這張卡只有「管理員 / 有隱藏計畫管理權」的人在探索清單看得到（會友端看不到）。
     const isManagerOnly = [plan.id, plan.globalPlanId, plan.presetKey, plan.name]
       .filter(Boolean).some(v => managerOnlyPlanKeys.has(String(v)));
+    // 延後大區梯次計畫，但使用者還沒設定牧區/大區 → 卡片停用「加入」，提示補資料。
+    const needsRegionSetup = [plan.id, plan.globalPlanId, plan.presetKey, plan.name]
+      .filter(Boolean).some(v => regionSetupPlanKeys.has(String(v)));
+    const isJoinBlocked = isLockedStage || needsRegionSetup;
     const isHiddenFromMembers = isManagerOnly;
     const isFixed = plan.isFixed !== false && plan.is_fixed !== false;
     const scheduleLabel = isCampaignStage
@@ -2576,7 +2601,7 @@ function renderPresetPlansList() {
     card.className = "plan-card joined-plan-item-card" + (isHiddenFromMembers ? " plan-card--dev" : "");
     card.innerHTML = renderPlanCardShell({
       plan,
-      variant: isLockedStage ? "available-locked" : (isUpcomingFixed ? "available-upcoming" : "available"),
+      variant: isJoinBlocked ? "available-locked" : (isUpcomingFixed ? "available-upcoming" : "available"),
       header: renderPlanCardHeader({
         title: escapeHTML(plan.name)
           + (isManagerOnly ? ' <span class="plan-card__dev-badge">會友看不到</span>' : ""),
@@ -2600,6 +2625,12 @@ function renderPresetPlansList() {
           value: "\u5c1a\u672a\u958b\u653e",
           tone: "warning"
         },
+        needsRegionSetup && {
+          icon: "personBox",
+          label: "\u5831\u540d\u689d\u4ef6",
+          value: "\u9019\u500b\u8a08\u756b\u9650\u7279\u5b9a\u5927\u5340\u53c3\u52a0\u3002\u8acb\u5148\u5230\u6703\u54e1\u4e2d\u5fc3\u88dc\u9f4a\u4f60\u7684\u7267\u5340\uff0f\u5927\u5340\u8cc7\u6599\uff0c\u518d\u56de\u4f86\u52a0\u5165\u3002",
+          tone: "warning"
+        },
         isManagerOnly && {
           icon: "lock",
           label: "\u986f\u793a\u7bc4\u570d",
@@ -2613,7 +2644,7 @@ function renderPresetPlansList() {
           tone: "warning"
         }
       ]),
-      actions: isLockedStage
+      actions: isJoinBlocked
         ? ""
         : renderPlanCardActions([
             { kind: "primary", icon: "bookOpen", label: "自己加入", action: "solo-join" },
@@ -2622,7 +2653,7 @@ function renderPresetPlansList() {
     });
 
     const openDetails = () => {
-      if (isLockedStage) {
+      if (isJoinBlocked) {
         openPlanDetailsDialog(plan);
         return;
       }

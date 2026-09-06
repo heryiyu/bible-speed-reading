@@ -16,7 +16,7 @@ import './design/icons.js';
 import './state.js?v=20260901_highlights_notes_review';
 import './auth.js?v=20260906_a1_revert';
 import './auth-launch.mjs';
-import './db.js?v=20260906_a1_revert';
+import './db.js?v=20260906_plan_audience_region_gate';
 import './utils.js?v=20260905_r1final_badge_puzzle';
 import './gamification.js?v=20260826_quiz_remove_duplicate_scope_filter';
 import { mountExamRunner } from './modules/exam.js?v=20260906_exam_grading_seq';
