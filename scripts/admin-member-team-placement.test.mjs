@@ -86,9 +86,12 @@ describe("admin member team placement lookup tests", () => {
     // p_actor_id stayed NULL, current_profile_id() resolved to NULL under
     // the service-role key, and every call raised "profile_required".
     const indexTs = readFileSync("supabase/functions/nlc-data/index.ts", "utf8");
-    const start = indexTs.indexOf("const rpcArgs = (functionName === \"publish_global_plan_rules\"");
-    const end = indexTs.indexOf(";", start);
+    // The p_actor_id auto-injection branch (now an `else if` after the
+    // get_org_structure_tree special case).
+    const start = indexTs.indexOf("} else if (functionName === \"publish_global_plan_rules\"");
+    const end = indexTs.indexOf("rpcArgs = { ...(body.args || {}), p_actor_id: profile.id };", start);
     const rpcArgsBlock = indexTs.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
     expect(rpcArgsBlock).not.toContain("get_admin_member_team_placements");
     expect(rpcArgsBlock).toContain("TEAM_RPC_FUNCTIONS.has(functionName)");
 

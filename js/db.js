@@ -1827,39 +1827,51 @@ const db = {
     const loadPromise = (async () => {
       if (state.isSupabaseMode && state.supabase) {
         try {
-          // profiles remain the source of truth after the legacy organization
-          // system was removed. Build a complete candidate off-screen and only
-          // publish it after every page has loaded successfully.
-          let usersResult = null;
-          for (let attempt = 0; attempt < 2; attempt += 1) {
-            try {
-              usersResult = await fetchAllRows(() => state.supabase
-                .from("profiles")
-                .select("great_region, pastoral_zone, small_group"));
-            } catch (error) {
-              usersResult = { data: [], error };
+          // 首選：一支 RPC 一次回「distinct 大區/牧區/小組 + sort_order」。
+          // 以前是掃全教會 profiles（分頁 6-7 個請求）再加 2 個 sort_order 查詢。
+          // RPC 不存在 / 出錯（未部署、舊環境）→ 落回下面的舊路徑。
+          let users = null;
+          let regionSortOrder = {};
+          let zoneSortOrder = {};
+          let usedRpc = false;
+          try {
+            const { data: tree, error: treeError } = await state.supabase.rpc("get_org_structure_tree", {});
+            if (!treeError && tree && Array.isArray(tree.rows)) {
+              users = tree.rows;
+              regionSortOrder = tree.regionSort || {};
+              zoneSortOrder = tree.zoneSort || {};
+              usedRpc = true;
             }
-            if (!usersResult.error) break;
-            if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 400));
+          } catch (_) { /* fall back below */ }
+
+          if (!usedRpc) {
+            // ── 舊路徑（fallback）：profiles 分頁掃描 + 2 個 sort_order 查詢 ──
+            let usersResult = null;
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+              try {
+                usersResult = await fetchAllRows(() => state.supabase
+                  .from("profiles")
+                  .select("great_region, pastoral_zone, small_group"));
+              } catch (error) {
+                usersResult = { data: [], error };
+              }
+              if (!usersResult.error) break;
+              if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 400));
+            }
+            const { data: fallbackUsers, error } = usersResult || { data: [], error: new Error("org_structure_load_failed") };
+            if (error) throw error;
+            users = fallbackUsers;
+
+            // 大區/牧區顯示順序從 DB sort_order 抓（migration 0133）；抓失敗就退回
+            // 字母排序，不讓這個非必要查詢卡住整個組織結構。兩張都是小參考表 →
+            // 併成一個 nlc-data batch 請求。
+            const [regionSortResult, zoneSortResult] = await this.batchSelect([
+              state.supabase.from("great_regions").select("name, sort_order"),
+              state.supabase.from("pastoral_zones").select("name, sort_order")
+            ]);
+            (regionSortResult?.data || []).forEach(row => { regionSortOrder[row.name] = row.sort_order; });
+            (zoneSortResult?.data || []).forEach(row => { zoneSortOrder[row.name] = row.sort_order; });
           }
-          const { data: users, error } = usersResult || { data: [], error: new Error("org_structure_load_failed") };
-
-          if (error) throw error;
-
-          // 大區/牧區的顯示順序統一從資料庫的 sort_order 抓（見 migration
-          // 0133），不在前端另外維護一份清單——教會要調整順序只要改資料庫。
-          // 抓失敗就靜默退回字母排序，不讓這個非必要的查詢卡住整個組織結構。
-          // 兩張都是小參考表、無分頁疑慮 → 併成一個 nlc-data batch 請求。
-          // （上面的 profiles 掃全教會、常常 >1000 列，必須維持 fetchAllRows 分頁，
-          //   不能進 batch，否則會被 supabase-js 預設的 1000 列上限截斷、少算組織結構。）
-          const [regionSortResult, zoneSortResult] = await this.batchSelect([
-            state.supabase.from("great_regions").select("name, sort_order"),
-            state.supabase.from("pastoral_zones").select("name, sort_order")
-          ]);
-          const regionSortOrder = {};
-          (regionSortResult?.data || []).forEach(row => { regionSortOrder[row.name] = row.sort_order; });
-          const zoneSortOrder = {};
-          (zoneSortResult?.data || []).forEach(row => { zoneSortOrder[row.name] = row.sort_order; });
 
           const regionsSet = new Set();
           const zonesMap = new Map(); // region -> Set of zones

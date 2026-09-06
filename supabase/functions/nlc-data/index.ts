@@ -231,6 +231,7 @@ const RPC_FUNCTIONS = new Set([
   "decrement_likes",
   "publish_global_plan_rules",
   "get_user_rankings",
+  "get_org_structure_tree",
   ...TEAM_RPC_FUNCTIONS,
   ...ADMIN_RPC_FUNCTIONS,
   ...QUIZ_RPC_FUNCTIONS,
@@ -491,12 +492,15 @@ function valuesOverlap(left: unknown, right: unknown) {
   return leftValues.some(value => rightValues.includes(value));
 }
 
-async function getVisibleProfileIds(supabaseAdmin: any, profile: any) {
-  if (hasWholeChurchPlanScope(profile)) return null;
-  const splitScope = (value: unknown) => String(value || "")
+function splitScope(value: unknown): string[] {
+  return String(value || "")
     .split(",")
     .map(item => item.trim())
     .filter(Boolean);
+}
+
+async function getVisibleProfileIds(supabaseAdmin: any, profile: any) {
+  if (hasWholeChurchPlanScope(profile)) return null;
   const roleCode = getProfileRoleCode(profile);
   let query = supabaseAdmin
     .from("profiles")
@@ -714,7 +718,19 @@ Deno.serve(async (req: Request) => {
       // injected too, or resolve_reading_team_actor falls back to
       // current_profile_id() (NULL under the service-role key nlc-data
       // runs on) and raises "profile_required".
-      const rpcArgs = (functionName === "publish_global_plan_rules"
+      let rpcArgs: Record<string, unknown>;
+      if (functionName === "get_org_structure_tree") {
+        // Pass the caller's role + managed scope resolved the SAME way
+        // applyForcedScope resolves it for profiles selects, so the RPC only
+        // filters and the two paths can never diverge.
+        rpcArgs = {
+          p_actor_id: profile.id,
+          p_role_code: getProfileRoleCode(profile),
+          p_scope_regions: splitScope(profile.managed_regions || profile.great_region),
+          p_scope_zones: splitScope(profile.managed_zones || profile.pastoral_zone),
+          p_scope_groups: splitScope(profile.managed_groups || profile.small_group),
+        };
+      } else if (functionName === "publish_global_plan_rules"
         || TEAM_RPC_FUNCTIONS.has(functionName)
         || QUIZ_RPC_FUNCTIONS.has(functionName)
         || EXAM_RPC_FUNCTIONS.has(functionName)
@@ -723,9 +739,11 @@ Deno.serve(async (req: Request) => {
         || DEVOTION_GROUP_FEATURE_RPC_FUNCTIONS.has(functionName)
         || ISSUE_RPC_FUNCTIONS.has(functionName)
         || functionName === "get_admin_registration_statistics"
-        || functionName === "create_region_stage_cohort")
-        ? { ...(body.args || {}), p_actor_id: profile.id }
-        : (body.args || {});
+        || functionName === "create_region_stage_cohort") {
+        rpcArgs = { ...(body.args || {}), p_actor_id: profile.id };
+      } else {
+        rpcArgs = (body.args || {});
+      }
       const { data, error } = await supabaseAdmin.rpc(rpcName, rpcArgs);
       if (error) return jsonResponse({ error: error.message, code: error.code }, 400);
       return jsonResponse({ data });
