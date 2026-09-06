@@ -971,6 +971,25 @@ const db = {
     }
   },
 
+  // In-flight read de-duplication: while a call keyed by `key` is still pending,
+  // every other call with the same key shares that one promise instead of firing
+  // a second identical request. The entry clears as soon as it settles, so a
+  // genuinely later refresh (foreground, user action) still re-fetches. Used for
+  // the notification-badge reads that get triggered twice on a cold load (the
+  // boot badge refresh + a near-simultaneous foreground/notification-centre one).
+  _inflightReads: {},
+  _dedupRead(key, factory) {
+    const existing = this._inflightReads[key];
+    if (existing) return existing;
+    const promise = Promise.resolve()
+      .then(factory)
+      .finally(() => {
+        if (this._inflightReads[key] === promise) delete this._inflightReads[key];
+      });
+    this._inflightReads[key] = promise;
+    return promise;
+  },
+
   applyNlcProfile(profile, lockedFields = null) {
     if (!profile) return;
     state.currentProfileId = profile.id;
@@ -3493,10 +3512,12 @@ const db = {
   },
 
   async fetchQuizNotifications() {
-    const result = await this._callQuizRpc("get_quiz_notifications");
-    return result.success
-      ? { data: this._maskAdminSender(Array.isArray(result.data) ? result.data : []), error: null }
-      : { data: [], error: result.error || new Error(result.message) };
+    return this._dedupRead("quizNotifications", async () => {
+      const result = await this._callQuizRpc("get_quiz_notifications");
+      return result.success
+        ? { data: this._maskAdminSender(Array.isArray(result.data) ? result.data : []), error: null }
+        : { data: [], error: result.error || new Error(result.message) };
+    });
   },
 
   async acknowledgeQuizNotification(notificationId = null) {
@@ -3851,10 +3872,12 @@ const db = {
 
   // 成績通知（合併進 app 的通知鈴）
   async fetchExamNotifications() {
-    const result = await this._callExamRpc("get_exam_notifications");
-    return result.success
-      ? { data: Array.isArray(result.data) ? result.data : [], error: null }
-      : { data: [], error: result.error || new Error(result.message) };
+    return this._dedupRead("examNotifications", async () => {
+      const result = await this._callExamRpc("get_exam_notifications");
+      return result.success
+        ? { data: Array.isArray(result.data) ? result.data : [], error: null }
+        : { data: [], error: result.error || new Error(result.message) };
+    });
   },
   async acknowledgeExamNotification(notificationId = null) {
     const result = await this._callExamRpc("mark_exam_notifications_read", {
@@ -5679,7 +5702,8 @@ const db = {
     }
   },
   async getMyDevotionGroupPreferences() {
-    return this._callDevotionGroupFeatureRpc("get_my_devotion_group_preferences", {});
+    return this._dedupRead("devotionGroupPrefs", () =>
+      this._callDevotionGroupFeatureRpc("get_my_devotion_group_preferences", {}));
   },
   async setMyDevotionGroupPreference(featureKey, enabled) {
     return this._callDevotionGroupFeatureRpc("set_my_devotion_group_preference", {
@@ -5701,13 +5725,15 @@ const db = {
     if (!state.isSupabaseMode || !state.supabase || (state.currentUser && state.currentUser.is_demo)) {
       return { total: 0, error: null };
     }
-    try {
-      const { data, error } = await state.supabase.rpc("issue_thread_unread_summary", {});
-      if (error) return { total: 0, error };
-      return { total: Number(data && data.total) || 0, role: data && data.role, error: null };
-    } catch (error) {
-      return { total: 0, error };
-    }
+    return this._dedupRead("issueThreadUnread", async () => {
+      try {
+        const { data, error } = await state.supabase.rpc("issue_thread_unread_summary", {});
+        if (error) return { total: 0, error };
+        return { total: Number(data && data.total) || 0, role: data && data.role, error: null };
+      } catch (error) {
+        return { total: 0, error };
+      }
+    });
   },
 
   async getFeatureSetting(key, fallback = false) {
@@ -5782,6 +5808,9 @@ const db = {
   },
 
   async fetchCareReminders() {
+    return this._dedupRead("careReminders", () => this._fetchCareRemindersImpl());
+  },
+  async _fetchCareRemindersImpl() {
     const hostname = window.location.hostname;
     const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' ||
                         hostname === '::1' || hostname.startsWith('192.168.') ||
