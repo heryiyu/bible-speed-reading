@@ -16000,6 +16000,12 @@ textarea::placeholder {
 .grade-total__note { color: var(--text-muted); font-size: 0.875rem; margin-left: 0.25rem; }
 .grade-head__who { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
 .grade-head__who b { font-size: 1.05rem; color: var(--text-primary); }
+.grade-head__seq {
+  font-size: 0.875rem; font-weight: 500; color: var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 12%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--color-brand) 30%, var(--border-card));
+  border-radius: 999px; padding: 0.1rem 0.5rem; font-variant-numeric: tabular-nums;
+}
 .grade-head__org { font-size: 0.875rem; color: var(--text-secondary); }
 .grade-head__meta { font-size: 0.875rem; color: var(--text-muted); }
 .grade-lock { color: var(--color-brand); }
@@ -16112,6 +16118,11 @@ textarea::placeholder {
 }
 .grade-rrow:last-child { border-bottom: none; }
 .grade-rrow--on { background: color-mix(in srgb, var(--color-brand) 10%, transparent); }
+.grade-rrow__seq {
+  flex-shrink: 0; min-width: 1.6rem; text-align: center;
+  font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
 .grade-rrow__name { font-size: 0.9375rem; }
 .grade-rrow__org { font-size: 0.875rem; color: var(--text-muted); margin-left: auto; }
 

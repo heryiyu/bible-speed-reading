@@ -1510,15 +1510,16 @@ async function renderExamAssign(host, paperId, locked = false) {
       zsel.dataset.filled = "1";
     }
     if (listBox) listBox.innerHTML = `
-      <p class="exam-assign__meta">共 ${rows.length} 位。勾選後指派給下方選定的批改人員；序號依目前清單順序（篩選為「全部」時對齊固定序號）。</p>
+      <p class="exam-assign__meta">共 ${rows.length} 位。「批改序號」在指派當下就固定、之後不變（改派也保留同一號），批改頁看到的是同一個號碼——批改人員之間可以用「第 N 份」互相對照。尚未指派的還沒有號碼。左邊「#」只是目前清單的位置，供勾選範圍用。</p>
       <div class="exam-assign__list-wrap"><table class="exam-assign__table">
         <thead><tr>
           <th><input type="checkbox" data-ea-all aria-label="全選"></th>
-          <th>序號</th><th>姓名</th><th>牧區</th><th>小組</th><th>狀態</th><th>目前指派</th>
+          <th>#</th><th>批改序號</th><th>姓名</th><th>牧區</th><th>小組</th><th>狀態</th><th>目前指派</th>
         </tr></thead>
         <tbody>${rows.map((x, idx) => `<tr>
           <td><input type="checkbox" data-ea-pick="${esc(x.attemptId)}"></td>
           <td>${idx + 1}</td>
+          <td>${x.gradingSeq != null ? '第 ' + x.gradingSeq + ' 份' : '<span class="exam-assign__meta">—</span>'}</td>
           <td>${esc(x.name || "")}</td>
           <td>${esc(x.pastoralZone || "—")}</td>
           <td>${esc(x.smallGroup || "—")}</td>

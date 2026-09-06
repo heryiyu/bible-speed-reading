@@ -315,6 +315,7 @@ class GradingWorkspace {
             <span class="${totalCls}">總分 <b>${t.sum}</b> / ${t.max}<span class="grade-total__note">${totalNote}</span></span>
           </div>
           <div class="grade-head__who">
+            ${row.seq != null ? `<span class="grade-head__seq">第 ${row.seq} 份</span>` : ""}
             <b>${esc(ex.name || "（未命名）")}</b>
             <span class="grade-head__org">${esc(orgLine)}</span>
           </div>
@@ -384,6 +385,7 @@ class GradingWorkspace {
     const rows = this.roster.map((r) => {
       const org = [r.pastoralZone, r.smallGroup].filter(Boolean).join("・") || "—";
       return `<button type="button" class="grade-rrow${r.attemptId === this.currentId ? " grade-rrow--on" : ""}" data-g-open="${esc(r.attemptId)}">
+        ${r.seq != null ? `<span class="grade-rrow__seq">${r.seq}</span>` : ""}
         <span class="grade-rrow__name">${esc(r.name || "（未命名）")}</span>
         <span class="grade-rrow__org">${esc(org)}</span>
         ${this._statusBadge(r)}
