@@ -6683,11 +6683,11 @@ function renderPersonalTrendChart() {
       },
       scales: {
         x: {
-          ticks: { color: fontColor, font: { size: 9, weight: '300' } },
+          ticks: { color: fontColor, font: { size: 9, weight: '400' } },
           grid: { display: false }
         },
         y: {
-          ticks: { color: fontColor, stepSize: range === "year" ? 20 : 5, font: { size: 9, weight: '300' } },
+          ticks: { color: fontColor, stepSize: range === "year" ? 20 : 5, font: { size: 9, weight: '400' } },
           grid: { display: false },
           min: 0
         }

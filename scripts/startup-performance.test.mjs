@@ -168,3 +168,26 @@ describe("a stale NLC session must never black-screen the first render", () => {
     expect(fn).toMatch(/catch \(err\) \{[\s\S]*state\.roleDefinitions = fallback;[\s\S]*return fallback;/);
   });
 });
+
+describe("web fonts: no unused Light (300) face downloaded (C)", () => {
+  const css = readFileSync("index.css", "utf8");
+
+  it("Google Fonts request drops the 300 weight for every family in every entry HTML", () => {
+    for (const html of [indexHtml, examHtml, gradeHtml]) {
+      const link = html.match(/fonts\.googleapis\.com\/css2\?[^"'\s]+/);
+      expect(link, "google fonts link").toBeTruthy();
+      expect(link[0]).not.toMatch(/wght@300\b/);
+      expect(link[0]).toMatch(/Inter:wght@400;500;600;700/);
+      expect(link[0]).toMatch(/Noto\+Sans\+TC:wght@400;500;700/);
+      expect(link[0]).toMatch(/Outfit:wght@400;500;600;700/);
+    }
+  });
+
+  it("no stylesheet rule asks for the now-unloaded weight 300", () => {
+    expect(css).not.toMatch(/font-weight:\s*300\b/);
+  });
+
+  it("plan.js chart tick labels no longer request the unloaded weight 300", () => {
+    expect(planModule).not.toMatch(/weight:\s*['"]300['"]/);
+  });
+});
