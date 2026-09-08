@@ -68,10 +68,12 @@ describe("reader verse selection — 統一點選多節模型", () => {
     expect(bar).toContain("if (!single) return;");
   });
 
-  it("複製/分享：依書→章分組，連續節壓成 a-b、非連續用逗號", () => {
+  it("複製/分享：同章連續節壓成 a-b、非連續用逗號；不同章/卷各自一個【參照】標題段", () => {
     expect(bible).toContain("function formatSelectionText()");
     expect(bible).toContain("r.start === r.end ? `${r.start}` : `${r.start}-${r.end}`");
-    expect(bible).toContain('.join("；")');
+    // 每段 = 【書 章:節】 + 換行 + 該段經文；段與段用換行相接（不是把所有參照塞進同一個【】）
+    expect(bible).toContain("return `【${g.bookName} ${g.chapter}:${nums}】\\n${body}`;");
+    expect(bible).not.toContain('.join("；")');
   });
 
   it("朗讀起點：恰好一節且在本章 → 那一節；0/2+/在別章 → null（從第 1 節）", () => {

@@ -1225,7 +1225,8 @@ function toggleVerseSelection(entry) {
   refreshVerseSelectionUI();
 }
 
-// 複製／分享文字：依「書→章」分組；章內連續節壓成 a-b、非連續用逗號
+// 複製／分享文字：依「書→章」分段；同章連續節壓成 a-b、非連續用逗號。
+// 不同章或不同卷 → 每段自己一個【參照】標題 + 該段經文，段與段直接換行相接。
 function formatSelectionText() {
   const sorted = getSelectedVersesSorted();
   if (sorted.length === 0) return "";
@@ -1235,7 +1236,7 @@ function formatSelectionText() {
     if (g && g.bookName === v.bookName && g.chapter === v.chapter) g.verses.push(v);
     else groups.push({ bookName: v.bookName, chapter: v.chapter, verses: [v] });
   });
-  const refPart = groups.map(g => {
+  return groups.map(g => {
     const runs = [];
     g.verses.forEach(v => {
       const last = runs[runs.length - 1];
@@ -1243,10 +1244,9 @@ function formatSelectionText() {
       else runs.push({ start: v.verse, end: v.verse });
     });
     const nums = runs.map(r => (r.start === r.end ? `${r.start}` : `${r.start}-${r.end}`)).join(",");
-    return `${g.bookName} ${g.chapter}:${nums}`;
-  }).join("；");
-  const body = groups.map(g => g.verses.map(v => `${v.verse} ${v.text}`).join("\n")).join("\n");
-  return `【${refPart}】\n${body}`;
+    const body = g.verses.map(v => `${v.verse} ${v.text}`).join("\n");
+    return `【${g.bookName} ${g.chapter}:${nums}】\n${body}`;
+  }).join("\n");
 }
 
 function copySelectionText() {
