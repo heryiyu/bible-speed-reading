@@ -56,9 +56,16 @@ export const ReportDrawer: React.FC<ReportDrawerProps> = ({
   // 管理員「回覆模式」：泡泡打開直接進最新回報對話
   const [adminOpenId, setAdminOpenId] = React.useState<string | null>(null);
   const [adminListKey, setAdminListKey] = React.useState(0);
+  // 「自動開最新對話」只在泡泡這次打開時做一次；之後按「返回列表」不可以又被彈回對話。
+  const adminAutoOpenedRef = React.useRef(false);
   React.useEffect(() => {
-    if (!isOpen || mode !== "admin") { setAdminOpenId(null); return; }
+    if (!isOpen || mode !== "admin") {
+      setAdminOpenId(null);
+      adminAutoOpenedRef.current = false;   // 下次打開恢復「自動開最新」
+      return;
+    }
     // 每次打開重置成「自動開最新」
+    adminAutoOpenedRef.current = false;
     setAdminOpenId(null);
     setAdminListKey(k => k + 1);
   }, [isOpen, mode]);
@@ -340,8 +347,8 @@ export const ReportDrawer: React.FC<ReportDrawerProps> = ({
           ) : (
             <AdminMiniList
               reloadKey={adminListKey}
-              autoOpenNewest
-              onOpen={(id) => setAdminOpenId(id)}
+              autoOpenNewest={!adminAutoOpenedRef.current}
+              onOpen={(id) => { adminAutoOpenedRef.current = true; setAdminOpenId(id); }}
             />
           )
         ) : activeTab === "form" ? (

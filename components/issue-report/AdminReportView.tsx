@@ -1,5 +1,6 @@
 // components/issue-report/AdminReportView.tsx
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, ChevronLeft, ImagePlus, Send, Trash2, Shield } from "lucide-react";
 import { AdminReportTable } from "./AdminReportTable.tsx";
 import { ThreadPipeline, compressScreenshot, type ThreadImage } from "./IssueReportBlocks.ts";
@@ -185,12 +186,13 @@ export const AdminReportView: React.FC = () => {
         onUpdate={handleUpdate}
         onOpenThread={setOpenId}
       />
-      {openId && (
+      {openId && createPortal(
         <AdminThreadPane
           reportId={openId}
           onClose={() => { setOpenId(null); void fetchReports(); }}
           onChanged={fetchReports}
-        />
+        />,
+        document.body
       )}
     </>
   );
