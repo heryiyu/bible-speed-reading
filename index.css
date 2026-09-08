@@ -4648,6 +4648,23 @@ button.logout-btn:hover {
   min-width: 0;
   margin-bottom: 0;
 }
+
+/* 系列篩選（次要層級）：緊接在狀態 pill 下方，字級小一點、間距收緊 */
+.status-pills-row--series {
+  margin: 0.4rem 0 1rem;
+  padding: 0.2rem 0.5rem;
+}
+.status-pills-row--series[hidden] {
+  display: none;
+}
+.pill-btn--series {
+  padding: 0.3rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: var(--type-weight-medium, 500);
+}
+.pill-btn--series[hidden] {
+  display: none;
+}
 .pill-btn {
   padding: 0.45rem 1.1rem;
   border-radius: 20px;

@@ -40,7 +40,8 @@ describe("management plan unjoined members", () => {
     // default was intentionally replaced with an ongoing-first default.
     const admin = read("js/modules/admin.js");
     expect(admin).toContain("const ongoingPlan = plans.find(plan => plan.managementStatus === 'ongoing')");
-    expect(admin).toContain("const defaultPlan = (matchingOption ? plans.find(p => String(p.globalPlanId || p.id || p.presetKey || p.name) === matchingOption.value) : null) || ongoingPlan || plans[0]");
+    // keyOf(p) === String(p.globalPlanId || p.id || p.presetKey || p.name)
+    expect(admin).toContain("const defaultPlan = (matchingOption ? plans.find(p => keyOf(p) === matchingOption.value) : null) || ongoingPlan || plans[0]");
   });
 
   it("bulk-reminds only visible people who have not been reminded today", () => {

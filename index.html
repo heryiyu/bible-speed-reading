@@ -57,7 +57,7 @@
       window.location.replace("/repair?version=" + Date.now());
     };
   </script>
-  <link rel="stylesheet" href="index.css?v=20260909_selection_bar_safe_area" onerror="window.showAppStyleRecovery(this)">
+  <link rel="stylesheet" href="index.css?v=20260909_plan_series_filter" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/admin-registration-statistics.css?v=20260812_clean-user-directory-ui" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/team-registration.css?v=20260906_plan_gate_login_only" onerror="window.showAppStyleRecovery(this)">
 
@@ -650,6 +650,14 @@
                 aria-label="搜尋計畫" aria-expanded="false" aria-controls="plan-search-panel">
                 <span class="nlc-icon nlc-icon--sm" data-icon="search" aria-hidden="true"></span>
               </button>
+            </div>
+            <!-- 系列篩選：只有「靈修」或「小組」任一系列有可見計畫時，整排才會由 plan.js 顯示出來 -->
+            <div class="status-pills-row status-pills-row--series" id="plan-list-series-pills" hidden>
+              <button class="pill-btn pill-btn--series active" data-series="all">全部</button>
+              <button class="pill-btn pill-btn--series" data-series="campaign" hidden>速讀</button>
+              <button class="pill-btn pill-btn--series" data-series="devotional" hidden>靈修</button>
+              <button class="pill-btn pill-btn--series" data-series="group_meeting" hidden>小組</button>
+              <button class="pill-btn pill-btn--series" data-series="other" hidden>其他</button>
             </div>
           </div>
 
@@ -2840,7 +2848,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260908_verse_multi_select"></script>
+  <script type="module" src="js/app.js?v=20260909_plan_series_filter"></script>
 </body>
 
 </html>

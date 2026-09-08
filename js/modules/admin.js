@@ -1849,7 +1849,8 @@ function setAdminSection(id, options = {}) {
       sharedPlanFilter.classList.toggle('hidden', hidePlanFilter);
       sharedPlanFilter.style.display = hidePlanFilter ? 'none' : 'flex';
     }
-    if (options.loadData !== false && state.activePlan) void loadActiveAdminPlanSubtab(false);
+    // 依子分頁重新過濾「計畫篩選」下拉，並載入該子分頁資料（涵蓋原本的 loadActiveAdminPlanSubtab）
+    if (options.loadData !== false) void syncManagementPlanSelectForSubtab();
   }
   renderAdminSectionNav();
   if (options.focusContent === true) revealAdminSectionContent(section);
@@ -3450,6 +3451,77 @@ async function renderAdminGroupMeetingPlan(root, forceRefresh = false) {
 }
 window.renderAdminGroupMeetingPlan = renderAdminGroupMeetingPlan;
 
+// 「計畫篩選」下拉：依目前計畫管理子分頁，只列該子分頁相關類型的計畫。
+//   devotions      → 只有每日靈修計畫，onchange 驅動 adminDevotionSelectedPlanId
+//   group-meeting  → 只有小組聚會計畫，onchange 驅動 adminGroupMeetingSelectedPlanId
+//   其餘（報名狀態/成員/統計/團隊）→ 排除每日靈修與小組聚會，onchange 走 selectManagementPlan
+function managementPlanKindOf(plan) {
+  return (plan && (plan.planKind || plan.plan_kind)) || '';
+}
+
+async function syncManagementPlanSelectForSubtab() {
+  const select = document.getElementById('admin-management-plan-select');
+  if (!select) return;
+  const sub = activeAdminPlanSubtab;
+  const isDevotion = sub === 'devotions';
+  const isGroupMeeting = sub === 'group-meeting';
+  const all = getManagementPlans();
+  const plans = isDevotion
+    ? all.filter(p => managementPlanKindOf(p) === 'devotional')
+    : isGroupMeeting
+      ? all.filter(p => managementPlanKindOf(p) === 'group_meeting')
+      : all.filter(p => { const k = managementPlanKindOf(p); return k !== 'devotional' && k !== 'group_meeting'; });
+
+  const keyOf = p => String(p.globalPlanId || p.id || p.presetKey || p.name);
+  select.innerHTML = '';
+  if (plans.length === 0) {
+    select.options.add(new Option(
+      isDevotion ? '目前沒有每日靈修計畫' : isGroupMeeting ? '目前沒有小組聚會計畫' : '目前沒有可管理的計畫', ''));
+    select.disabled = true;
+    select.onchange = null;
+    return;
+  }
+  select.disabled = false;
+  plans.forEach(plan => {
+    const statusLabel = plan.managementStatus === 'upcoming' ? '（提前報名）' : '';
+    select.options.add(new Option(`${plan.name || '未命名計畫'}${statusLabel}`, keyOf(plan)));
+  });
+
+  if (isDevotion || isGroupMeeting) {
+    const currentId = isDevotion ? adminDevotionSelectedPlanId : adminGroupMeetingSelectedPlanId;
+    const match = plans.find(p => keyOf(p) === String(currentId) || String(p.id) === String(currentId));
+    const chosen = match || plans.find(p => p.managementStatus === 'ongoing') || plans[0];
+    const chosenId = String(chosen.id || chosen.globalPlanId);
+    if (isDevotion) adminDevotionSelectedPlanId = chosenId; else adminGroupMeetingSelectedPlanId = chosenId;
+    select.value = keyOf(chosen);
+    select.onchange = () => {
+      const picked = plans.find(p => keyOf(p) === select.value);
+      if (!picked) return;
+      const pid = String(picked.id || picked.globalPlanId);
+      const rootId = isDevotion ? 'admin-devotion-root' : 'admin-group-meeting-root';
+      const render = isDevotion ? renderAdminDevotionPlan : renderAdminGroupMeetingPlan;
+      if (isDevotion) adminDevotionSelectedPlanId = pid; else adminGroupMeetingSelectedPlanId = pid;
+      const root = document.getElementById(rootId);
+      if (root) Promise.resolve(render(root, true)).catch(e => console.warn('[Admin] devotion/group re-render error:', e));
+    };
+    try { await loadActiveAdminPlanSubtab(false); } catch (e) { console.warn('[Admin] loadActiveAdminPlanSubtab error:', e); }
+    return;
+  }
+
+  const activeKeys = state.activePlan
+    ? [state.activePlan.globalPlanId, state.activePlan.id, state.activePlan.presetKey, state.activePlan.name].filter(Boolean).map(String)
+    : [];
+  const matchingOption = Array.from(select.options).find(o => activeKeys.includes(o.value));
+  const ongoingPlan = plans.find(plan => plan.managementStatus === 'ongoing');
+  const defaultPlan = (matchingOption ? plans.find(p => keyOf(p) === matchingOption.value) : null) || ongoingPlan || plans[0];
+  select.value = !managementPlanSelectionInitialized
+    ? keyOf(defaultPlan)
+    : (matchingOption ? matchingOption.value : keyOf(defaultPlan));
+  managementPlanSelectionInitialized = true;
+  select.onchange = () => selectManagementPlan(select.value);
+  await selectManagementPlan(select.value);
+}
+
 export async function renderAdminPlanManagement() {
   try {
     const role = (state.currentUser && getUserRoleCode(state.currentUser)) || 'member';
@@ -3468,32 +3540,8 @@ export async function renderAdminPlanManagement() {
     try { savedSection = sessionStorage.getItem('selected_admin_section'); } catch (_e) {}
     setAdminSection(savedSection || activeAdminSection, { loadData: false });
 
-    const select = document.getElementById('admin-management-plan-select');
-    const plans = getManagementPlans();
-    if (select) {
-      select.innerHTML = '';
-      if (plans.length === 0) {
-        select.options.add(new Option('目前沒有可管理的計畫', ''));
-        select.disabled = true;
-      } else {
-        select.disabled = false;
-        plans.forEach(plan => {
-          const statusLabel = plan.managementStatus === 'upcoming' ? '（提前報名）' : '';
-          select.options.add(new Option(`${plan.name || '未命名計畫'}${statusLabel}`, String(plan.globalPlanId || plan.id || plan.presetKey || plan.name)));
-        });
-        const activeKeys = state.activePlan ? [state.activePlan.globalPlanId, state.activePlan.id, state.activePlan.presetKey, state.activePlan.name].filter(Boolean).map(String) : [];
-        const matchingOption = Array.from(select.options).find(option => activeKeys.includes(option.value));
-        const ongoingPlan = plans.find(plan => plan.managementStatus === 'ongoing');
-        const defaultPlan = (matchingOption ? plans.find(p => String(p.globalPlanId || p.id || p.presetKey || p.name) === matchingOption.value) : null) || ongoingPlan || plans[0];
-        const defaultPlanKey = String(defaultPlan.globalPlanId || defaultPlan.id || defaultPlan.presetKey || defaultPlan.name);
-        select.value = !managementPlanSelectionInitialized
-          ? defaultPlanKey
-          : (matchingOption ? matchingOption.value : defaultPlanKey);
-        managementPlanSelectionInitialized = true;
-        select.onchange = () => selectManagementPlan(select.value);
-        await selectManagementPlan(select.value);
-      }
-    }
+    // 依目前子分頁把「計畫篩選」下拉過濾成只剩相關類型，並載入該子分頁的資料
+    await syncManagementPlanSelectForSubtab();
 
     const refreshBtn = document.getElementById('admin-plan-refresh-btn');
     if (refreshBtn && !refreshBtn.dataset.bound) {

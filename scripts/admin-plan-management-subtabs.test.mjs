@@ -83,7 +83,9 @@ describe("plan management: unified section architecture", () => {
     expect(admin).toContain("activeAdminPlanSubtab = section.sub");
     expect(admin).toContain("sessionStorage.setItem('selected_admin_section', section.id)");
     expect(admin).toContain("panel.classList.toggle('hidden', !active)");
-    expect(admin).toContain("void loadActiveAdminPlanSubtab(false)");
+    // 切子分頁時透過 syncManagementPlanSelectForSubtab（內含 loadActiveAdminPlanSubtab）載入資料
+    expect(admin).toContain("if (options.loadData !== false) void syncManagementPlanSelectForSubtab();");
+    expect(admin).toContain("await loadActiveAdminPlanSubtab(false)");
     expect(admin).not.toContain("setAdminPlanSubtab");
     expect(admin).toContain("const hideSharedOrgFilter = section.sub === 'quizzes'");
     expect(admin).toContain("sharedOrgFilter.classList.toggle('hidden', hideSharedOrgFilter)");

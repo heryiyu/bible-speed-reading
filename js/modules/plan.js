@@ -37,6 +37,11 @@ let dateClickDebounceTimer = null;
 let viewMode = 'calendar'; // Today reading always shows calendar + chapter list
 let planSearchQuery = '';
 let planTeamInviteVisibilityRequestId = 0;
+// 計畫分頁的「系列」篩選（全部 / campaign / devotional / group_meeting / other）。
+// 只有「靈修」或「小組」任一系列有可見計畫時，那排 pill 才會顯示（審核未過 = 完全不出現）。
+let activePlanSeries = (() => {
+  try { return sessionStorage.getItem('plan_list_series') || 'all'; } catch (_e) { return 'all'; }
+})();
 
 const PLAN_ROUTE = Object.freeze({
   LIST: "LIST",
@@ -1117,6 +1122,13 @@ function initPlanControls() {
     });
   });
 
+  // 系列篩選 pill（全部 / 速讀 / 靈修 / 小組 / 其他）—— 整排只在靈修或小組任一可見時才出現
+  document.querySelectorAll("#plan-list-series-pills .pill-btn--series").forEach(pill => {
+    pill.addEventListener("click", () => {
+      setActivePlanSeries(pill.getAttribute("data-series"));
+    });
+  });
+
   // Action button: Start Reading Today
   const startReadingBtn = document.getElementById("btn-start-reading-today");
   if (startReadingBtn) {
@@ -1322,6 +1334,78 @@ function getPlanSearchText(plan) {
 function matchesPlanSearch(plan) {
   if (!planSearchQuery) return true;
   return getPlanSearchText(plan).includes(planSearchQuery);
+}
+
+// ── 計畫「系列」分類 ────────────────────────────────────────────────
+function getPlanSeries(plan) {
+  const kind = plan && (plan.planKind || plan.plan_kind);
+  if (kind === "devotional") return "devotional";
+  if (kind === "group_meeting") return "group_meeting";
+  if (kind === "church_campaign" || kind === "church_campaign_stage" || kind === "church_campaign_stage_cohort") return "campaign";
+  return "other"; // 沒有 plan_kind 的一般自建讀經計畫
+}
+
+function matchesPlanSeries(plan) {
+  if (!activePlanSeries || activePlanSeries === "all") return true;
+  return getPlanSeries(plan) === activePlanSeries;
+}
+
+// 這個使用者「實際看得到」的計畫系列集合（含已加入 + 探索 + 靈修/小組 viewer-only）。
+// devotional / group_meeting 走各自的 visibility helper（內含 devotionGroupHidden 硬閘）。
+function getVisiblePlanSeriesSet() {
+  const set = new Set();
+  const consider = plan => {
+    if (!plan) return;
+    const series = getPlanSeries(plan);
+    if (series === "devotional") {
+      if (typeof isDevotionalPlanVisibleToUser === "function" && !isDevotionalPlanVisibleToUser(plan)) return;
+    } else if (series === "group_meeting") {
+      if (typeof isGroupMeetingPlanVisibleToUser === "function" && !isGroupMeetingPlanVisibleToUser(plan)) return;
+    }
+    set.add(series);
+  };
+  (state.activePlans || []).forEach(consider);
+  (state.globalPlans || []).forEach(consider);
+  return set;
+}
+
+// 依「有哪些系列看得到」決定：整排 pill 顯不顯示、個別 pill 顯不顯示。
+// 規則：靈修或小組任一可見 → 顯示整排；否則整排隱藏（不預先讓使用者知道有這功能）。
+function updateSeriesPillRowVisibility() {
+  const row = document.getElementById("plan-list-series-pills");
+  if (!row) return;
+  const seriesSet = getVisiblePlanSeriesSet();
+  const showRow = seriesSet.has("devotional") || seriesSet.has("group_meeting");
+  row.hidden = !showRow;
+  if (!showRow) {
+    if (activePlanSeries !== "all") setActivePlanSeries("all", { rerender: false });
+    return;
+  }
+  row.querySelectorAll(".pill-btn--series").forEach(btn => {
+    const series = btn.getAttribute("data-series");
+    btn.hidden = series !== "all" && !seriesSet.has(series);
+  });
+  // 目前選的系列 pill 被藏了（例如計畫結束了）→ 回到「全部」
+  const activeBtn = row.querySelector(`.pill-btn--series[data-series="${activePlanSeries}"]`);
+  if (activePlanSeries !== "all" && (!activeBtn || activeBtn.hidden)) {
+    setActivePlanSeries("all", { rerender: false });
+  }
+  row.querySelectorAll(".pill-btn--series").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-series") === activePlanSeries);
+  });
+}
+
+function setActivePlanSeries(series, { rerender = true } = {}) {
+  activePlanSeries = series || "all";
+  try { sessionStorage.setItem("plan_list_series", activePlanSeries); } catch (_e) {}
+  const row = document.getElementById("plan-list-series-pills");
+  row?.querySelectorAll(".pill-btn--series").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-series") === activePlanSeries);
+  });
+  if (rerender) {
+    renderJoinedPlansList();
+    renderPresetPlansList();
+  }
 }
 
 function getPlanStartCountdownText(plan) {
@@ -1692,6 +1776,7 @@ function renderJoinedPlansList() {
     const activePill = document.querySelector("#plan-list-status-pills .pill-btn.active");
     const filter = activePill ? activePill.getAttribute("data-filter") : "mine";
     updatePlanSidebarIntroCardVisibility();
+    updateSeriesPillRowVisibility();
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1712,6 +1797,7 @@ function renderJoinedPlansList() {
 
     plansToRender = plansToRender.filter(plan => canManageHiddenPlans() || !isPlanHidden(plan));
     plansToRender = plansToRender.filter(matchesPlanSearch);
+    plansToRender = plansToRender.filter(matchesPlanSeries);
     plansToRender = sortJoinedPlansChronologically(plansToRender);
 
     // 每日靈修／小組聚會週計畫「功能設定」（總開關＋個人偏好）還沒讀到 → 先讀，
@@ -1733,7 +1819,7 @@ function renderJoinedPlansList() {
           if (kind !== "devotional" && kind !== "group_meeting") return false;
           if (kind === "devotional" && !isDevotionalPlanVisibleToUser(gp)) return false;
           if (kind === "group_meeting" && typeof isGroupMeetingPlanVisibleToUser === "function" && !isGroupMeetingPlanVisibleToUser(gp)) return false;
-          return matchesPlanSearch(gp);
+          return matchesPlanSearch(gp) && matchesPlanSeries(gp);
         })
         // 每日靈修排在小組聚會上面（同類型維持原本 start_date 排序）
         .sort((a, b) => {
@@ -2437,6 +2523,7 @@ function renderPresetPlansList() {
   if (!container) return;
   container.innerHTML = "";
   updatePlanSidebarIntroCardVisibility();
+  updateSeriesPillRowVisibility();
 
   const legacyCategoryIdPrefix = "00000000-0000-0000-a000-";
   // 第一輪期末賽（第 2 階段）已拆成 4 個「月度期末賽」（c126 命名空間）。DB 裡
@@ -2534,6 +2621,7 @@ function renderPresetPlansList() {
     if (isFullyHiddenCampaignStage && viewerRole !== "admin") return false;
     if (isHidden && !canManageHiddenPlans() && !showAsLocked) return false;
     if (!matchesSearch) return false;
+    if (!matchesPlanSeries(plan)) return false;
     if (isAlreadyJoined) return false;
 
     // 延後大區梯次：非本大區就不顯示；本人沒設定大區則保留卡片但停用加入。
