@@ -626,6 +626,9 @@ async function renderExamStats(host, paperId, hasShort = true) {
         { h: "平均總分", f: (r) => num(r.avgTotal) }])}
       <p class="exam-admin__meta">依作答者本人的讀經團隊成員身分分類。同時在 3 人與 6 人團隊的人，兩邊都計入。</p>
     </details>
+    ${(rank3.length || rank6.length) ? `<div class="exam-stats__toolbar">
+      <button type="button" class="secondary-btn" id="exam-teamrank-csv">匯出團隊排行 CSV（3＋6 人隊）</button>
+    </div>` : ""}
     <details class="exam-stats__sec" open><summary>3 人隊排行（${rank3.length} 隊）</summary>
       ${rankTbl(rank3, 3)}
     </details>
@@ -685,6 +688,23 @@ async function renderExamStats(host, paperId, hasShort = true) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `exam_${(d.paper && d.paper.title) || "results"}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  // 匯出團隊排行（3 人隊 + 6 人隊合併一份，隊型欄區分）
+  host.querySelector("#exam-teamrank-csv")?.addEventListener("click", () => {
+    const rows = [...rank3, ...rank6].sort((a, b) => a.division - b.division || a.rank - b.rank || String(a.name).localeCompare(String(b.name)));
+    const head = ["隊型", "名次", "隊名", "大區", "牧區", "完成人數", "隊伍總分", "平均（總分÷編制）"]
+      .concat(prVisible ? ["團隊PR"] : []);
+    const csv = [head.join(",")].concat(rows.map((r) => [
+      `${r.division} 人隊`, r.rank, r.name, r.greatRegion, r.pastoralZone,
+      r.completed, r.teamTotal, r.avgTotal
+    ].concat(prVisible ? [r.pr] : []).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))).join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `exam_${(d.paper && d.paper.title) || "results"}_團隊排行.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
