@@ -14757,7 +14757,8 @@ select,
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.18);
   transition: transform 0.2s ease-out, opacity 0.16s ease;
   opacity: 0;
-  padding: 0.75rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  /* 自適應貼到安全區最底：有 home indicator 就吃那段、沒有就保底 8px，不再多留白 */
+  padding: 0.75rem 0.75rem max(0.5rem, env(safe-area-inset-bottom, 0px));
   color: var(--text-primary);
 }
 
@@ -15098,7 +15099,7 @@ body.verse-note-editor-open {
 @media (max-width: 360px) {
   .youversion-action-bar {
     width: 100vw;
-    padding: 0.625rem 0.625rem calc(0.625rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.625rem 0.625rem max(0.5rem, env(safe-area-inset-bottom, 0px));
   }
 
   .youversion-action-bar .yv-tile {
