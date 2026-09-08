@@ -1213,9 +1213,11 @@ function clearAllVerseSelection() {
   closeSelectionBottomBar({ clearSelection: false });
 }
 
-function removeVerseFromSelection(key) {
-  if (!verseSelection.delete(key)) return;
-  refreshVerseSelectionUI();
+function removeVersesFromSelection(keys) {
+  const list = Array.isArray(keys) ? keys : String(keys || "").split(",");
+  let changed = false;
+  list.forEach(k => { if (k && verseSelection.delete(k)) changed = true; });
+  if (changed) refreshVerseSelectionUI();
 }
 
 function toggleVerseSelection(entry) {
@@ -1348,10 +1350,27 @@ function renderUnifiedSelectionBar() {
   const single = sorted.length === 1;
   const crossChapter = new Set(sorted.map(v => `${v.bookId}_${v.chapter}`)).size > 1;
 
-  const chipsHtml = sorted.map(v => {
-    const key = verseSelKey(v.bookId, v.chapter, v.verse);
-    const ref = crossChapter ? `${v.bookName} ${v.chapter}:${v.verse}` : `${v.chapter}:${v.verse}`;
-    return `<button type="button" class="yv-chip" role="listitem" data-remove-key="${escapeHTML(key)}" aria-label="移除 ${escapeHTML(v.bookName)} ${v.chapter}:${v.verse}">
+  // 連續節（同卷同章、號碼相鄰）合併成一顆 chip：25:23-28；一顆 ✕ 移除整段
+  const chipRuns = [];
+  sorted.forEach(v => {
+    const last = chipRuns[chipRuns.length - 1];
+    if (last && last.bookId === v.bookId && last.chapter === v.chapter && v.verse === last.endVerse + 1) {
+      last.endVerse = v.verse;
+      last.keys.push(verseSelKey(v.bookId, v.chapter, v.verse));
+    } else {
+      chipRuns.push({
+        bookId: v.bookId, bookName: v.bookName, chapter: v.chapter,
+        startVerse: v.verse, endVerse: v.verse,
+        keys: [verseSelKey(v.bookId, v.chapter, v.verse)]
+      });
+    }
+  });
+  const chipsHtml = chipRuns.map(r => {
+    const vpart = r.startVerse === r.endVerse ? `${r.startVerse}` : `${r.startVerse}-${r.endVerse}`;
+    // chip 空間小：跨章用縮寫書名、不留空格（出25:30、太7:6-7）；複製文字仍是完整書名。
+    const abbrev = (typeof BIBLE_BOOKS !== "undefined" && BIBLE_BOOKS.find(b => b.id === r.bookId)?.abbrev) || r.bookName;
+    const ref = crossChapter ? `${abbrev}${r.chapter}:${vpart}` : `${r.chapter}:${vpart}`;
+    return `<button type="button" class="yv-chip" role="listitem" data-remove-keys="${escapeHTML(r.keys.join(","))}" aria-label="移除 ${escapeHTML(r.bookName)} ${r.chapter}:${vpart}">
       <span class="yv-chip-ref">${escapeHTML(ref)}</span>
       <span class="nlc-icon" data-icon="close" aria-hidden="true"></span>
     </button>`;
@@ -1454,8 +1473,8 @@ function renderUnifiedSelectionBar() {
     window.removeEventListener("resize", positionHighlightPalette);
   };
 
-  barDiv.querySelectorAll("[data-remove-key]").forEach(chip => {
-    chip.addEventListener("click", e => { e.stopPropagation(); removeVerseFromSelection(chip.getAttribute("data-remove-key")); });
+  barDiv.querySelectorAll("[data-remove-keys]").forEach(chip => {
+    chip.addEventListener("click", e => { e.stopPropagation(); removeVersesFromSelection(chip.getAttribute("data-remove-keys")); });
   });
   barDiv.querySelector('[data-action="clear-all"]')?.addEventListener("click", e => { e.stopPropagation(); clearAllVerseSelection(); });
   barDiv.querySelector('[data-action="copy"]')?.addEventListener("click", e => { e.stopPropagation(); copySelectionText(); });

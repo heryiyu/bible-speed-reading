@@ -39,16 +39,28 @@ describe("reader verse selection — 統一點選多節模型", () => {
     expect(bible).not.toContain("state.readerState.selectedVerses");
   });
 
-  it("工具列上方有 chip 列，每個 chip 可移除單節；動作列 ✕ 一鍵全清", () => {
+  it("chip 列：連續節合併成一顆（25:23-28），一顆 ✕ 移除整段；動作列 ✕ 一鍵全清", () => {
     const bar = bible.slice(bible.indexOf("function renderUnifiedSelectionBar()"), bible.indexOf("function closeVerseNoteEditor"));
     expect(bar).toContain('class="yv-selection-strip"');
-    expect(bar).toContain("data-remove-key=");
-    expect(bar).toContain('removeVerseFromSelection(chip.getAttribute("data-remove-key"))');
+    // 連續節合併：相鄰號碼併進同一個 run，chip 上帶該段所有 key
+    expect(bar).toContain("v.verse === last.endVerse + 1");
+    expect(bar).toContain("r.startVerse === r.endVerse ? `${r.startVerse}` : `${r.startVerse}-${r.endVerse}`");
+    expect(bar).toContain('data-remove-keys="${escapeHTML(r.keys.join(","))}"');
+    expect(bar).toContain('removeVersesFromSelection(chip.getAttribute("data-remove-keys"))');
+    expect(bible).toContain("function removeVersesFromSelection(keys)");
     expect(bar).toContain('data-action="clear-all"');
     expect(bar).toContain("clearAllVerseSelection()");
     expect(bar).toContain('aria-label="全部取消"');
-    // 跨章時 chip 顯示書名，同章省略
-    expect(bar).toContain("crossChapter ? `${v.bookName} ${v.chapter}:${v.verse}` : `${v.chapter}:${v.verse}`");
+    // 跨章時 chip 用「縮寫書名 + 不留空格」（出25:30），同章省略書名；aria-label 仍是完整書名
+    expect(bar).toContain("BIBLE_BOOKS.find(b => b.id === r.bookId)?.abbrev");
+    expect(bar).toContain("crossChapter ? `${abbrev}${r.chapter}:${vpart}` : `${r.chapter}:${vpart}`");
+    expect(bar).toContain('aria-label="移除 ${escapeHTML(r.bookName)} ${r.chapter}:${vpart}"');
+  });
+
+  it("複製文字用完整書名，chip 才用縮寫（分開的兩套）", () => {
+    const fmt = bible.slice(bible.indexOf("function formatSelectionText()"), bible.indexOf("function copySelectionText"));
+    expect(fmt).toContain("`【${g.bookName} ${g.chapter}:${nums}】");
+    expect(fmt).not.toContain("abbrev");
   });
 
   it("點經文區外面不關閉工具列、不清選取（只收合色盤）", () => {
