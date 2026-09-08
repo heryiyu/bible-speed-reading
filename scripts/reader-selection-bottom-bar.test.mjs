@@ -32,6 +32,20 @@ describe("reader verse selection bottom bar", () => {
     expect(html).toMatch(/js\/app\.js\?v=2026\d{4}_/);
   });
 
+  it("sits flush against the screen bottom (no floating gap), as a rounded-top sheet", () => {
+    const base = css.match(/\.youversion-action-bar \{([\s\S]*?)\}/)?.[1] || "";
+    expect(base).toMatch(/bottom:\s*0;/);
+    expect(base).not.toMatch(/bottom:\s*calc\(0\.75rem/);
+    expect(base).toContain("border-radius: 1rem 1rem 0 0;");
+    // safe-area moved into padding so content still clears the home indicator
+    expect(base).toMatch(/padding:[^;]*calc\(0\.75rem \+ env\(safe-area-inset-bottom, 0px\)\);/);
+    // upward shadow for a bottom sheet
+    expect(base).toContain("box-shadow: 0 -8px 30px");
+    const narrow = css.match(/@media \(max-width: 360px\) \{\s*\.youversion-action-bar \{([\s\S]*?)\}/)?.[1] || "";
+    expect(narrow).toMatch(/width:\s*100vw;/);
+    expect(narrow).toMatch(/env\(safe-area-inset-bottom, 0px\)/);
+  });
+
   it("keeps the redesigned selection toolbar compact and scrollable on narrow screens", () => {
     const highlightSectionRule = css.match(/\.youversion-action-bar \.yv-highlight-section \{([\s\S]*?)\}/)?.[1] || "";
     const actionGroupRule = css.match(/\.youversion-action-bar \.yv-action-group \{([\s\S]*?)\}/)?.[1] || "";

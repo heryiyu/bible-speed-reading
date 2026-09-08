@@ -14690,21 +14690,22 @@ select,
 /* Reader verse selection bar — compact card inspired by shadcn/ui primitives. */
 .youversion-action-bar {
   position: fixed;
-  bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%) translateY(120%);
   z-index: var(--z-modal, 9990);
-  width: min(calc(100vw - 1.5rem), 26rem);
+  width: min(100vw, 30rem);
   box-sizing: border-box;
   background: color-mix(in srgb, var(--bg-card) 94%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-card);
-  border-radius: 1rem;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  border-bottom: none;
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.18);
   transition: transform 0.2s ease-out, opacity 0.16s ease;
   opacity: 0;
-  padding: 0.75rem;
+  padding: 0.75rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
   color: var(--text-primary);
 }
 
@@ -15044,8 +15045,8 @@ body.verse-note-editor-open {
 
 @media (max-width: 360px) {
   .youversion-action-bar {
-    width: calc(100vw - 1rem);
-    padding: 0.625rem;
+    width: 100vw;
+    padding: 0.625rem 0.625rem calc(0.625rem + env(safe-area-inset-bottom, 0px));
   }
 
   .youversion-action-bar .yv-tile {
