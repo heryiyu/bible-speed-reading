@@ -521,7 +521,10 @@ import {
       const isCaptain = Boolean(currentUserId && captainId && currentUserId === captainId);
       const isAdminUser = Boolean(state.currentUser && typeof getUserRoleCode === "function" && (getUserRoleCode(state.currentUser) === "admin" || state.currentUser.role === "admin"));
       const canEditTeamName = isCaptain || isAdminUser;
-      const isReady = team.status === "ready" || Number(team.memberCount) === Number(team.capacity);
+      // 只看實際人數是否已滿：team.status 可能因為曾滿員又有人退出而卡在 'ready'
+      // （後端 remove_reading_team_member 會改回 'forming'、join 也會 self-heal，
+      //  但舊資料 / CASCADE 刪成員可能沒觸發）。未滿就一定要露出邀請碼讓隊長補人。
+      const isReady = Number(team.memberCount) >= Number(team.capacity);
       const joinedDivisions = new Set(allContexts.map(item => Number(item && item.team && item.team.division)));
       const availableDivisions = [3, 6].filter(division => !joinedDivisions.has(division));
       const nextAvailableDivision = availableDivisions[0] || null;

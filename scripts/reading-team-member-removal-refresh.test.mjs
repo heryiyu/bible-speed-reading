@@ -116,4 +116,11 @@ describe("reading team member removal refresh", () => {
 
     dom.window.close();
   });
+
+  it("團隊未滿就露出邀請碼：isReady 只看實際人數，不看可能卡住的 team.status", () => {
+    // 曾滿員 → 有人退出 → team.status 可能卡在 'ready'，但只要人數未滿就要顯示邀請碼補人
+    expect(teamUi).toContain("const isReady = Number(team.memberCount) >= Number(team.capacity);");
+    expect(teamUi).not.toContain('const isReady = team.status === "ready" || Number(team.memberCount) === Number(team.capacity);');
+    expect(teamUi).toContain('${!isReady ? `<div class="reading-team-invite">');
+  });
 });
