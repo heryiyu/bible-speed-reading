@@ -580,11 +580,11 @@ async function renderExamStats(host, paperId, hasShort = true) {
     { h: "完成", f: (r) => `${r.completed}/${size}` },
     { h: "隊伍總分", f: (r) => `<strong>${num(r.teamTotal)}</strong>` },
     { h: `平均（總分÷${size}）`, f: (r) => num(r.avgTotal) }])
-    : `<p class="exam-admin__meta">目前沒有${size} 人隊完成作答。</p>`;
+    : `<p class="exam-admin__meta">${scoped ? `你負責範圍內沒有${size} 人隊有人作答。` : `目前沒有任何${size} 人隊。`}</p>`;
 
   host.innerHTML = `
-    ${scoped ? '<p class="exam-admin__meta exam-stats__scope">只顯示你負責範圍內的作答；隊伍總分也只計入範圍內成員。</p>' : ""}
-    <p class="exam-admin__meta">團隊平均固定以隊伍編制計算：3 人隊除以 3、6 人隊除以 6；未完成者按 0 分計。</p>
+    ${scoped ? '<p class="exam-admin__meta exam-stats__scope">只顯示你負責範圍內的作答；隊伍總分也只計入範圍內成員，且只列出範圍內有人作答的隊。</p>' : ""}
+    <p class="exam-admin__meta">團隊平均固定以隊伍編制計算：3 人隊除以 3、6 人隊除以 6；未完成／未作答的成員一律按 0 分計。${scoped ? "" : "沒有人作答的隊也會列出（0 分、排在最後）。"}</p>
     <div class="exam-stats__tiles">
       <div class="exam-stats__tile"><span>作答</span><strong>${num(o.submitted)}</strong></div>
       <div class="exam-stats__tile"><span>已批改</span><strong>${num(o.graded)}</strong></div>
