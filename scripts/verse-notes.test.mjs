@@ -62,9 +62,11 @@ describe("verse notes (per-verse reading annotations)", () => {
     // (e.g. under the on-screen keyboard) on real mobile devices.
     expect(bible).toContain('class="full-page-overlay verse-note-editor-overlay"');
     expect(bible).toContain('class="overlay-back-btn" id="verse-note-editor-close"');
-    expect(bible).toContain("verseText: verseText || \"\"");
+    expect(bible).toContain("verseText: v.text || \"\"");
     expect(bible).toContain('class="verse-note-editor-verse-text">${escapeHTML(verseText || "")}');
-    expect(bible).toContain("const verseText = v.text;");
+    // 選取集合的每個項目都存了該節文字（text），筆記編輯框直接用它
+    expect(bible).toContain("verseSelection.set(key, entry)");
+    expect(bible).toContain("verse: v.verse, text: v.text");
     expect(bible).not.toContain("autofocus");
     expect(css).toContain(".verse-note-editor-quote {");
     expect(css).toContain(".verse-note-editor-verse-text {");

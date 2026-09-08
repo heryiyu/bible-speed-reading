@@ -30,9 +30,10 @@ describe("reader speech controls", () => {
   });
 
   it("uses a dedicated one-click selection and a resumable audio toggle", () => {
-    expect(bible).toContain("setReaderStartSelection(verseDiv)");
-    expect(bible).toContain('classList.contains("reader-start-selected")');
-    expect(bible).toContain('setAttribute("aria-pressed", "true")');
+    // 點一下切換選取；恰好選一節且在本章時，那一節就是朗讀起點（.reader-start-selected + selectedVerseNum）
+    expect(bible).toContain("function toggleVerseSelection(entry)");
+    expect(bible).toContain('el.classList.toggle("reader-start-selected", v === solo)');
+    expect(bible).toContain("function syncReaderStartVerse()");
     expect(bible).toContain("state.readerState.selectedVerseNum = null");
     expect(bible).toContain("startVerseNum ?? state.readerState?.selectedVerseNum ?? null");
     expect(bible).toContain("let isReaderAudioPaused = false");

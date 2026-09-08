@@ -97,8 +97,10 @@ let readerRenderRequestId = 0;
 let readerAutoReadNoticeKey = "";
 let selectionBottomBarCleanup = null;
 let selectionBottomBarBindTimer = null;
-let multiSelectState = null; // { anchor, end, bookName, chapter, chapterId, verses } | null
-const MULTI_SELECT_LONG_PRESS_MS = 480;
+// 統一「點選多節經文」：一律點一下切換選取，跨章保留。
+// key = `${bookId}_${chapter}_${verse}` → { bookId, bookName, chapter, verse, text }
+// 刻意不進 state.js（Map 不能序列化）；生命週期＝此模組載入期間。
+const verseSelection = new Map();
 const ENGLISH_BIBLE_VERSIONS = new Set(["ESV", "NIV", "NLT", "WEB"]);
 
 function usesEnglishReaderLabels(version = state.readerState?.version) {
@@ -952,9 +954,8 @@ export async function renderReaderText(options = {}) {
     stopReaderAudio(true);
   }
   document.body.classList.remove("reader-navbar-hidden");
-  state.readerState.selectedVerseNum = null;
-  closeSelectionBottomBar();
-  closeMultiSelectionBar();
+  // 選取集合跨章保留（B 案）；只拆掉舊工具列 DOM，換章渲染後由 refreshVerseSelectionUI 重建
+  closeSelectionBottomBar({ clearSelection: false });
   state.readerState.autoMarked = false;
   state.readerState.autoMarkInFlight = false;
   if (readerBottomDwellController) readerBottomDwellController.reset();
@@ -1080,6 +1081,7 @@ export async function renderReaderText(options = {}) {
   updateReaderBottomActionBar();
   bindReaderEndObserver();
   scheduleReaderBottomDwellCheck();
+  refreshVerseSelectionUI();   // 跨章：把仍在選取集合裡、屬於這一章的節重新標記並重建工具列
   return true;
 }
 
@@ -1142,23 +1144,173 @@ function closeSelectionBottomBar({ clearSelection = true } = {}) {
   if (clearSelection) clearReaderStartSelection();
 }
 
-function setReaderStartSelection(verseElement) {
+// ── 統一「點選多節經文」選取集合的操作 ──────────────────────────────
+function verseSelKey(bookId, chapter, verse) {
+  return `${bookId}_${chapter}_${verse}`;
+}
+
+function currentReaderBookId() {
+  return Number(state.readerState && state.readerState.bookId) || 1;
+}
+
+function currentReaderChapter() {
+  return Number(state.readerState && state.readerState.chapter) || 1;
+}
+
+function getSelectedVersesSorted() {
+  const order = new Map(BIBLE_BOOKS.map((b, i) => [b.id, i]));
+  return Array.from(verseSelection.values()).sort((a, b) =>
+    (order.get(a.bookId) ?? 999) - (order.get(b.bookId) ?? 999)
+    || a.chapter - b.chapter
+    || a.verse - b.verse);
+}
+
+// 本章、已貼在 DOM 的節套 .verse-selected；恰好選一節且在本章 → 也套 .reader-start-selected（朗讀起點）
+function applySelectionClassesToDom() {
   const container = document.getElementById("bible-content");
-  if (!container || !verseElement) {
-    clearReaderStartSelection();
-    return false;
+  if (!container) return;
+  const bookId = currentReaderBookId();
+  const chapter = currentReaderChapter();
+  const sorted = getSelectedVersesSorted();
+  const solo = (sorted.length === 1 && sorted[0].bookId === bookId && sorted[0].chapter === chapter)
+    ? sorted[0].verse : null;
+  container.querySelectorAll(".bible-verse[data-verse]").forEach(el => {
+    const v = Number(el.dataset.verse);
+    const on = verseSelection.has(verseSelKey(bookId, chapter, v));
+    el.classList.toggle("verse-selected", on);
+    el.classList.toggle("reader-start-selected", v === solo);
+    el.setAttribute("aria-pressed", String(on));
+  });
+}
+
+// TTS 起點：恰好一節、且在目前這一章 → 那一節；否則（0、2+、或在別章）→ null（＝從第 1 節）
+function syncReaderStartVerse() {
+  if (!state.readerState) return;
+  const sorted = getSelectedVersesSorted();
+  state.readerState.selectedVerseNum =
+    (sorted.length === 1 && sorted[0].bookId === currentReaderBookId() && sorted[0].chapter === currentReaderChapter())
+      ? sorted[0].verse : null;
+}
+
+function refreshVerseSelectionUI() {
+  applySelectionClassesToDom();
+  syncReaderStartVerse();
+  if (verseSelection.size === 0) {
+    closeSelectionBottomBar({ clearSelection: false });
+  } else {
+    renderUnifiedSelectionBar();
   }
-  const wasSelected = verseElement.classList.contains("reader-start-selected");
-  clearReaderStartSelection();
-  if (wasSelected) {
-    console.info("[ReaderAudio] Start verse selection cleared");
-    return false;
+}
+
+function clearAllVerseSelection() {
+  verseSelection.clear();
+  const container = document.getElementById("bible-content");
+  container?.querySelectorAll(".bible-verse.verse-selected, .bible-verse.reader-start-selected").forEach(el => {
+    el.classList.remove("verse-selected", "reader-start-selected");
+    el.setAttribute("aria-pressed", "false");
+  });
+  syncReaderStartVerse();
+  closeSelectionBottomBar({ clearSelection: false });
+}
+
+function removeVerseFromSelection(key) {
+  if (!verseSelection.delete(key)) return;
+  refreshVerseSelectionUI();
+}
+
+function toggleVerseSelection(entry) {
+  const key = verseSelKey(entry.bookId, entry.chapter, entry.verse);
+  if (verseSelection.has(key)) verseSelection.delete(key);
+  else verseSelection.set(key, entry);
+  refreshVerseSelectionUI();
+}
+
+// 複製／分享文字：依「書→章」分組；章內連續節壓成 a-b、非連續用逗號
+function formatSelectionText() {
+  const sorted = getSelectedVersesSorted();
+  if (sorted.length === 0) return "";
+  const groups = [];
+  sorted.forEach(v => {
+    const g = groups[groups.length - 1];
+    if (g && g.bookName === v.bookName && g.chapter === v.chapter) g.verses.push(v);
+    else groups.push({ bookName: v.bookName, chapter: v.chapter, verses: [v] });
+  });
+  const refPart = groups.map(g => {
+    const runs = [];
+    g.verses.forEach(v => {
+      const last = runs[runs.length - 1];
+      if (last && v.verse === last.end + 1) last.end = v.verse;
+      else runs.push({ start: v.verse, end: v.verse });
+    });
+    const nums = runs.map(r => (r.start === r.end ? `${r.start}` : `${r.start}-${r.end}`)).join(",");
+    return `${g.bookName} ${g.chapter}:${nums}`;
+  }).join("；");
+  const body = groups.map(g => g.verses.map(v => `${v.verse} ${v.text}`).join("\n")).join("\n");
+  return `【${refPart}】\n${body}`;
+}
+
+function copySelectionText() {
+  const text = formatSelectionText();
+  if (!text) return;
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    navigator.clipboard.writeText(text).then(() => showToast("經文已複製到剪貼簿！"));
+  } else {
+    showToast(text);
   }
-  verseElement.classList.add("reader-start-selected");
-  verseElement.setAttribute("aria-pressed", "true");
-  state.readerState.selectedVerseNum = Number(verseElement.dataset.verse || 1);
-  console.info("[ReaderAudio] Start verse selected", { verse: state.readerState.selectedVerseNum });
-  return true;
+}
+
+function shareSelectionText() {
+  const text = formatSelectionText();
+  if (!text) return;
+  if (navigator.share) {
+    navigator.share({ title: "經文分享", text, url: window.location.href }).catch(() => {});
+  } else if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    navigator.clipboard.writeText(text).then(() => showToast("經文已複製，可直接貼上分享！"));
+  }
+}
+
+// 一個顏色套用到所有選取節；color 為 falsy → 清除所有選取節的標註
+function applyHighlightToSelection(color) {
+  const entries = Array.from(verseSelection.values());
+  if (entries.length === 0) return;
+  const clearing = !color;
+  const normalizedColor = clearing ? "" : String(color).toLowerCase();
+  if (!clearing && !/^#[0-9a-f]{6}$/i.test(normalizedColor)) return;
+  const container = document.getElementById("bible-content");
+  const curBook = currentReaderBookId();
+  const curChap = currentReaderChapter();
+  entries.forEach(({ bookName, bookId, chapter, verse }) => {
+    const hk = `${bookName}_${chapter}_${verse}`;
+    if (clearing) {
+      delete state.highlights[hk];
+      delete state.highlightTimestamps[hk];
+    } else {
+      state.highlights[hk] = normalizedColor;
+      state.highlightTimestamps[hk] = new Date().toISOString();
+    }
+    if (bookId === curBook && chapter === curChap && container) {
+      const el = container.querySelector(`.bible-verse[data-verse="${verse}"]`);
+      if (el) {
+        if (clearing) {
+          el.style.removeProperty("--verse-highlight-color");
+          el.removeAttribute("data-highlight");
+        } else {
+          el.style.setProperty("--verse-highlight-color", normalizedColor);
+          el.setAttribute("data-highlight", normalizedColor);
+        }
+      }
+    }
+    if (clearing) {
+      if (typeof db.deleteHighlight === "function") {
+        db.deleteHighlight(bookName, chapter, verse).catch(err => console.warn("[bible] deleteHighlight failed:", err));
+      }
+    } else if (typeof db.saveHighlight === "function") {
+      db.saveHighlight(bookName, chapter, verse, normalizedColor).catch(err => console.warn("[bible] saveHighlight failed:", err));
+    }
+  });
+  localStorage.setItem("bible_highlights", JSON.stringify(state.highlights));
+  localStorage.setItem("bible_highlight_timestamps", JSON.stringify(state.highlightTimestamps));
+  showToast(clearing ? `已清除 ${entries.length} 節的標註` : `已為 ${entries.length} 節加上標註`);
 }
 function setVerseNoteBadge(verseDiv, hasNote) {
   if (!verseDiv) return;
@@ -1181,101 +1333,82 @@ function setVerseNoteBadge(verseDiv, hasNote) {
 }
 
 /**
- * 長按多節選取（連續範圍，僅限同一章）
+ * 統一「點選多節經文」工具列：上方顯示已選經文 chip（可跨章、可逐節移除），
+ * 下方動作列（全清 ✕／複製／螢光筆／筆記（僅單節）／分享）。
+ * 點經文區外面不關閉、不清選取（B 案）；只有全清 ✕、chip ✕、或把節全部取消才關閉。
  */
-function clearMultiSelection() {
-  const container = document.getElementById("bible-content");
-  if (container) {
-    container.querySelectorAll(".bible-verse.multi-selected").forEach(el => {
-      el.classList.remove("multi-selected");
-    });
-  }
-  multiSelectState = null;
-}
-
-function closeMultiSelectionBar() {
-  if (selectionBottomBarBindTimer) {
-    clearTimeout(selectionBottomBarBindTimer);
-    selectionBottomBarBindTimer = null;
-  }
-  if (typeof selectionBottomBarCleanup === "function") {
-    selectionBottomBarCleanup();
-    selectionBottomBarCleanup = null;
-  }
-  if (!multiSelectState) return;
+function renderUnifiedSelectionBar() {
   const rootElement = document.getElementById("selection-bottom-bar-root");
-  if (rootElement) rootElement.innerHTML = "";
-  clearMultiSelection();
-}
+  if (!rootElement) return;
+  if (selectionBottomBarBindTimer) { clearTimeout(selectionBottomBarBindTimer); selectionBottomBarBindTimer = null; }
+  if (typeof selectionBottomBarCleanup === "function") { selectionBottomBarCleanup(); selectionBottomBarCleanup = null; }
 
-function renderMultiSelectionHighlight() {
-  const container = document.getElementById("bible-content");
-  if (!container || !multiSelectState) return;
-  const low = Math.min(multiSelectState.anchor, multiSelectState.end);
-  const high = Math.max(multiSelectState.anchor, multiSelectState.end);
-  container.querySelectorAll(".bible-verse[data-verse]").forEach(el => {
-    const num = Number(el.dataset.verse);
-    el.classList.toggle("multi-selected", num >= low && num <= high);
-  });
-}
+  const sorted = getSelectedVersesSorted();
+  if (sorted.length === 0) { rootElement.innerHTML = ""; return; }
+  const single = sorted.length === 1;
+  const crossChapter = new Set(sorted.map(v => `${v.bookId}_${v.chapter}`)).size > 1;
 
-function getMultiSelectedVerses() {
-  if (!multiSelectState) return [];
-  const low = Math.min(multiSelectState.anchor, multiSelectState.end);
-  const high = Math.max(multiSelectState.anchor, multiSelectState.end);
-  return multiSelectState.verses
-    .filter(v => v.verse >= low && v.verse <= high)
-    .sort((a, b) => a.verse - b.verse);
-}
+  const chipsHtml = sorted.map(v => {
+    const key = verseSelKey(v.bookId, v.chapter, v.verse);
+    const ref = crossChapter ? `${v.bookName} ${v.chapter}:${v.verse}` : `${v.chapter}:${v.verse}`;
+    return `<button type="button" class="yv-chip" role="listitem" data-remove-key="${escapeHTML(key)}" aria-label="移除 ${escapeHTML(v.bookName)} ${v.chapter}:${v.verse}">
+      <span class="yv-chip-ref">${escapeHTML(ref)}</span>
+      <span class="nlc-icon" data-icon="close" aria-hidden="true"></span>
+    </button>`;
+  }).join("");
 
-function formatMultiVerseCopyText(bookName, chapter, versesInRange) {
-  if (versesInRange.length <= 1) {
-    const v = versesInRange[0];
-    return v ? `【${bookName} ${chapter}:${v.verse}】${v.text}` : "";
-  }
-  const first = versesInRange[0].verse;
-  const last = versesInRange[versesInRange.length - 1].verse;
-  const body = versesInRange.map(v => `${v.verse} ${v.text}`).join("\n");
-  return `【${bookName} ${chapter}:${first}-${last}】\n${body}`;
-}
-
-function openMultiSelectBottomBar() {
-  const rootElement = document.getElementById("selection-bottom-bar-root");
-  if (!rootElement || !multiSelectState) return;
-  if (selectionBottomBarBindTimer) {
-    clearTimeout(selectionBottomBarBindTimer);
-    selectionBottomBarBindTimer = null;
-  }
-  if (typeof selectionBottomBarCleanup === "function") {
-    selectionBottomBarCleanup();
-    selectionBottomBarCleanup = null;
-  }
-
-  const { bookName, chapter } = multiSelectState;
-  const low = Math.min(multiSelectState.anchor, multiSelectState.end);
-  const high = Math.max(multiSelectState.anchor, multiSelectState.end);
-  const versesInRange = getMultiSelectedVerses();
-  const rangeLabel = low === high ? `${bookName} ${chapter}:${low}` : `${bookName} ${chapter}:${low}-${high}`;
-  const selectedText = formatMultiVerseCopyText(bookName, chapter, versesInRange);
+  const colorSet = new Set(sorted.map(v => state.highlights?.[`${v.bookName}_${v.chapter}_${v.verse}`] || ""));
+  const commonColor = colorSet.size === 1 ? [...colorSet][0] : "";
+  const dotDefs = [
+    ["#fef08a", "yv-dot-yellow", "柔黃標註"],
+    ["#a5f3fc", "yv-dot-cyan", "柔藍標註"],
+    ["#bbf7d0", "yv-dot-green", "柔綠標註"],
+    ["#fed7aa", "yv-dot-dual", "柔橘標註"],
+    ["#fecdd3", "yv-dot-pink", "柔粉標註"],
+    ["#ddd6fe", "yv-dot-purple", "柔紫標註"]
+  ];
 
   rootElement.innerHTML = `
-    <div id="pwa-selection-bottom-bar" class="youversion-action-bar active youversion-action-bar--multi">
+    <div id="pwa-selection-bottom-bar" class="youversion-action-bar active${single ? "" : " youversion-action-bar--multi"}">
+      <div class="yv-selection-strip" role="list" aria-label="已選取的經文（共 ${sorted.length} 節）">${chipsHtml}</div>
       <div class="yv-content-row">
-        <div class="yv-highlight-section">
-          <span class="yv-section-label">已選取 ${escapeHTML(rangeLabel)}（共 ${versesInRange.length} 節）</span>
-        </div>
         <div class="yv-action-group">
-          <button type="button" class="yv-multi-cancel-button" data-action="ms-cancel" aria-label="取消多節選取" title="取消多節選取">
+          <button type="button" class="yv-multi-cancel-button" data-action="clear-all" aria-label="全部取消" title="全部取消">
             <span class="nlc-icon" data-icon="close" aria-hidden="true"></span>
           </button>
-          <button type="button" class="yv-tile" data-action="ms-copy">
+          <button type="button" class="yv-tile" data-action="copy">
             <span class="nlc-icon" data-icon="copy" aria-hidden="true"></span>
             <span class="yv-tile-label">複製</span>
           </button>
-          <button type="button" class="yv-tile" data-action="ms-share">
+          <button type="button" class="yv-tile${commonColor ? " is-active" : ""}" data-action="toggle-highlight" aria-expanded="false" aria-controls="yv-highlight-palette">
+            <span class="nlc-icon" data-icon="pencil" aria-hidden="true"></span>
+            <span class="yv-tile-label">螢光筆</span>
+          </button>
+          <button type="button" class="yv-tile" data-action="note"${single ? "" : ' disabled aria-disabled="true"'}>
+            <span class="nlc-icon" data-icon="journalText" aria-hidden="true"></span>
+            <span class="yv-tile-label">筆記</span>
+          </button>
+          <button type="button" class="yv-tile" data-action="share">
             <span class="nlc-icon" data-icon="share" aria-hidden="true"></span>
             <span class="yv-tile-label">分享</span>
           </button>
+        </div>
+      </div>
+      <div id="yv-highlight-palette" class="yv-highlight-section yv-highlight-popover hidden" data-highlight-palette role="dialog" aria-label="螢光筆色盤">
+        <span class="yv-section-label">選擇顏色${single ? "" : `（套用到全部 ${sorted.length} 節）`}</span>
+        <div class="yv-color-capsule" role="group" aria-label="選擇螢光標註顏色">
+          <button type="button" class="yv-dot-clear" data-action="clear" title="取消螢光標註" aria-label="取消螢光標註">
+            <span class="nlc-icon" data-icon="noColor" aria-hidden="true"></span>
+          </button>
+          <span class="yv-section-divider" aria-hidden="true"></span>
+          ${dotDefs.map(([c, cls, label]) => {
+            const a = commonColor === c;
+            return `<button type="button" class="yv-dot ${cls}${a ? " is-active" : ""}" data-color="${c}" title="${label}" aria-label="${label}" aria-pressed="${a}"></button>`;
+          }).join("")}
+          <label class="yv-custom-color" title="自訂顏色">
+            <input type="color" data-custom-highlight-color value="${/^#[0-9a-f]{6}$/i.test(commonColor) ? commonColor : "#fef08a"}" aria-label="自訂螢光筆顏色">
+            <span aria-hidden="true"></span>
+          </label>
         </div>
       </div>
     </div>
@@ -1285,43 +1418,74 @@ function openMultiSelectBottomBar() {
   if (!barDiv) return;
   if (typeof hydrateIcons === "function") hydrateIcons(barDiv);
 
-  const cleanupListeners = () => {
-    document.removeEventListener("click", onDocClick);
-  };
-  selectionBottomBarCleanup = cleanupListeners;
+  const highlightPalette = barDiv.querySelector("[data-highlight-palette]");
+  const highlightToggle = barDiv.querySelector('[data-action="toggle-highlight"]');
 
+  const positionHighlightPalette = () => {
+    if (!highlightToggle || !highlightPalette || highlightPalette.classList.contains("hidden")) return;
+    const barRect = barDiv.getBoundingClientRect();
+    const toggleRect = highlightToggle.getBoundingClientRect();
+    highlightPalette.style.setProperty("--yv-highlight-anchor-x", `${toggleRect.left - barRect.left + (toggleRect.width / 2)}px`);
+  };
+  const setHighlightPaletteOpen = open => {
+    highlightPalette?.classList.toggle("hidden", !open);
+    highlightToggle?.setAttribute("aria-expanded", String(open));
+    if (open) requestAnimationFrame(positionHighlightPalette);
+  };
+  const refreshHighlightDots = () => {
+    const cs = new Set(getSelectedVersesSorted().map(v => state.highlights?.[`${v.bookName}_${v.chapter}_${v.verse}`] || ""));
+    const common = cs.size === 1 ? [...cs][0] : "";
+    barDiv.querySelectorAll("[data-color]").forEach(b => {
+      const on = b.getAttribute("data-color") === common;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    highlightToggle?.classList.toggle("is-active", Boolean(common));
+  };
+
+  // 點外面：只收合色盤；工具列與選取一律保留
   const onDocClick = e => {
-    if (barDiv.contains(e.target) || (e.target && e.target.closest && e.target.closest(".bible-verse"))) return;
-    closeMultiSelectionBar();
+    if (barDiv.contains(e.target)) return;
+    if (highlightPalette && !highlightPalette.classList.contains("hidden")) setHighlightPaletteOpen(false);
+  };
+  window.addEventListener("resize", positionHighlightPalette, { passive: true });
+  selectionBottomBarCleanup = () => {
+    document.removeEventListener("click", onDocClick);
+    window.removeEventListener("resize", positionHighlightPalette);
   };
 
-  barDiv.querySelector('[data-action="ms-copy"]')?.addEventListener("click", e => {
-    e.stopPropagation();
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-      navigator.clipboard.writeText(selectedText).then(() => {
-        showToast("經文已複製到剪貼簿！");
-      });
-    } else {
-      showToast(selectedText);
-    }
-    closeMultiSelectionBar();
+  barDiv.querySelectorAll("[data-remove-key]").forEach(chip => {
+    chip.addEventListener("click", e => { e.stopPropagation(); removeVerseFromSelection(chip.getAttribute("data-remove-key")); });
   });
-
-  barDiv.querySelector('[data-action="ms-share"]')?.addEventListener("click", e => {
+  barDiv.querySelector('[data-action="clear-all"]')?.addEventListener("click", e => { e.stopPropagation(); clearAllVerseSelection(); });
+  barDiv.querySelector('[data-action="copy"]')?.addEventListener("click", e => { e.stopPropagation(); copySelectionText(); });
+  barDiv.querySelector('[data-action="share"]')?.addEventListener("click", e => { e.stopPropagation(); shareSelectionText(); });
+  highlightToggle?.addEventListener("click", e => {
     e.stopPropagation();
-    if (navigator.share) {
-      navigator.share({ title: "經文分享", text: selectedText, url: window.location.href }).catch(() => {});
-    } else if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-      navigator.clipboard.writeText(selectedText).then(() => {
-        showToast("經文已複製，可直接貼上分享！");
-      });
-    }
-    closeMultiSelectionBar();
+    setHighlightPaletteOpen(highlightPalette?.classList.contains("hidden"));
   });
-
-  barDiv.querySelector('[data-action="ms-cancel"]')?.addEventListener("click", e => {
+  barDiv.querySelectorAll("[data-color]").forEach(btn => {
+    btn.addEventListener("click", e => { e.stopPropagation(); applyHighlightToSelection(btn.getAttribute("data-color")); refreshHighlightDots(); });
+  });
+  barDiv.querySelector("[data-custom-highlight-color]")?.addEventListener("input", e => {
+    e.stopPropagation(); applyHighlightToSelection(e.target.value); refreshHighlightDots();
+  });
+  barDiv.querySelector('[data-action="clear"]')?.addEventListener("click", e => {
+    e.stopPropagation(); applyHighlightToSelection(null); refreshHighlightDots();
+  });
+  barDiv.querySelector('[data-action="note"]')?.addEventListener("click", e => {
     e.stopPropagation();
-    closeMultiSelectionBar();
+    if (!single) return;
+    const v = sorted[0];
+    const hk = `${v.bookName}_${v.chapter}_${v.verse}`;
+    const container = document.getElementById("bible-content");
+    const verseDiv = (v.bookId === currentReaderBookId() && v.chapter === currentReaderChapter() && container)
+      ? container.querySelector(`.bible-verse[data-verse="${v.verse}"]`) : null;
+    openVerseNoteEditor({
+      bookName: v.bookName, chapter: v.chapter, verse: v.verse,
+      verseDiv, highlightKey: hk, verseText: v.text || "",
+      referenceLabel: `${v.bookName} ${v.chapter}:${v.verse}`
+    });
   });
 
   selectionBottomBarBindTimer = setTimeout(() => {
@@ -1330,24 +1494,9 @@ function openMultiSelectBottomBar() {
   }, 100);
 }
 
-function startMultiSelection(verseNum, bookName, chapter, chapterId, verses) {
-  closeSelectionBottomBar({ clearSelection: true });
-  multiSelectState = { anchor: verseNum, end: verseNum, bookName, chapter, chapterId, verses };
-  renderMultiSelectionHighlight();
-  openMultiSelectBottomBar();
-}
-
-function extendMultiSelection(verseNum) {
-  if (!multiSelectState) return;
-  multiSelectState.end = verseNum;
-  renderMultiSelectionHighlight();
-  openMultiSelectBottomBar();
-}
-
 function renderVersesList(container, verses, bookName, chapter) {
   container.innerHTML = "";
-  clearMultiSelection();
-  const chapterId = `${state.readerState?.bookId || "GEN"}_${chapter}`;
+  const bookId = currentReaderBookId();
   verses.forEach(v => {
     const verseDiv = document.createElement("div");
     verseDiv.className = "bible-verse";
@@ -1356,7 +1505,7 @@ function renderVersesList(container, verses, bookName, chapter) {
     verseDiv.tabIndex = 0;
     verseDiv.setAttribute("role", "button");
     verseDiv.setAttribute("aria-pressed", "false");
-    verseDiv.setAttribute("aria-label", `第 ${v.verse} 節，點一下選為朗讀起點`);
+    verseDiv.setAttribute("aria-label", `第 ${v.verse} 節，點一下選取或取消選取`);
 
     const highlightKey = `${bookName}_${chapter}_${v.verse}`;
     if (state.highlights[highlightKey]) {
@@ -1367,78 +1516,22 @@ function renderVersesList(container, verses, bookName, chapter) {
     verseDiv.innerHTML = `<span class="verse-num">${v.verse}</span><span class="verse-text">${v.text}</span>`;
     setVerseNoteBadge(verseDiv, Boolean(state.verseNotes[highlightKey]));
 
-    let longPressTimer = null;
-    let longPressFired = false;
-
-    const clearLongPressTimer = () => {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-    };
-
-    const startLongPressTimer = () => {
-      clearLongPressTimer();
-      longPressFired = false;
-      longPressTimer = setTimeout(() => {
-        longPressTimer = null;
-        longPressFired = true;
-        if (multiSelectState) {
-          extendMultiSelection(v.verse);
-        } else {
-          startMultiSelection(v.verse, bookName, chapter, chapterId, verses);
-        }
-      }, MULTI_SELECT_LONG_PRESS_MS);
-    };
-
-    verseDiv.addEventListener("touchstart", startLongPressTimer, { passive: true });
-    verseDiv.addEventListener("touchend", clearLongPressTimer);
-    verseDiv.addEventListener("touchmove", clearLongPressTimer, { passive: true });
-    verseDiv.addEventListener("touchcancel", clearLongPressTimer);
-    verseDiv.addEventListener("mousedown", startLongPressTimer);
-    verseDiv.addEventListener("mouseup", clearLongPressTimer);
-    verseDiv.addEventListener("mouseleave", clearLongPressTimer);
-    verseDiv.addEventListener("contextmenu", e => {
-      if (longPressFired) e.preventDefault();
-    });
-
-    const toggleSelection = e => {
+    // 點一下 = 切換該節在選取集合裡的有無（跨章保留）。不再有長按 / 兩套模式。
+    const toggleThisVerse = e => {
       e.stopPropagation();
-      if (longPressFired) {
-        longPressFired = false;
-        return;
-      }
-      if (multiSelectState) {
-        extendMultiSelection(v.verse);
-        return;
-      }
-      const isSelected = setReaderStartSelection(verseDiv);
-      if (!isSelected) {
-        closeSelectionBottomBar({ clearSelection: false });
-        return;
-      }
-      const verseText = v.text;
-      const formattedText = `【${bookName} ${chapter}:${v.verse}】${verseText}`;
-      openIntegratedSelectionBottomBar({
-        selectedText: formattedText,
-        verseText,
-        verseDiv,
-        highlightKey,
-        chapterId,
-        bookName,
-        chapter,
-        verse: v.verse
-      });
+      toggleVerseSelection({ bookId, bookName, chapter, verse: v.verse, text: v.text });
     };
-    verseDiv.addEventListener("click", toggleSelection);
+    verseDiv.addEventListener("click", toggleThisVerse);
     verseDiv.addEventListener("keydown", e => {
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
-      toggleSelection(e);
+      toggleThisVerse(e);
     });
 
     container.appendChild(verseDiv);
   });
+
+  applySelectionClassesToDom();
 
   const sentinel = document.createElement("div");
   sentinel.id = "reader-end-sentinel";
@@ -1468,229 +1561,14 @@ async function loadVerseNotesForChapter(bookName, chapter) {
 }
 
 /**
- * Integrated Reader Selection Bottom Bar Launcher
- */
-function openIntegratedSelectionBottomBar(options) {
-  const { selectedText, verseText, verseDiv, highlightKey, chapterId, bookName, chapter, verse } = options;
-  const rootElement = document.getElementById("selection-bottom-bar-root");
-  if (!rootElement) return;
-  closeSelectionBottomBar({ clearSelection: false });
-
-  if (state.readerState && verseDiv) {
-    const verseNum = Number(verseDiv.dataset.verse || 1);
-    state.readerState.lastFocusedVerseNum = verseNum;
-  }
-
-  const selectedVerseNumber = Number(verseDiv?.dataset.verse || 1);
-  const activeHighlightColor = state.highlights?.[highlightKey] || "";
-  const hasExistingNote = Boolean(state.verseNotes?.[highlightKey]);
-
-  rootElement.innerHTML = `
-    <div id="pwa-selection-bottom-bar" class="youversion-action-bar active">
-      <div class="yv-content-row">
-        <div class="yv-action-group">
-          <button type="button" class="yv-tile" data-action="copy">
-            <span class="nlc-icon" data-icon="copy" aria-hidden="true"></span>
-            <span class="yv-tile-label">複製</span>
-          </button>
-          <button type="button" class="yv-tile${activeHighlightColor ? " is-active" : ""}" data-action="toggle-highlight" aria-expanded="false" aria-controls="yv-highlight-palette">
-            <span class="nlc-icon" data-icon="pencil" aria-hidden="true"></span>
-            <span class="yv-tile-label">螢光筆</span>
-          </button>
-          <button type="button" class="yv-tile${hasExistingNote ? " is-active" : ""}" data-action="note">
-            <span class="nlc-icon" data-icon="journalText" aria-hidden="true"></span>
-            <span class="yv-tile-label">筆記</span>
-          </button>
-          <button type="button" class="yv-tile" data-action="share">
-            <span class="nlc-icon" data-icon="share" aria-hidden="true"></span>
-            <span class="yv-tile-label">分享</span>
-          </button>
-        </div>
-      </div>
-      <div id="yv-highlight-palette" class="yv-highlight-section yv-highlight-popover hidden" data-highlight-palette role="dialog" aria-label="螢光筆色盤">
-        <span class="yv-section-label">選擇顏色</span>
-        <div class="yv-color-capsule" role="group" aria-label="選擇螢光標註顏色">
-          <button type="button" class="yv-dot-clear" data-action="clear" title="取消螢光標註" aria-label="取消螢光標註">
-            <span class="nlc-icon" data-icon="noColor" aria-hidden="true"></span>
-          </button>
-          <span class="yv-section-divider" aria-hidden="true"></span>
-          <button type="button" class="yv-dot yv-dot-yellow${activeHighlightColor === "#fef08a" ? " is-active" : ""}" data-color="#fef08a" title="柔黃標註" aria-label="柔黃標註" aria-pressed="${activeHighlightColor === "#fef08a"}"></button>
-          <button type="button" class="yv-dot yv-dot-cyan${activeHighlightColor === "#a5f3fc" ? " is-active" : ""}" data-color="#a5f3fc" title="柔藍標註" aria-label="柔藍標註" aria-pressed="${activeHighlightColor === "#a5f3fc"}"></button>
-          <button type="button" class="yv-dot yv-dot-green${activeHighlightColor === "#bbf7d0" ? " is-active" : ""}" data-color="#bbf7d0" title="柔綠標註" aria-label="柔綠標註" aria-pressed="${activeHighlightColor === "#bbf7d0"}"></button>
-          <button type="button" class="yv-dot yv-dot-dual${activeHighlightColor === "#fed7aa" ? " is-active" : ""}" data-color="#fed7aa" title="柔橘標註" aria-label="柔橘標註" aria-pressed="${activeHighlightColor === "#fed7aa"}"></button>
-          <button type="button" class="yv-dot yv-dot-pink${activeHighlightColor === "#fecdd3" ? " is-active" : ""}" data-color="#fecdd3" title="柔粉標註" aria-label="柔粉標註" aria-pressed="${activeHighlightColor === "#fecdd3"}"></button>
-          <button type="button" class="yv-dot yv-dot-purple${activeHighlightColor === "#ddd6fe" ? " is-active" : ""}" data-color="#ddd6fe" title="柔紫標註" aria-label="柔紫標註" aria-pressed="${activeHighlightColor === "#ddd6fe"}"></button>
-          <label class="yv-custom-color" title="自訂顏色">
-            <input type="color" data-custom-highlight-color value="${/^#[0-9a-f]{6}$/i.test(activeHighlightColor) ? activeHighlightColor : "#fef08a"}" aria-label="自訂螢光筆顏色">
-            <span aria-hidden="true"></span>
-          </label>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const barDiv = document.getElementById("pwa-selection-bottom-bar");
-  if (!barDiv) return;
-  if (typeof hydrateIcons === "function") hydrateIcons(barDiv);
-
-  const cleanupListeners = () => {
-    document.removeEventListener("click", onDocClick);
-    window.removeEventListener("resize", positionHighlightPalette);
-  };
-
-  selectionBottomBarCleanup = cleanupListeners;
-
-  const closeBar = (options = {}) => {
-    closeSelectionBottomBar(options);
-  };
-
-  const highlightPalette = barDiv.querySelector("[data-highlight-palette]");
-  const highlightToggle = barDiv.querySelector('[data-action="toggle-highlight"]');
-
-  const positionHighlightPalette = () => {
-    if (!highlightToggle || !highlightPalette || highlightPalette.classList.contains("hidden")) return;
-    const barRect = barDiv.getBoundingClientRect();
-    const toggleRect = highlightToggle.getBoundingClientRect();
-    const anchorX = toggleRect.left - barRect.left + (toggleRect.width / 2);
-    highlightPalette.style.setProperty("--yv-highlight-anchor-x", `${anchorX}px`);
-  };
-
-  const setHighlightPaletteOpen = (open) => {
-    highlightPalette?.classList.toggle("hidden", !open);
-    highlightToggle?.setAttribute("aria-expanded", String(open));
-    highlightToggle?.classList.toggle("is-active", open || Boolean(state.highlights?.[highlightKey]));
-    if (open) requestAnimationFrame(positionHighlightPalette);
-  };
-
-  const onDocClick = (e) => {
-    if (barDiv.contains(e.target) || (e.target && e.target.closest && e.target.closest(".bible-verse"))) return;
-    if (highlightPalette && !highlightPalette.classList.contains("hidden")) {
-      setHighlightPaletteOpen(false);
-      return;
-    }
-    closeBar();
-  };
-
-  highlightToggle?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const shouldOpen = highlightPalette?.classList.contains("hidden");
-    setHighlightPaletteOpen(Boolean(shouldOpen));
-  });
-  window.addEventListener("resize", positionHighlightPalette, { passive: true });
-
-  const applyHighlightColor = (color) => {
-    if (!/^#[0-9a-f]{6}$/i.test(String(color || ""))) return;
-    const normalizedColor = color.toLowerCase();
-    if (verseDiv) {
-      verseDiv.style.removeProperty("background-color");
-      verseDiv.style.setProperty("--verse-highlight-color", normalizedColor);
-      verseDiv.setAttribute("data-highlight", normalizedColor);
-    }
-    state.highlights[highlightKey] = normalizedColor;
-    localStorage.setItem("bible_highlights", JSON.stringify(state.highlights));
-    state.highlightTimestamps[highlightKey] = new Date().toISOString();
-    localStorage.setItem("bible_highlight_timestamps", JSON.stringify(state.highlightTimestamps));
-    highlightToggle?.classList.add("is-active");
-    if (typeof db.saveHighlight === "function") {
-      db.saveHighlight(bookName, chapter, verse, normalizedColor).catch(err =>
-        console.warn("[bible] saveHighlight failed:", err));
-    }
-
-    barDiv.querySelectorAll("[data-color]").forEach(b => {
-      const isActive = b.getAttribute("data-color") === normalizedColor;
-      b.classList.toggle("is-active", isActive);
-      b.setAttribute("aria-pressed", String(isActive));
-    });
-  };
-
-  barDiv.querySelectorAll("[data-color]").forEach(btn => {
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      applyHighlightColor(btn.getAttribute("data-color"));
-    };
-  });
-
-  barDiv.querySelector("[data-custom-highlight-color]")?.addEventListener("input", (e) => {
-    e.stopPropagation();
-    applyHighlightColor(e.target.value);
-  });
-
-  barDiv.querySelector('[data-action="clear"]')?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (verseDiv) {
-      verseDiv.style.removeProperty("background-color");
-      verseDiv.style.removeProperty("--verse-highlight-color");
-      verseDiv.removeAttribute("data-highlight");
-    }
-    delete state.highlights[highlightKey];
-    localStorage.setItem("bible_highlights", JSON.stringify(state.highlights));
-    delete state.highlightTimestamps[highlightKey];
-    localStorage.setItem("bible_highlight_timestamps", JSON.stringify(state.highlightTimestamps));
-    highlightToggle?.classList.add("is-active");
-    if (typeof db.deleteHighlight === "function") {
-      db.deleteHighlight(bookName, chapter, verse).catch(err =>
-        console.warn("[bible] deleteHighlight failed:", err));
-    }
-
-    // 重置所有色點 active 狀態，不關閉 bar
-    barDiv.querySelectorAll("[data-color]").forEach(b => {
-      b.classList.remove("is-active");
-      b.setAttribute("aria-pressed", "false");
-    });
-  });
-
-  barDiv.querySelector('[data-action="copy"]')?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-      navigator.clipboard.writeText(selectedText).then(() => {
-        showToast("經文已複製到剪貼簿！");
-      });
-    } else {
-      showToast(selectedText);
-    }
-    closeBar();
-  });
-
-  barDiv.querySelector('[data-action="share"]')?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (navigator.share) {
-      navigator.share({ title: "經文分享", text: selectedText, url: window.location.href }).catch(() => {});
-    } else if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-      navigator.clipboard.writeText(selectedText).then(() => {
-        showToast("經文已複製，可直接貼上分享！");
-      });
-    }
-    closeBar();
-  });
-
-  barDiv.querySelector('[data-action="note"]')?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const noteVerse = verse || selectedVerseNumber;
-    closeBar({ clearSelection: false });
-    openVerseNoteEditor({
-      bookName,
-      chapter,
-      verse: noteVerse,
-      verseDiv,
-      highlightKey,
-      verseText: verseText || "",
-      referenceLabel: `${bookName || ""} ${chapter || ""}:${noteVerse}`
-    });
-  });
-
-  selectionBottomBarBindTimer = setTimeout(() => {
-    document.addEventListener("click", onDocClick);
-    selectionBottomBarBindTimer = null;
-  }, 100);
-}
-
-/**
  * 逐節筆記全螢幕編輯框
  */
 function closeVerseNoteEditor() {
   const rootElement = document.getElementById("verse-note-editor-root");
   if (rootElement) rootElement.innerHTML = "";
   document.body.classList.remove("verse-note-editor-open");
+  // 筆記編輯框關掉後，若選取集合還在 → 把選取工具列叫回來
+  if (verseSelection.size > 0) refreshVerseSelectionUI();
 }
 
 function openVerseNoteEditor(options) {

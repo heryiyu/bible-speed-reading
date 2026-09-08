@@ -5,119 +5,107 @@ const bible = readFileSync("js/modules/bible.js", "utf8");
 const html = readFileSync("index.html", "utf8");
 const css = readFileSync("index.css", "utf8");
 
-describe("reader verse selection bottom bar", () => {
-  it("keeps one active bottom bar tied to the selected verse", () => {
-    expect(bible).toContain("let selectionBottomBarCleanup = null;");
-    expect(bible).toContain("let selectionBottomBarBindTimer = null;");
-    expect(bible).toContain("function closeSelectionBottomBar({ clearSelection = true } = {})");
-    expect(bible).toContain("const isSelected = setReaderStartSelection(verseDiv);");
-    expect(bible).toContain("if (!isSelected) {");
-    expect(bible).toContain("closeSelectionBottomBar({ clearSelection: false });");
-    expect(bible).toContain("clearTimeout(selectionBottomBarBindTimer)");
+// 2026-09-08：合併「單節 / 長按複選」兩套模式 → 一律「點一下切換選取」，
+// 選取集合跨章保留，工具列上方一條 chip 列，✕ 一鍵全清。
+
+describe("reader verse selection — 統一點選多節模型", () => {
+  it("移除長按複選：不再有 longPress / multiSelectState / 兩套模式函式", () => {
+    expect(bible).not.toContain("longPressTimer");
+    expect(bible).not.toContain("MULTI_SELECT_LONG_PRESS_MS");
+    expect(bible).not.toContain("multiSelectState");
+    expect(bible).not.toContain("function startMultiSelection");
+    expect(bible).not.toContain("function openMultiSelectBottomBar");
+    expect(bible).not.toContain("function openIntegratedSelectionBottomBar");
+    expect(bible).not.toContain("function setReaderStartSelection");
+    // 也不再監聽 touchstart/mousedown 之類做長按判定
+    expect(bible).not.toContain('verseDiv.addEventListener("touchstart"');
+  });
+
+  it("點一下 = 切換該節在選取集合裡的有無（跨章保留）", () => {
+    expect(bible).toContain("const verseSelection = new Map();");
+    expect(bible).toContain("function verseSelKey(bookId, chapter, verse)");
+    expect(bible).toContain("function toggleVerseSelection(entry)");
+    const rvl = bible.slice(bible.indexOf("function renderVersesList("), bible.indexOf("function loadVerseNotesForChapter"));
+    expect(rvl).toContain("toggleVerseSelection({ bookId, bookName, chapter, verse: v.verse, text: v.text })");
+    expect(rvl).toContain('verseDiv.addEventListener("click", toggleThisVerse)');
+    // 換章後把仍在集合裡、屬於本章的節重新標記
+    expect(rvl).toContain("applySelectionClassesToDom();");
+  });
+
+  it("選取集合不進 state.js（Map 不能序列化），且換章不清空", () => {
+    // renderReaderText 只拆舊工具列 DOM，不動 verseSelection
+    expect(bible).toContain('closeSelectionBottomBar({ clearSelection: false });');
+    expect(bible).toContain("refreshVerseSelectionUI();   // 跨章");
+    expect(bible).not.toContain("state.readerState.selectedVerses");
+  });
+
+  it("工具列上方有 chip 列，每個 chip 可移除單節；動作列 ✕ 一鍵全清", () => {
+    const bar = bible.slice(bible.indexOf("function renderUnifiedSelectionBar()"), bible.indexOf("function closeVerseNoteEditor"));
+    expect(bar).toContain('class="yv-selection-strip"');
+    expect(bar).toContain("data-remove-key=");
+    expect(bar).toContain('removeVerseFromSelection(chip.getAttribute("data-remove-key"))');
+    expect(bar).toContain('data-action="clear-all"');
+    expect(bar).toContain("clearAllVerseSelection()");
+    expect(bar).toContain('aria-label="全部取消"');
+    // 跨章時 chip 顯示書名，同章省略
+    expect(bar).toContain("crossChapter ? `${v.bookName} ${v.chapter}:${v.verse}` : `${v.chapter}:${v.verse}`");
+  });
+
+  it("點經文區外面不關閉工具列、不清選取（只收合色盤）", () => {
+    const bar = bible.slice(bible.indexOf("function renderUnifiedSelectionBar()"), bible.indexOf("function closeVerseNoteEditor"));
+    // onDocClick 只在色盤開著時收合色盤，barDiv 以外不做別的事
+    expect(bar).toMatch(/const onDocClick = e => \{\s*if \(barDiv\.contains\(e\.target\)\) return;\s*if \(highlightPalette && !highlightPalette\.classList\.contains\("hidden"\)\) setHighlightPaletteOpen\(false\);\s*\};/);
+    expect(bar).not.toContain("closeSelectionBottomBar()"); // 不會因點外面而關
+  });
+
+  it("螢光筆一色套用到所有選取節；筆記僅單節可用", () => {
+    expect(bible).toContain("function applyHighlightToSelection(color)");
+    expect(bible).toContain("已為 ${entries.length} 節加上標註");
+    expect(bible).toContain("已清除 ${entries.length} 節的標註");
+    const bar = bible.slice(bible.indexOf("function renderUnifiedSelectionBar()"), bible.indexOf("function closeVerseNoteEditor"));
+    // note 按鈕在 !single 時 disabled
+    expect(bar).toContain('data-action="note"${single ? "" : \' disabled aria-disabled="true"\'}');
+    expect(bar).toContain("if (!single) return;");
+  });
+
+  it("複製/分享：依書→章分組，連續節壓成 a-b、非連續用逗號", () => {
+    expect(bible).toContain("function formatSelectionText()");
+    expect(bible).toContain("r.start === r.end ? `${r.start}` : `${r.start}-${r.end}`");
+    expect(bible).toContain('.join("；")');
+  });
+
+  it("朗讀起點：恰好一節且在本章 → 那一節；0/2+/在別章 → null（從第 1 節）", () => {
+    expect(bible).toContain("function syncReaderStartVerse()");
+    expect(bible).toMatch(/state\.readerState\.selectedVerseNum =\s*\(sorted\.length === 1 && sorted\[0\]\.bookId === currentReaderBookId\(\) && sorted\[0\]\.chapter === currentReaderChapter\(\)\)\s*\? sorted\[0\]\.verse : null;/);
+    // TTS 讀取點不變
+    expect(bible).toContain("const selectedVerseNum = startVerseNum ?? state.readerState?.selectedVerseNum ?? null;");
   });
 
   it("does not let collapsed browser text-selection events hide the bar", () => {
     expect(bible).not.toContain("selectionchange");
-    expect(bible).not.toContain("setReaderStartSelection(null)");
   });
 
-  it("closes stale selection UI when the reader reloads a chapter", () => {
-    const resetIndex = bible.indexOf("state.readerState.selectedVerseNum = null;");
-    const closeIndex = bible.indexOf("closeSelectionBottomBar();", resetIndex);
-    expect(resetIndex).toBeGreaterThan(-1);
-    expect(closeIndex).toBeGreaterThan(resetIndex);
-  });
-
-  it("bumps the app shell so mobile PWAs fetch the fixed reader module", () => {
+  it("bumps the app shell so mobile PWAs fetch the reworked reader module", () => {
     expect(html).toMatch(/js\/app\.js\?v=2026\d{4}_/);
   });
+});
 
-  it("sits flush against the screen bottom (no floating gap), as a rounded-top sheet", () => {
+describe("selection bar CSS", () => {
+  it("被選取的節有 .verse-selected 底色（沿用 .multi-selected 視覺）", () => {
+    expect(css).toMatch(/#reader-view \.bible-verse\.multi-selected,\s*#reader-view \.bible-verse\.verse-selected \{/);
+  });
+
+  it("chip 列橫向可捲動、chip 為圓角 pill、disabled tile 變灰", () => {
+    expect(css).toMatch(/\.youversion-action-bar \.yv-selection-strip \{[\s\S]*overflow-x: auto;[\s\S]*scrollbar-width: none;/);
+    expect(css).toMatch(/\.youversion-action-bar \.yv-selection-strip::-webkit-scrollbar \{[\s\S]*display: none;/);
+    expect(css).toMatch(/\.youversion-action-bar \.yv-chip \{[\s\S]*border-radius: 999px;/);
+    expect(css).toMatch(/\.youversion-action-bar \.yv-tile\[disabled\],\s*\.youversion-action-bar \.yv-tile\[aria-disabled="true"\] \{[\s\S]*opacity: 0\.4;/);
+  });
+
+  it("工具列仍貼齊螢幕底部（rounded-top sheet）", () => {
     const base = css.match(/\.youversion-action-bar \{([\s\S]*?)\}/)?.[1] || "";
     expect(base).toMatch(/bottom:\s*0;/);
-    expect(base).not.toMatch(/bottom:\s*calc\(0\.75rem/);
     expect(base).toContain("border-radius: 1rem 1rem 0 0;");
-    // safe-area moved into padding so content still clears the home indicator
-    expect(base).toMatch(/padding:[^;]*calc\(0\.75rem \+ env\(safe-area-inset-bottom, 0px\)\);/);
-    // upward shadow for a bottom sheet
     expect(base).toContain("box-shadow: 0 -8px 30px");
-    const narrow = css.match(/@media \(max-width: 360px\) \{\s*\.youversion-action-bar \{([\s\S]*?)\}/)?.[1] || "";
-    expect(narrow).toMatch(/width:\s*100vw;/);
-    expect(narrow).toMatch(/env\(safe-area-inset-bottom, 0px\)/);
-  });
-
-  it("keeps the redesigned selection toolbar compact and scrollable on narrow screens", () => {
-    const highlightSectionRule = css.match(/\.youversion-action-bar \.yv-highlight-section \{([\s\S]*?)\}/)?.[1] || "";
-    const actionGroupRule = css.match(/\.youversion-action-bar \.yv-action-group \{([\s\S]*?)\}/)?.[1] || "";
-    expect(bible).toContain('data-icon="share"');
-    expect(bible).toContain("hydrateIcons(barDiv)");
-    expect(css).toMatch(/\.youversion-action-bar \.yv-content-row \{[\s\S]*flex-direction: row;[\s\S]*overflow-x: auto;[\s\S]*scrollbar-width: none;/);
-    expect(css).toMatch(/\.youversion-action-bar \.yv-content-row::-webkit-scrollbar \{[\s\S]*display: none;/);
-    expect(highlightSectionRule).toContain("min-width: max-content;");
-    expect(actionGroupRule).toContain("display: flex;");
-    expect(actionGroupRule).toContain("flex: 0 0 auto;");
-    expect(highlightSectionRule).not.toContain("flex-direction: column;");
-    expect(css).not.toMatch(/\.youversion-action-bar[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
-  });
-
-  it("shows the four primary actions in order and reveals highlight tools on demand", () => {
-    const start = bible.indexOf("function openIntegratedSelectionBottomBar(options)");
-    const end = bible.indexOf("function openVerseNoteEditor", start);
-    const toolbar = bible.slice(start, end);
-    const copyIndex = toolbar.indexOf('data-action="copy"');
-    const highlightIndex = toolbar.indexOf('data-action="toggle-highlight"');
-    const noteIndex = toolbar.indexOf('data-action="note"');
-    const shareIndex = toolbar.indexOf('data-action="share"');
-
-    expect(copyIndex).toBeGreaterThan(-1);
-    expect(highlightIndex).toBeGreaterThan(copyIndex);
-    expect(noteIndex).toBeGreaterThan(highlightIndex);
-    expect(shareIndex).toBeGreaterThan(noteIndex);
-    expect(toolbar).toContain('class="yv-highlight-section yv-highlight-popover hidden" data-highlight-palette');
-    expect(toolbar).toContain('aria-expanded="false"');
-    expect(toolbar).toContain("setHighlightPaletteOpen(Boolean(shouldOpen))");
-    expect(toolbar).toContain('const shouldOpen = highlightPalette?.classList.contains("hidden")');
-    expect(toolbar).toMatch(/highlightToggle\?\.addEventListener\("click"[\s\S]*setHighlightPaletteOpen\(Boolean\(shouldOpen\)\)/);
-    expect(toolbar).toContain('highlightPalette.style.setProperty("--yv-highlight-anchor-x"');
-    expect(css).toMatch(/\.youversion-action-bar \.yv-highlight-popover \{[\s\S]*position: absolute;[\s\S]*bottom: calc\(100% \+ 0\.625rem\);/);
-    expect(toolbar).toContain('data-action="clear"');
-    expect(toolbar).toContain('data-icon="noColor"');
-    expect(toolbar).toContain('aria-label="取消螢光標註"');
-    expect(toolbar).not.toContain('data-icon="eraser"');
-    expect(toolbar.indexOf('data-action="clear"')).toBeLessThan(toolbar.indexOf('data-color="#fef08a"'));
-    expect(toolbar).toContain('data-color="#fecdd3"');
-    expect(toolbar).toContain('data-color="#ddd6fe"');
-    expect(toolbar).toContain('data-custom-highlight-color');
-    expect(toolbar).toContain("applyHighlightColor(e.target.value)");
-    expect(toolbar).toContain('verseDiv.style.setProperty("--verse-highlight-color"');
-    expect(css).toContain("var(--verse-highlight-color, #fef08a)");
-    expect(toolbar).not.toContain('data-action="play"');
-    expect(toolbar).not.toContain('<span class="yv-tile-label">朗讀</span>');
-  });
-
-  it("keeps the selection tools compact and closes them from the surrounding reading area", () => {
-    const start = bible.indexOf("function openIntegratedSelectionBottomBar(options)");
-    const end = bible.indexOf("function openVerseNoteEditor", start);
-    const toolbar = bible.slice(start, end);
-    expect(toolbar).not.toContain('data-action="close"');
-    expect(toolbar).not.toContain('data-action="close-highlight-palette"');
-    expect(toolbar).not.toContain('class="yv-popover-header"');
-    expect(toolbar).toContain('document.addEventListener("click", onDocClick)');
-    expect(toolbar).toContain("setHighlightPaletteOpen(false)");
-  });
-
-  it("puts a round icon-only cancel control first in multi-selection actions", () => {
-    const start = bible.indexOf("function openMultiSelectBottomBar()");
-    const end = bible.indexOf("function startMultiSelection", start);
-    const toolbar = bible.slice(start, end);
-    const cancelIndex = toolbar.indexOf('class="yv-multi-cancel-button" data-action="ms-cancel"');
-    const copyIndex = toolbar.indexOf('data-action="ms-copy"');
-    const shareIndex = toolbar.indexOf('data-action="ms-share"');
-    expect(cancelIndex).toBeGreaterThan(-1);
-    expect(cancelIndex).toBeLessThan(copyIndex);
-    expect(copyIndex).toBeLessThan(shareIndex);
-    expect(toolbar).toContain('aria-label="取消多節選取"');
-    expect(toolbar).not.toContain('<span class="yv-tile-label">取消</span>');
-    expect(css).toMatch(/\.youversion-action-bar \.yv-multi-cancel-button \{[\s\S]*border-radius: 50%;/);
   });
 });
