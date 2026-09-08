@@ -19,7 +19,7 @@ import './auth-launch.mjs';
 import './db.js?v=20260907_batch_metric_label';
 import './utils.js?v=20260905_r1final_badge_puzzle';
 import './gamification.js?v=20260826_quiz_remove_duplicate_scope_filter';
-import { mountExamRunner } from './modules/exam.js?v=20260906_exam_grading_seq';
+import { mountExamRunner } from './modules/exam.js?v=20260908_exam_pr_values';
 
 const boot = document.getElementById('exam-boot');
 const setBoot = (msg) => { if (boot) boot.textContent = msg; };

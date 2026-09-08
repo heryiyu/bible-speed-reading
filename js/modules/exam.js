@@ -572,19 +572,26 @@ async function renderExamStats(host, paperId, hasShort = true) {
     <tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td>${c.f(r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 
   const scoped = d.scope === "scoped";
+  const prVisible = d.prVisible === true;          // admin/pastor 隨時；範圍主管要成績公布後
+  const prPending = !prVisible;
+  const prCell = (v) => (v == null ? "—" : v);     // 母體 < 5 或未公布 → server 回 null
   const rank3 = (d.teamRanking || []).filter((r) => r.division === 3);
   const rank6 = (d.teamRanking || []).filter((r) => r.division === 6);
   const rankTbl = (rows, size) => rows.length ? tbl(rows, [
     { h: "名次", f: (r) => r.rank },
     { h: "隊名", f: (r) => esc(r.name || "") },
+    { h: "大區", f: (r) => esc(r.greatRegion || "—") },
+    { h: "牧區", f: (r) => esc(r.pastoralZone || "—") },
     { h: "完成", f: (r) => `${r.completed}/${size}` },
     { h: "隊伍總分", f: (r) => `<strong>${num(r.teamTotal)}</strong>` },
-    { h: `平均（總分÷${size}）`, f: (r) => num(r.avgTotal) }])
+    { h: `平均（總分÷${size}）`, f: (r) => num(r.avgTotal) },
+    ...(prVisible ? [{ h: "PR", f: (r) => prCell(r.pr) }] : [])])
     : `<p class="exam-admin__meta">${scoped ? `你負責範圍內沒有${size} 人隊有人作答。` : `目前沒有任何${size} 人隊。`}</p>`;
 
   host.innerHTML = `
     ${scoped ? '<p class="exam-admin__meta exam-stats__scope">只顯示你負責範圍內的作答；隊伍總分也只計入範圍內成員，且只列出範圍內有人作答的隊。</p>' : ""}
     <p class="exam-admin__meta">團隊平均固定以隊伍編制計算：3 人隊除以 3、6 人隊除以 6；未完成／未作答的成員一律按 0 分計。${scoped ? "" : "沒有人作答的隊也會列出（0 分、排在最後）。"}</p>
+    <p class="exam-admin__meta">PR 值＝在「全教會同層級」（全體參加者／各大區／各牧區／各小組／同型團隊）的百分等級，夾 1–99；母體不足 5 顯示「—」。名次僅後台可見，公布給會友的內容不含名次。${prPending ? "<strong>成績尚未公布，PR 值待公布後才顯示。</strong>" : ""}</p>
     <div class="exam-stats__tiles">
       <div class="exam-stats__tile"><span>作答</span><strong>${num(o.submitted)}</strong></div>
       <div class="exam-stats__tile"><span>已批改</span><strong>${num(o.graded)}</strong></div>
@@ -597,17 +604,20 @@ async function renderExamStats(host, paperId, hasShort = true) {
     <details class="exam-stats__sec" open><summary>各大區</summary>
       ${tbl(d.byRegion || [], [
         { h: "大區", f: (r) => esc(r.name) }, { h: "作答", f: (r) => r.count },
-        { h: "已批", f: (r) => r.graded }, { h: "平均總分", f: (r) => num(r.avgTotal) }])}
+        { h: "已批", f: (r) => r.graded }, { h: "平均總分", f: (r) => num(r.avgTotal) },
+        ...(prVisible ? [{ h: "PR", f: (r) => prCell(r.pr) }] : [])])}
     </details>
     <details class="exam-stats__sec"><summary>各牧區</summary>
       ${tbl(d.byZone || [], [
         { h: "大區", f: (r) => esc(r.region) }, { h: "牧區", f: (r) => esc(r.name) },
-        { h: "作答", f: (r) => r.count }, { h: "已批", f: (r) => r.graded }, { h: "平均總分", f: (r) => num(r.avgTotal) }])}
+        { h: "作答", f: (r) => r.count }, { h: "已批", f: (r) => r.graded }, { h: "平均總分", f: (r) => num(r.avgTotal) },
+        ...(prVisible ? [{ h: "PR", f: (r) => prCell(r.pr) }] : [])])}
     </details>
     <details class="exam-stats__sec"><summary>各小組</summary>
       ${tbl(d.byGroup || [], [
         { h: "牧區", f: (r) => esc(r.zone) }, { h: "小組", f: (r) => esc(r.name) },
-        { h: "作答", f: (r) => r.count }, { h: "已批", f: (r) => r.graded }, { h: "平均總分", f: (r) => num(r.avgTotal) }])}
+        { h: "作答", f: (r) => r.count }, { h: "已批", f: (r) => r.graded }, { h: "平均總分", f: (r) => num(r.avgTotal) },
+        ...(prVisible ? [{ h: "PR", f: (r) => prCell(r.pr) }] : [])])}
     </details>
     <details class="exam-stats__sec" open><summary>組隊規模</summary>
       ${tbl(d.byTeamSize || [], [
@@ -647,14 +657,21 @@ async function renderExamStats(host, paperId, hasShort = true) {
           { h: "總分", f: (r) => (r.status === "graded" ? `<strong>${num(r.totalScore)}</strong>` : "待批改") }
         ] : [
           { h: "分數", f: (r) => (r.status === "graded" ? `<strong>${num(r.totalScore ?? r.autoScore)}</strong>` : "計分中") }
-        ])])}</div>
+        ]),
+        ...(prVisible ? [
+          { h: "全教會PR", f: (r) => prCell(r.prChurch) },
+          { h: "牧區PR", f: (r) => prCell(r.prZone) },
+          { h: "小組PR", f: (r) => prCell(r.prGroup) }
+        ] : [])])}</div>
     </details>`;
 
   host.querySelector("#exam-stats-csv")?.addEventListener("click", () => {
     const rows = d.roster || [];
-    const head = hasShort
+    const prHead = prVisible ? ["全教會PR", "牧區PR", "小組PR"] : [];
+    const prVals = (r) => (prVisible ? [r.prChurch, r.prZone, r.prGroup] : []);
+    const head = (hasShort
       ? ["姓名", "大區", "牧區", "小組", "組隊", "狀態", "自動", "簡答", "總分", "送出時間"]
-      : ["姓名", "大區", "牧區", "小組", "組隊", "狀態", "分數", "送出時間"];
+      : ["姓名", "大區", "牧區", "小組", "組隊", "狀態", "分數", "送出時間"]).concat(prHead);
     const csv = [head.join(",")].concat(rows.map((r) => (hasShort ? [
       r.name, r.greatRegion, r.pastoralZone, r.smallGroup,
       r.teamLabel || "個人",
@@ -663,7 +680,7 @@ async function renderExamStats(host, paperId, hasShort = true) {
       r.name, r.greatRegion, r.pastoralZone, r.smallGroup,
       r.teamLabel || "個人",
       r.status, r.totalScore ?? r.autoScore, r.submittedAt
-    ]).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))).join("\r\n");
+    ]).concat(prVals(r)).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))).join("\r\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -2727,6 +2744,21 @@ class ExamRunner {
     const staffPreview = d.staffPreview === true;   // 管理員在「公布成績」前提前看到的預覽
     const isPractice = d.attemptKind === "practice" || this.attemptKind === "practice";
 
+    // ── PR 值（僅正式卷、已批改、已公布才有；不含任何隊友分數）──
+    const showPr = d.prPublished === true && !isPractice;
+    const prNum = (v) => (v == null ? "—（參加人數太少）" : `<strong>${v}</strong>`);
+    const myTeams = Array.isArray(d.teams) ? d.teams : [];
+    const prBlockHtml = !showPr ? "" : `
+      <div class="exam-result__banner">
+        <strong>PR 值</strong>（百分等級，代表你贏過多少比例的參加者；本測驗只公布分數與 PR，不公布名次）<br>
+        全教會 PR：${prNum(d.prChurch)}${d.prChurch == null ? "" : `（贏過全教會約 ${d.prChurch}% 的參加者）`}
+        ${myTeams.map((t) => {
+          const org = [t.greatRegion, t.pastoralZone].filter(Boolean).map(esc).join("・");
+          return `<br>你的 ${t.division} 人隊「${esc(t.name || "")}」${org ? `（${org}）` : ""}　`
+            + `隊伍平均 <strong>${t.avg ?? "—"}</strong> 分・團隊 PR ${prNum(t.pr)}`;
+        }).join("")}
+      </div>`;
+
     this.el.innerHTML = `
       <div class="glass-card" style="padding:1.4rem 1.5rem;">
         <h3 style="margin:0 0 .5rem;">${esc(this.paper.title)}${this.paper.mode === "test" ? '　<span class="stat-badge stat-badge--neutral">測試版</span>' : ""}${isPractice ? '　<span class="stat-badge stat-badge--warning">複習</span>' : ""}</h3>
@@ -2738,6 +2770,7 @@ class ExamRunner {
                 : ""}`
             : "你可以查看自己的填答內容；活動關閉並公布成績前，不顯示分數、對錯或正解。"}
         </div>
+        ${prBlockHtml}
         ${lostShortInfo ? `
         <div class="exam-result__banner" style="border-color:var(--color-warning);background:color-mix(in srgb,var(--color-warning) 8%,var(--bg-card));">
           ${lostShortInfo.state === "ok"

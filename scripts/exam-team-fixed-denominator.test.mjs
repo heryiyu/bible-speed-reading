@@ -4,8 +4,9 @@ import fs from "node:fs";
 // 0129 首次導入「固定分母」；0167 把 teamRanking 隊籍來源從
 // exam_attempts.reading_team_id（作答時幾乎沒帶到 → 排行永遠 0 隊）改成即時查
 // reading_team_members；0168 再用 carried_from_team_id 收斂 carry 鏈去重
-// （同一支隊被 carry 到每個階段各一筆 → 重複列 + 隊數暴增）。斷言以最新的 0168 為準。
-const sql=fs.readFileSync(new URL("../supabase/migrations/0168_exam_team_ranking_dedupe_carry_chain.sql",import.meta.url),"utf8");
+// （同一支隊被 carry 到每個階段各一筆 → 重複列 + 隊數暴增）；0169 是含 PR 值的
+// 最終版 exam_get_stats。斷言以最新的 0169 為準。
+const sql=fs.readFileSync(new URL("../supabase/migrations/0169_exam_pr_values.sql",import.meta.url),"utf8");
 const ui=fs.readFileSync(new URL("../js/modules/exam.js",import.meta.url),"utf8");
 
 describe("測驗團隊固定分母",()=>{
