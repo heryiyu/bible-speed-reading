@@ -772,9 +772,13 @@ function getBadgeStarState(badge) {
 
 function renderBadgeStars(badge, compact = false) {
   const starState = getBadgeStarState(badge);
+  // campaignStageNo 與第一輪期末賽四卷小徽章：星等直接看遍數，才能像其他階段一樣
+  // 從 ★1–5 升到 💎6–8、👑9+（getBadgeStarState.displayedStars 會被 maxStars 夾在 5）。
   const roundCount = (badge && badge.campaignStageNo)
     ? Math.max(1, getCampaignStageCurrentRound(badge.campaignStageNo))
-    : starState.displayedStars;
+    : (badge && badge.firstRoundFinalBook)
+      ? Math.max(1, getFirstRoundFinalBookRounds(badge.id))
+      : starState.displayedStars;
 
   if (roundCount === 6) {
     const items = `<span class="badge-diamond"><span class="nlc-icon" data-icon="gemFill" aria-hidden="true"></span></span>`;

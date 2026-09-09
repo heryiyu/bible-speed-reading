@@ -49,4 +49,16 @@ describe("first-round-final badge puzzle quadrants", () => {
     expect(body).toContain('medalImage.style.clipPath = "";');
     expect(utils).toContain('shield.style.overflow = firstRoundFinalQuadrant ? "hidden" : "";');
   });
+
+  it("徽章牆的小徽章星等直接看遍數，會從 ★1–5 升到 💎6–8、👑9+（不被 maxStars 夾在 5）", () => {
+    // getBadgeStarState.displayedStars 會被 maxStars(=5) 夾住；renderBadgeStars 必須
+    // 對 firstRoundFinalBook 走跟 campaignStageNo 一樣的「直接看遍數」路徑，否則讀
+    // 30 遍還是只顯示 ★5，跟徽章詳情頁（顯示「3 皇冠」）對不上。
+    const fn = utils.slice(utils.indexOf("function renderBadgeStars(badge, compact"), utils.indexOf("function updateBadgeWallSummary"));
+    expect(fn).toContain("badge.firstRoundFinalBook");
+    expect(fn).toContain("Math.max(1, getFirstRoundFinalBookRounds(badge.id))");
+    // 升級階梯本來就在 renderBadgeStars 裡：6→💎、9→👑、>10→3👑
+    expect(fn).toContain("roundCount === 6");
+    expect(fn).toContain("roundCount > 10");
+  });
 });
