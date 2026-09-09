@@ -608,6 +608,10 @@ async function renderExamStats(host, paperId, hasShort = true, paperTitle = null
     { h: "大區", f: (r) => esc(r.greatRegion || "—") },
     { h: "牧區", f: (r) => esc(r.pastoralZone || "—") },
     { h: "完成", f: (r) => `${r.completed}/${size}` },
+    ...(readingBook ? [
+      { h: "未讀完", f: (r) => (Number(r.notRead) ? `<span class="exam-stats__readno">${r.notRead}</span>` : "0") },
+      { h: "未考試", f: (r) => num(Number(r.notTested) || 0) }
+    ] : []),
     { h: "隊伍總分", f: (r) => `<strong>${num(r.teamTotal)}</strong>` },
     { h: `平均（總分÷${size}）`, f: (r) => num(r.avgTotal) },
     ...(prVisible ? [{ h: "PR", f: (r) => prCell(r.pr) }] : [])])
@@ -615,7 +619,7 @@ async function renderExamStats(host, paperId, hasShort = true, paperTitle = null
 
   host.innerHTML = `
     ${scoped ? '<p class="exam-admin__meta exam-stats__scope">只顯示你負責範圍內的作答；隊伍總分也只計入範圍內成員，且只列出範圍內有人作答的隊。</p>' : ""}
-    <p class="exam-admin__meta">團隊平均固定以隊伍編制計算：3 人隊除以 3、6 人隊除以 6；未完成／未作答的成員一律按 0 分計。${scoped ? "" : "沒有人作答的隊也會列出（0 分、排在最後）。"}</p>
+    <p class="exam-admin__meta">團隊平均固定以隊伍編制計算：3 人隊除以 3、6 人隊除以 6；未完成／未作答的成員一律按 0 分計。${scoped ? "" : "沒有人作答的隊也會列出（0 分、排在最後）。"}${readingBook ? `<br>缺口分三類：<strong>未讀完</strong>＝有考試但沒讀完《${esc(readingBook)}》一遍（開「只統計讀完的人」時不計分）、<strong>未考試</strong>＝隊員完全沒作答、缺額＝隊伍沒滿編制（CSV 才有）。` : ""}</p>
     <p class="exam-admin__meta">PR 值＝在「全教會同層級」（全體參加者／各大區／各牧區／各小組／同型團隊）的百分等級，夾 1–99；母體不足 5 顯示「—」。名次僅後台可見，公布給會友的內容不含名次。${prPending ? "<strong>成績尚未公布，PR 值待公布後才顯示。</strong>" : ""}</p>
     ${readingBook ? `<label class="exam-admin__meta exam-stats__readgate" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
       <input type="checkbox" id="exam-stats-readgate"${requireRead ? " checked" : ""}>
@@ -742,12 +746,16 @@ async function renderExamStats(host, paperId, hasShort = true, paperTitle = null
   // 匯出團隊排行（3 人隊 + 6 人隊合併一份，隊型欄區分）
   host.querySelector("#exam-teamrank-csv")?.addEventListener("click", () => {
     const rows = [...rank3, ...rank6].sort((a, b) => a.division - b.division || a.rank - b.rank || String(a.name).localeCompare(String(b.name)));
-    const head = ["隊型", "名次", "隊名", "大區", "牧區", "完成人數", "隊伍總分", "平均（總分÷編制）"]
+    const head = ["隊型", "名次", "隊名", "大區", "牧區", "完成人數"]
+      .concat(readingBook ? ["未讀完", "未考試", "缺額"] : [])
+      .concat(["隊伍總分", "平均（總分÷編制）"])
       .concat(prVisible ? ["團隊PR"] : []);
     const csv = [head.join(",")].concat(rows.map((r) => [
       `${r.division} 人隊`, r.rank, r.name, r.greatRegion, r.pastoralZone,
-      r.completed, r.teamTotal, r.avgTotal
-    ].concat(prVisible ? [r.pr] : []).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))).join("\r\n");
+      r.completed
+    ].concat(readingBook ? [r.notRead ?? 0, r.notTested ?? 0, r.emptySlots ?? 0] : [])
+      .concat([r.teamTotal, r.avgTotal])
+      .concat(prVisible ? [r.pr] : []).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))).join("\r\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

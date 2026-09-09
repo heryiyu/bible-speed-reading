@@ -88,9 +88,12 @@ BEGIN
     scoped_stats:=scoped;
   END IF;
 
+  -- v_plans 只是「後台團隊排行要列出哪些隊」的顯示清單（3 人＋6 人隊都靠它），
+  -- 必須用未過濾的 scoped：整隊都沒人讀完的隊要留在榜上顯示 0 分墊底，
+  -- 不能因為開了「只算讀完的人」開關就整批消失。分數計算才走 scoped_stats。
   SELECT COALESCE(array_agg(DISTINCT rtm.global_plan_id),'{}')INTO v_plans
   FROM public.reading_team_members rtm
-  WHERE rtm.user_id IN(SELECT a.user_id FROM public.exam_attempts a WHERE a.id=ANY(scoped_stats));
+  WHERE rtm.user_id IN(SELECT a.user_id FROM public.exam_attempts a WHERE a.id=ANY(scoped));
 
   results_pub:=pr.results_published_at IS NOT NULL;
   pr_visible:=results_pub OR scope_all;
@@ -186,8 +189,14 @@ BEGIN
         WHERE rt.division IN(3,6)
         ORDER BY tr.anchor,rt.division,rt.created_at DESC,rt.id DESC
       )
+      -- 分數只算「有作答（且開關開時＝有讀完）」的成員（scoped_stats），分母固定 division。
+      -- 缺口再拆三類讓管理員看得出原因：
+      --   notRead    ＝有考試、但沒讀完該書卷（開關開時不計分；開關關時恆 0）
+      --   notTested  ＝隊員本人完全沒有這份測驗的 submitted/graded 作答
+      --   emptySlots ＝隊伍沒滿 division 人
       SELECT jsonb_agg(jsonb_build_object('teamId',t.team_id,'name',t.name,
         'division',t.division,'rank',t.rnk,'completed',t.completed,'submitted',t.submitted_cnt,
+        'notRead',t.not_read_cnt,'notTested',t.not_tested_cnt,'emptySlots',t.empty_slots,
         'greatRegion',t.captain_region,'pastoralZone',t.captain_zone,
         'teamTotal',t.team_total,'avgTotal',t.avg_total,
         'pr',CASE WHEN pr_visible AND t.submitted_cnt>0
@@ -196,19 +205,25 @@ BEGIN
         ORDER BY t.division,t.rnk,t.name)
       FROM(
         SELECT ranked.team_id,ranked.name,ranked.division,ranked.completed,ranked.submitted_cnt,
+          ranked.not_read_cnt,ranked.not_tested_cnt,ranked.empty_slots,
           ranked.team_total,ranked.avg_total,ranked.captain_region,ranked.captain_zone,
           RANK()OVER(PARTITION BY ranked.division ORDER BY ranked.avg_total DESC)rnk
         FROM(
           SELECT lt.team_id,lt.name,lt.division,cap.great_region captain_region,cap.pastoral_zone captain_zone,
-            COUNT(a.id)FILTER(WHERE a.status='graded')completed,
-            COUNT(a.id)FILTER(WHERE a.status IN('submitted','graded'))submitted_cnt,
-            COALESCE(SUM(a.total_score)FILTER(WHERE a.status='graded'),0)team_total,
-            ROUND(COALESCE(SUM(a.total_score)FILTER(WHERE a.status='graded'),0)::numeric/lt.division,1)avg_total
+            COUNT(a.id)FILTER(WHERE a.id=ANY(scoped_stats)AND a.status='graded')completed,
+            COUNT(a.id)FILTER(WHERE a.id=ANY(scoped_stats)AND a.status IN('submitted','graded'))submitted_cnt,
+            GREATEST(0,COUNT(a.id)FILTER(WHERE a.status IN('submitted','graded'))
+              -COUNT(a.id)FILTER(WHERE a.id=ANY(scoped_stats)AND a.status IN('submitted','graded')))not_read_cnt,
+            GREATEST(0,COUNT(DISTINCT m.user_id)
+              -COUNT(a.id)FILTER(WHERE a.status IN('submitted','graded')))not_tested_cnt,
+            GREATEST(0,lt.division-COUNT(DISTINCT m.user_id))empty_slots,
+            COALESCE(SUM(a.total_score)FILTER(WHERE a.id=ANY(scoped_stats)AND a.status='graded'),0)team_total,
+            ROUND(COALESCE(SUM(a.total_score)FILTER(WHERE a.id=ANY(scoped_stats)AND a.status='graded'),0)::numeric/lt.division,1)avg_total
           FROM latest_team lt
           LEFT JOIN public.profiles cap ON cap.id=lt.captain_id
           JOIN public.reading_team_members m ON m.team_id=lt.team_id
           LEFT JOIN public.exam_attempts a
-            ON a.user_id=m.user_id AND a.paper_id=pr.id AND a.attempt_kind='official' AND a.id=ANY(scoped_stats)
+            ON a.user_id=m.user_id AND a.paper_id=pr.id AND a.attempt_kind='official' AND a.id=ANY(scoped)
           GROUP BY lt.team_id,lt.name,lt.division,lt.global_plan_id,cap.great_region,cap.pastoral_zone
           HAVING(scope_all AND lt.global_plan_id=ANY(v_plans))
               OR COUNT(a.id)FILTER(WHERE a.status IN('submitted','graded'))>0
@@ -259,4 +274,4 @@ $$;
 GRANT EXECUTE ON FUNCTION public.exam_get_stats(UUID,UUID,BOOLEAN,TEXT,INTEGER) TO authenticated;
 
 COMMENT ON FUNCTION public.exam_get_stats(UUID,UUID,BOOLEAN,TEXT,INTEGER)
-IS '正式測驗統計。p_reading_book/p_book_chapters：對應書卷（roster[].firstRoundDone 判定「讀過該書卷一遍」＝有 target_books 含該卷且 current_round>=2 或第1遍打卡滿章數的 reading_plans）。p_require_first_round=true → 整體/各大區/牧區/小組/組隊/團隊排行/PR母體只算讀過的人（roster 仍列全部，overall.notReadCount=被排除數）。teamRanking 沿用 0167/0168，PR 沿用 0169。';
+IS '正式測驗統計。p_reading_book/p_book_chapters：對應書卷（roster[].firstRoundDone 判定「讀過該書卷一遍」＝有 target_books 含該卷且 current_round>=2 或第1遍打卡滿章數的 reading_plans）。p_require_first_round=true → 整體/各大區/牧區/小組/組隊/團隊排行/PR母體只算讀過的人（roster 仍列全部，overall.notReadCount=被排除數）。teamRanking 每列另帶 notRead（有考試沒讀完）/notTested（隊員沒作答）/emptySlots（隊沒滿），分母固定 division；顯示清單 v_plans 用未過濾 scoped。PR 沿用 0169。';

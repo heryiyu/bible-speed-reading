@@ -108,7 +108,8 @@ describe("exam.js — PR 顯示", () => {
   it("有『匯出團隊排行 CSV』：3+6 人隊合併、含大區/牧區、PR 隨 prVisible", () => {
     expect(ui).toContain('id="exam-teamrank-csv"');
     expect(ui).toContain("const rows = [...rank3, ...rank6].sort(");
-    expect(ui).toContain('["隊型", "名次", "隊名", "大區", "牧區", "完成人數", "隊伍總分", "平均（總分÷編制）"]');
+    expect(ui).toContain('["隊型", "名次", "隊名", "大區", "牧區", "完成人數"]');
+    expect(ui).toContain('.concat(["隊伍總分", "平均（總分÷編制）"])');
     expect(ui).toContain('.concat(prVisible ? ["團隊PR"] : [])');
     expect(ui).toContain("_團隊排行.csv`");
   });

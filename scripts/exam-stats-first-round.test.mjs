@@ -46,13 +46,19 @@ describe("0170: exam_get_stats — 5 參數簽章 + 過濾旗標", () => {
     expect(sql).toContain("scoped_stats:=scoped;");
   });
 
-  it("聚合表全部改吃 scoped_stats；roster 仍吃 scoped（列出所有人）", () => {
-    // 整體 / 各區表 / 逐題 / 團隊排行都用 scoped_stats
+  it("彙整分數吃 scoped_stats（開關開＝只算讀完的人）；roster 吃 scoped（列出所有人）", () => {
+    // 整體 / 各區表 / 逐題都用 scoped_stats
     expect(sql).toContain("FROM public.exam_attempts a WHERE a.id=ANY(scoped_stats))");
     expect(sql).toMatch(/byRegion[\s\S]*?WHERE a\.id=ANY\(scoped_stats\)/);
-    expect(sql).toMatch(/'teamRanking'[\s\S]*?a\.id=ANY\(scoped_stats\)/);
+    // teamRanking 分數 FILTER 走 scoped_stats（JOIN 本身放寬成 scoped，見缺口拆類測試）
+    expect(sql).toMatch(/'teamRanking'[\s\S]*?FILTER\(WHERE a\.id=ANY\(scoped_stats\)AND a\.status='graded'\)completed/);
     // roster 用 scoped（列出所有人，含被排除者）
     expect(sql).toMatch(/'roster',COALESCE\(\(SELECT jsonb_agg[\s\S]*?WHERE a\.id=ANY\(scoped\)AND a\.status IN\('submitted','graded'\)\),'\[\]'::jsonb\)/);
+  });
+
+  it("v_plans（後台 3/6 人隊排行的顯示清單）用未過濾的 scoped，開關開了也不讓整批隊消失", () => {
+    expect(sql).toMatch(/INTO v_plans\s+FROM public\.reading_team_members rtm\s+WHERE rtm\.user_id IN\(SELECT a\.user_id FROM public\.exam_attempts a WHERE a\.id=ANY\(scoped\)\)/);
+    expect(sql).not.toContain("INTO v_plans\n  FROM public.reading_team_members rtm\n  WHERE rtm.user_id IN(SELECT a.user_id FROM public.exam_attempts a WHERE a.id=ANY(scoped_stats))");
   });
 
   it("roster 每列帶 firstRoundDone（沒帶書卷 → NULL）", () => {
@@ -119,5 +125,37 @@ describe("exam.js — 統計頁「讀完一遍」欄 + 過濾開關", () => {
 
   it("後台統計呼叫端把 paper.title 傳進去", () => {
     expect(ui).toContain("renderExamStats(sub, paper.id, hasShortSection, paper.title)");
+  });
+
+  it("團隊排行表拆「未讀完 / 未考試」欄（有對應書卷時），CSV 再多「缺額」", () => {
+    expect(ui).toContain('{ h: "未讀完", f: (r) => (Number(r.notRead)');
+    expect(ui).toContain('{ h: "未考試", f: (r) => num(Number(r.notTested) || 0) }');
+    expect(ui).toContain('.concat(readingBook ? ["未讀完", "未考試", "缺額"] : [])');
+    expect(ui).toContain("r.notRead ?? 0, r.notTested ?? 0, r.emptySlots ?? 0");
+  });
+});
+
+describe("0170: teamRanking 缺口拆三類（notRead / notTested / emptySlots）", () => {
+  const fn = sql.slice(sql.indexOf("'teamRanking',COALESCE(("), sql.indexOf("'byQuestion',"));
+
+  it("JOIN 放寬到未過濾 scoped，才看得出誰只是沒考試", () => {
+    expect(fn).toContain("LEFT JOIN public.exam_attempts a\n            ON a.user_id=m.user_id AND a.paper_id=pr.id AND a.attempt_kind='official' AND a.id=ANY(scoped)");
+  });
+
+  it("分數/完成/submitted 仍只算 scoped_stats（開關開時＝有讀完）", () => {
+    expect(fn).toContain("COUNT(a.id)FILTER(WHERE a.id=ANY(scoped_stats)AND a.status='graded')completed");
+    expect(fn).toContain("COUNT(a.id)FILTER(WHERE a.id=ANY(scoped_stats)AND a.status IN('submitted','graded'))submitted_cnt");
+    expect(fn).toContain("SUM(a.total_score)FILTER(WHERE a.id=ANY(scoped_stats)AND a.status='graded')");
+    expect(fn).toContain("/lt.division,1)avg_total");
+  });
+
+  it("notRead = 有考試 − 有讀完；notTested = 隊員數 − 有考試；emptySlots = division − 隊員數；都 GREATEST(0,…)", () => {
+    expect(fn).toContain("GREATEST(0,COUNT(a.id)FILTER(WHERE a.status IN('submitted','graded'))\n              -COUNT(a.id)FILTER(WHERE a.id=ANY(scoped_stats)AND a.status IN('submitted','graded')))not_read_cnt");
+    expect(fn).toContain("GREATEST(0,COUNT(DISTINCT m.user_id)\n              -COUNT(a.id)FILTER(WHERE a.status IN('submitted','graded')))not_tested_cnt");
+    expect(fn).toContain("GREATEST(0,lt.division-COUNT(DISTINCT m.user_id))empty_slots");
+  });
+
+  it("三個欄位有進 jsonb_build_object", () => {
+    expect(fn).toContain("'notRead',t.not_read_cnt,'notTested',t.not_tested_cnt,'emptySlots',t.empty_slots");
   });
 });
