@@ -39,9 +39,11 @@ $$;
 REVOKE ALL ON FUNCTION public._user_read_book_once(UUID, TEXT, INTEGER) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public._user_read_book_once(UUID, TEXT, INTEGER) TO authenticated, service_role;
 
+-- 舊的 2 參數版（0169）換成下面的 5 參數版；DROP 只清舊簽章（重跑時 no-op），
+-- 新簽章用 CREATE OR REPLACE，這樣本檔案可以重複執行不報 42723。
 DROP FUNCTION IF EXISTS public.exam_get_stats(UUID, UUID);
 
-CREATE FUNCTION public.exam_get_stats(
+CREATE OR REPLACE FUNCTION public.exam_get_stats(
   p_paper_id UUID,
   p_actor_id UUID DEFAULT NULL,
   p_require_first_round BOOLEAN DEFAULT FALSE,

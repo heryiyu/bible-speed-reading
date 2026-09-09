@@ -26,8 +26,10 @@ describe("0170: _user_read_book_once — 讀過該書卷一遍的判定", () => 
 });
 
 describe("0170: exam_get_stats — 5 參數簽章 + 過濾旗標", () => {
-  it("DROP 舊 2 參數版、重建 5 參數版", () => {
+  it("DROP 舊 2 參數版、5 參數版用 CREATE OR REPLACE（本檔可重複執行、不撞 42723）", () => {
     expect(sql).toContain("DROP FUNCTION IF EXISTS public.exam_get_stats(UUID, UUID);");
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.exam_get_stats(");
+    expect(sql).not.toMatch(/\nCREATE FUNCTION public\.exam_get_stats\(/);
     expect(sql).toContain("p_require_first_round BOOLEAN DEFAULT FALSE");
     expect(sql).toContain("p_reading_book TEXT DEFAULT NULL");
     expect(sql).toContain("p_book_chapters INTEGER DEFAULT NULL");
