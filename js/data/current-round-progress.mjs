@@ -20,7 +20,19 @@ export function getConfirmedReadingRound({ currentRound, upgradePromptHandled = 
   );
   return upgradePromptHandled || hasAdvancedRoundReading ? storedRound : 1;
 }
-export function segmentScheduleDaysForRoundCount(days, roundCount, roundEndOffsets = [], completedChapterOffsets = []) {
+// 把 1..roundCount 遍鋪到同一條日曆上。
+//   · 已完成的遍：每章擺在「實際打卡那天」（completedChapterOffsets）。允許多遍疊在同一天
+//     —— 不再保留「一遍至少一格」，所以遍數可以超過日曆天數。沒打卡紀錄的章落在該遍
+//     推得出的日期範圍內平均分布。
+//   · 目前這一遍（round === roundCount）：一律拿到「進入這遍那天 → 階段結束」整段日曆。
+//   currentRoundStartOffset：目前這遍的起始 offset（＝確認進入那天）。未給則沿用舊的
+//     roundEndOffsets 推法，保持既有呼叫端相容。
+// 不變的保證：每個 base 章節、每一遍，剛好被放進「某一天」一次（不漏、不重複）。
+// 這函式只決定「顯示在哪天」，不碰任何 reading log／已讀狀態（那些之後由
+// calculatePlanProgress 依 state.readingLogs 套上），所以重排絕不會讓打卡資料消失。
+export function segmentScheduleDaysForRoundCount(
+  days, roundCount, roundEndOffsets = [], completedChapterOffsets = [], currentRoundStartOffset
+) {
   const sourceDays = Array.isArray(days) ? days : [];
   const rounds = Math.max(1, Math.floor(toNonNegativeNumber(roundCount) || 1));
   if (rounds === 1) return sourceDays.map(day => ({ ...day, chapters: [...(day.chapters || [])] }));
@@ -32,51 +44,81 @@ export function segmentScheduleDaysForRoundCount(days, roundCount, roundEndOffse
   }));
   const baseChapters = Array.from(uniqueChapterMap.values());
   const lastOffset = Math.max(0, sourceDays.length - 1);
-  const boundaries = Array.from({ length: rounds - 1 }, (_, index) => {
-    const fallback = Math.floor(((index + 1) * sourceDays.length) / rounds) - 1;
-    const requested = Number(roundEndOffsets[index]);
-    return Math.max(index, Math.min(lastOffset - (rounds - index - 1), Number.isFinite(requested) ? requested : fallback));
-  });
-  for (let index = 1; index < boundaries.length; index += 1) {
-    boundaries[index] = Math.max(boundaries[index], boundaries[index - 1] + 1);
-  }
-
   const result = sourceDays.map(day => ({ ...day, chapters: [] }));
+  if (sourceDays.length === 0 || baseChapters.length === 0) return result;
+
+  const clampOffset = value => Math.max(0, Math.min(lastOffset, Math.round(Number(value))));
+  const pushChapter = (offset, chapter, round) => {
+    const at = Number.isFinite(offset) ? clampOffset(offset) : 0;
+    result[at].chapters.push({
+      ...chapter,
+      round,
+      key: `${chapter.book}_${chapter.chapter}_${round}`
+    });
+  };
+
+  // 目前這遍的起點：優先用呼叫端傳進來的確認進入 offset；否則沿用舊推法。
+  const legacyCurrentStart = Number(roundEndOffsets[rounds - 2]);
+  const currentStart = Number.isFinite(Number(currentRoundStartOffset))
+    ? clampOffset(currentRoundStartOffset)
+    : (Number.isFinite(legacyCurrentStart) ? clampOffset(legacyCurrentStart + 1) : 0);
+
   for (let round = 1; round <= rounds; round += 1) {
-    const startOffset = round === 1 ? 0 : boundaries[round - 2] + 1;
-    const endOffset = round === rounds ? lastOffset : boundaries[round - 1];
-    let offsets = sourceDays
-      .map((day, index) => ({ day, index }))
-      .filter(({ day, index }) => index >= startOffset && index <= endOffset && !day.isRestDay)
-      .map(({ index }) => index);
-    if (offsets.length === 0) {
-      offsets = sourceDays.map((_, index) => index).filter(index => index >= startOffset && index <= endOffset);
-    }
+    const isCurrent = round === rounds;
     const actualOffsets = completedChapterOffsets[round - 1] instanceof Map
       ? completedChapterOffsets[round - 1]
       : new Map(Object.entries(completedChapterOffsets[round - 1] || {}));
+
+    // 這一遍的參考視窗（用來平均分布「沒有實際打卡紀錄」的章節）
+    let winStart;
+    let winEnd;
+    if (isCurrent) {
+      winStart = currentStart;                 // 進入這遍那天
+      winEnd = lastOffset;                      // 階段結束
+    } else {
+      const seen = Array.from(actualOffsets.values()).map(Number).filter(Number.isFinite);
+      if (seen.length > 0) {
+        winStart = clampOffset(Math.min(...seen)); // 這遍第一次打卡那天
+        winEnd = clampOffset(Math.max(...seen));   // 這遍最後一次打卡那天
+      } else {
+        const prevBoundary = Number(roundEndOffsets[round - 2]);
+        const thisBoundary = Number(roundEndOffsets[round - 1]);
+        winStart = round === 1
+          ? 0
+          : (Number.isFinite(prevBoundary) ? clampOffset(prevBoundary + 1) : clampOffset(Math.floor((round - 1) * sourceDays.length / rounds)));
+        winEnd = Number.isFinite(thisBoundary)
+          ? clampOffset(thisBoundary)
+          : clampOffset(Math.floor(round * sourceDays.length / rounds) - 1);
+      }
+    }
+    if (!Number.isFinite(winStart)) winStart = 0;
+    if (!Number.isFinite(winEnd) || winEnd < winStart) winEnd = winStart;
+
+    let spreadOffsets = sourceDays
+      .map((day, index) => ({ day, index }))
+      .filter(({ day, index }) => index >= winStart && index <= winEnd && !day.isRestDay)
+      .map(({ index }) => index);
+    if (spreadOffsets.length === 0) {
+      spreadOffsets = [];
+      for (let i = winStart; i <= winEnd; i += 1) spreadOffsets.push(i);
+    }
+    if (spreadOffsets.length === 0) spreadOffsets = [clampOffset(winStart)];
+
+    // 已完成的遍：每章擺在「當天實際打卡的那一天」（照 reading log 推出的 offset）；
+    // 多遍可以疊在同一天（key = book_chapter_round，彼此不衝突）。
+    // 沒有打卡紀錄的章（例如目前這遍、或舊資料缺紀錄）→ 在該遍視窗內照閱讀順序平均分配。
     const unplacedChapters = [];
     baseChapters.forEach(chapter => {
-      const chapterKey = `${chapter.book}_${chapter.chapter}`;
-      const actualOffset = Number(actualOffsets.get(chapterKey));
-      if (Number.isFinite(actualOffset) && actualOffset >= startOffset && actualOffset <= endOffset) {
-        result[actualOffset].chapters.push({
-          ...chapter,
-          round,
-          key: `${chapter.book}_${chapter.chapter}_${round}`
-        });
+      const actualOffset = Number(actualOffsets.get(`${chapter.book}_${chapter.chapter}`));
+      if (!isCurrent && Number.isFinite(actualOffset)) {
+        pushChapter(actualOffset, chapter, round);
       } else {
         unplacedChapters.push(chapter);
       }
     });
     unplacedChapters.forEach((chapter, index) => {
-      const dayOffset = offsets[Math.floor(index * offsets.length / Math.max(1, unplacedChapters.length))];
-      if (dayOffset === undefined) return;
-      result[dayOffset].chapters.push({
-        ...chapter,
-        round,
-        key: `${chapter.book}_${chapter.chapter}_${round}`
-      });
+      const slot = spreadOffsets[Math.floor(index * spreadOffsets.length / Math.max(1, unplacedChapters.length))];
+      pushChapter(slot === undefined ? spreadOffsets[0] : slot, chapter, round);
     });
   }
   return result;

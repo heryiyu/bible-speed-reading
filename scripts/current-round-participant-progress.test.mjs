@@ -65,6 +65,67 @@ describe("participant overview current-round progress", () => {
     expect(scheduled.slice(2).flatMap(day => day.chapters).map(chapter => chapter.round)).toEqual([2, 2]);
   });
 
+  it("遍數超過日曆天數也不會有哪一遍擠不進去（可一天疊多遍）", () => {
+    // 30 天的階段被讀完 30 遍、正在進入第 31 遍。已完成的 30 遍全都在前 9 天讀掉。
+    const days = Array.from({ length: 30 }, (_, index) => ({ dayNum: index + 1, isRestDay: false, chapters: [] }));
+    for (let c = 1; c <= 40; c += 1) days[Math.min(29, Math.floor((c - 1) * 30 / 40))].chapters.push({ book: "出", chapter: c, round: 1 });
+
+    const completed = [];
+    for (let r = 1; r <= 30; r += 1) {
+      const m = new Map();
+      for (let c = 1; c <= 40; c += 1) m.set(`出_${c}`, c % 9); // 全落在 offset 0..8
+      completed.push(m);
+    }
+    // 目前這遍（第 31）從 offset 8（確認進入那天）鋪到階段結束
+    const scheduled = segmentScheduleDaysForRoundCount(days, 31, [], completed, 8);
+
+    // 每一遍都剛好 40 章，一章不漏、一章不重複
+    for (let r = 1; r <= 31; r += 1) {
+      const count = scheduled.reduce((sum, day) => sum + day.chapters.filter(ch => ch.round === r).length, 0);
+      expect(count).toBe(40);
+    }
+    expect(scheduled.reduce((sum, day) => sum + day.chapters.length, 0)).toBe(40 * 31);
+
+    // 第 31 遍拿到「進入那天 → 階段結束」整段（offset 8..29），不是 0 天
+    const round31Offsets = scheduled.flatMap((day, index) => day.chapters.some(ch => ch.round === 31) ? [index] : []);
+    expect(round31Offsets.length).toBeGreaterThan(0);
+    expect(Math.min(...round31Offsets)).toBeGreaterThanOrEqual(8);
+    expect(Math.max(...round31Offsets)).toBeLessThanOrEqual(29);
+
+    // 已完成的 30 遍在其實際打卡的日期範圍內（前 9 天）
+    const doneOffsets = new Set(scheduled.flatMap((day, index) => day.chapters.some(ch => ch.round < 31) ? [index] : []));
+    expect(Math.max(...doneOffsets)).toBeLessThanOrEqual(8);
+
+    // 同一天不會有重複的 key
+    scheduled.forEach(day => {
+      const keys = day.chapters.map(ch => ch.key);
+      expect(new Set(keys).size).toBe(keys.length);
+    });
+  });
+
+  it("已完成的遍：每章擺在它實際打卡的那一天（可一天疊多遍）", () => {
+    const days = Array.from({ length: 30 }, (_, index) => ({ dayNum: index + 1, isRestDay: false, chapters: [] }));
+    for (let c = 1; c <= 40; c += 1) days[Math.min(29, Math.floor((c - 1) * 30 / 40))].chapters.push({ book: "出", chapter: c, round: 1 });
+
+    const completed = [];
+    for (let r = 1; r <= 9; r += 1) { const m = new Map(); for (let c = 1; c <= 40; c += 1) m.set(`出_${c}`, r - 1); completed.push(m); }
+    // 第 10 遍：第 8 天（offset 7）讀 出 1-38，第 11 天（offset 10）讀 出 39-40
+    const r10 = new Map();
+    for (let c = 1; c <= 38; c += 1) r10.set(`出_${c}`, 7);
+    for (let c = 39; c <= 40; c += 1) r10.set(`出_${c}`, 10);
+    completed.push(r10);
+
+    const scheduled = segmentScheduleDaysForRoundCount(days, 11, [], completed, 10);
+
+    // 照打卡紀錄：出 1-38 在 offset 7、出 39-40 在 offset 10
+    const at = (offset) => scheduled[offset].chapters.filter(ch => ch.round === 10).map(ch => ch.chapter).sort((a, b) => a - b);
+    expect(at(7)).toEqual(Array.from({ length: 38 }, (_, i) => i + 1));
+    expect(at(10)).toEqual([39, 40]);
+    // 中間沒打卡的日子就沒有第 10 遍章節
+    expect(at(8)).toEqual([]);
+    expect(at(9)).toEqual([]);
+  });
+
   it("persists confirmation, invalidates old totals, and renders only the active round", () => {
     expect(db).toContain("chapters_read: uniqueLogs.length");
     expect(db).toContain("getConfirmedReadingRound({");

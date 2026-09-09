@@ -1868,11 +1868,17 @@ function generateChurchCampaignPlanObject(definition, presetKey, scheduleSetting
     }
     roundEndOffsets.push(Math.max(prevBoundary + 1, boundary));
   }
+  // 目前這一遍從「確認進入那天」（沒有就用今天）鋪到階段結束，整段日曆都給它——
+  // 這樣遍數超過日曆天數時也不會有哪一遍擠不進去。
+  const currentRoundStartOffset = hasConfirmedRoundEntryCampaign
+    ? confirmedRoundEntryOffsetCampaign
+    : (roundCount > 1 ? todayOffsetForCampaignRounds : 0);
   const days = segmentScheduleDaysForRoundCount(
     baseDays,
     roundCount,
     roundEndOffsets,
-    completedChapterOffsets
+    completedChapterOffsets,
+    currentRoundStartOffset
   );
   days.forEach(day => {
     day.chapters.forEach(chapter => {

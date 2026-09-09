@@ -61,6 +61,15 @@
                                     ]
                     },
                     {
+                        "source":  "/js/data/(.*)\\.(js|mjs)",
+                        "headers":  [
+                                        {
+                                            "key":  "Cache-Control",
+                                            "value":  "no-cache, must-revalidate"
+                                        }
+                                    ]
+                    },
+                    {
                         "source":  "/index.css",
                         "headers":  [
                                         {
