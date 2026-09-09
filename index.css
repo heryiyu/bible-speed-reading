@@ -15164,6 +15164,40 @@ body.verse-note-editor-open {
   --nlc-icon-size: 0.6875rem;
 }
 
+/* ─── 鑽石 / 皇冠：內嵌漸層 SVG（取代細線 icon），做出金屬質感 ─── */
+.badge-crown,
+.badge-diamond {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: none;
+}
+.badge-prestige-svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  overflow: visible;
+  display: block;
+}
+.badge-crown .badge-prestige-svg {
+  filter: drop-shadow(0 1px 0 rgba(120, 53, 15, 0.55)) drop-shadow(0 0 5px rgba(245, 158, 11, 0.45));
+}
+.badge-diamond .badge-prestige-svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  filter: drop-shadow(0 1px 0 rgba(21, 94, 117, 0.55)) drop-shadow(0 0 5px rgba(34, 211, 238, 0.45));
+}
+.badge-stars:has(.badge-crown),
+.badge-stars:has(.badge-diamond) {
+  min-height: 1.3rem;
+  margin-top: 0;
+  gap: 0.1875rem;
+}
+.badge-stars--compact .badge-crown .badge-prestige-svg,
+.badge-stars--compact .badge-diamond .badge-prestige-svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
 /* ─── TTS Voice Package Guide Modal Overlay ─── */
 .tts-guide-modal-overlay {
   position: fixed;

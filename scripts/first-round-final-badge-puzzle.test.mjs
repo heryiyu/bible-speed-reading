@@ -57,8 +57,15 @@ describe("first-round-final badge puzzle quadrants", () => {
     const fn = utils.slice(utils.indexOf("function renderBadgeStars(badge, compact"), utils.indexOf("function updateBadgeWallSummary"));
     expect(fn).toContain("badge.firstRoundFinalBook");
     expect(fn).toContain("Math.max(1, getFirstRoundFinalBookRounds(badge.id))");
-    // 升級階梯本來就在 renderBadgeStars 裡：6→💎、9→👑、>10→3👑
-    expect(fn).toContain("roundCount === 6");
-    expect(fn).toContain("roundCount > 10");
+    // 升級階梯：6–8 遍 → 鑽石、9+ 遍 → 皇冠（最多 3）
+    expect(fn).toContain("roundCount >= 6 && roundCount <= 8");
+    expect(fn).toContain("roundCount >= 9");
+    // 鑽石/皇冠改用漸層 SVG 資產 <img>（不是細線 icon / emoji）
+    expect(utils).toContain('src="assets/badges/prestige-crown.svg');
+    expect(utils).toContain('src="assets/badges/prestige-gem.svg');
+    expect(fn).toContain("prestigeCrownSvg()");
+    expect(fn).toContain("prestigeGemSvg()");
+    expect(utils).not.toContain('data-icon="crownFill"');
+    expect(utils).not.toContain('data-icon="gemFill"');
   });
 });

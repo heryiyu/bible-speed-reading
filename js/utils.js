@@ -770,6 +770,15 @@ function getBadgeStarState(badge) {
   return { level: achievedStars, displayedStars, currentValue, levels: ascendingLevels, unit: conf.unit };
 }
 
+// 榮譽標記：鑽石 / 皇冠用漸層 SVG 資產（比照獎牌 <img src>，不是 emoji、不是細線 icon），才有金屬質感。
+const PRESTIGE_MARK_VERSION = "20260909_prestige_svg";
+function prestigeCrownSvg() {
+  return `<span class="badge-crown" aria-hidden="true"><img class="badge-prestige-svg" alt="" src="assets/badges/prestige-crown.svg?v=${PRESTIGE_MARK_VERSION}" loading="lazy" decoding="async"></span>`;
+}
+function prestigeGemSvg() {
+  return `<span class="badge-diamond" aria-hidden="true"><img class="badge-prestige-svg" alt="" src="assets/badges/prestige-gem.svg?v=${PRESTIGE_MARK_VERSION}" loading="lazy" decoding="async"></span>`;
+}
+
 function renderBadgeStars(badge, compact = false) {
   const starState = getBadgeStarState(badge);
   // campaignStageNo 與第一輪期末賽四卷小徽章：星等直接看遍數，才能像其他階段一樣
@@ -780,29 +789,15 @@ function renderBadgeStars(badge, compact = false) {
       ? Math.max(1, getFirstRoundFinalBookRounds(badge.id))
       : starState.displayedStars;
 
-  if (roundCount === 6) {
-    const items = `<span class="badge-diamond"><span class="nlc-icon" data-icon="gemFill" aria-hidden="true"></span></span>`;
-    return `<span class="badge-stars ${compact ? "badge-stars--compact" : ""}" aria-label="第 6 遍：1 顆鑽石榮譽">${items}</span>`;
+  if (roundCount >= 6 && roundCount <= 8) {
+    const n = roundCount - 5;                       // 6→1、7→2、8→3 顆鑽石
+    const items = Array.from({ length: n }, () => prestigeGemSvg()).join("");
+    return `<span class="badge-stars ${compact ? "badge-stars--compact" : ""}" aria-label="第 ${roundCount} 遍：${n} 顆鑽石榮譽">${items}</span>`;
   }
-  if (roundCount === 7) {
-    const items = Array.from({ length: 2 }, () => `<span class="badge-diamond"><span class="nlc-icon" data-icon="gemFill" aria-hidden="true"></span></span>`).join("");
-    return `<span class="badge-stars ${compact ? "badge-stars--compact" : ""}" aria-label="第 7 遍：2 顆鑽石榮譽">${items}</span>`;
-  }
-  if (roundCount === 8) {
-    const items = Array.from({ length: 3 }, () => `<span class="badge-diamond"><span class="nlc-icon" data-icon="gemFill" aria-hidden="true"></span></span>`).join("");
-    return `<span class="badge-stars ${compact ? "badge-stars--compact" : ""}" aria-label="第 8 遍：3 顆鑽石榮譽">${items}</span>`;
-  }
-  if (roundCount === 9) {
-    const items = `<span class="badge-crown"><span class="nlc-icon" data-icon="crownFill" aria-hidden="true"></span></span>`;
-    return `<span class="badge-stars ${compact ? "badge-stars--compact" : ""}" aria-label="第 9 遍：1 個皇冠榮譽">${items}</span>`;
-  }
-  if (roundCount === 10) {
-    const items = Array.from({ length: 2 }, () => `<span class="badge-crown"><span class="nlc-icon" data-icon="crownFill" aria-hidden="true"></span></span>`).join("");
-    return `<span class="badge-stars ${compact ? "badge-stars--compact" : ""}" aria-label="第 10 遍：2 個皇冠榮譽">${items}</span>`;
-  }
-  if (roundCount > 10) {
-    const items = Array.from({ length: 3 }, () => `<span class="badge-crown"><span class="nlc-icon" data-icon="crownFill" aria-hidden="true"></span></span>`).join("");
-    return `<span class="badge-stars ${compact ? "badge-stars--compact" : ""}" aria-label="第 ${roundCount} 遍：3 個皇冠最高榮譽">${items}</span>`;
+  if (roundCount >= 9) {
+    const n = Math.min(3, roundCount - 8);          // 9→1、10→2、11+→3 個皇冠
+    const items = Array.from({ length: n }, () => prestigeCrownSvg()).join("");
+    return `<span class="badge-stars ${compact ? "badge-stars--compact" : ""}" aria-label="第 ${roundCount} 遍：${n} 個皇冠${n === 3 ? "最高" : ""}榮譽">${items}</span>`;
   }
 
   // 1 ~ 5 Rounds (Stars)
