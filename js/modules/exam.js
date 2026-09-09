@@ -77,6 +77,18 @@ let examAdminSubview = "bank";          // notice | bank | meta | grade | stats
 let examAdminGradeFilter = "pending";   // pending | graded | all
 let examAdminGradeSearchQuery = "";     // 批改名單的姓名搜尋關鍵字
 let examAdminPaperId = null;            // 目前選中的試卷（null = 最新那份）
+let examStatsRequireRead = false;       // 統計頁「只算已讀完對應書卷一遍的人」開關
+
+// 從測驗標題抓對應書卷（例：「聖經速讀測驗_創世紀」→ 創世記）。
+// 記/紀 差異用同一套正規化比對，回傳仍是 BIBLE_BOOKS 裡的正式名稱。
+function parseExamReadingBook(title) {
+  if (!title || typeof window.BIBLE_BOOKS === "undefined" || !Array.isArray(window.BIBLE_BOOKS)) return null;
+  const norm = (s) => String(s || "").replace(/紀/g, "記").replace(/\s+/g, "");
+  const t = norm(title);
+  const books = [...window.BIBLE_BOOKS].sort((a, b) => String(b.name || "").length - String(a.name || "").length);
+  const hit = books.find((b) => b.name && norm(b.name) && t.includes(norm(b.name)));
+  return hit ? { name: hit.name, chapters: Number(hit.chapters) || null } : null;
+}
 
 const toLocalInput = (iso) => {
   if (!iso) return "";
@@ -390,7 +402,7 @@ export async function renderExamPanel(root) {
     else if (examAdminSubview === "grade") { sub.innerHTML = '<div class="admin-user-directory__empty">載入批改清單…</div>'; await sweepExpired(); renderExamGrading(sub, paper.id, resultsPublished || paper.status !== "closed", paper.status, paper.title); }
     else if (examAdminSubview === "assign") { sub.innerHTML = '<div class="admin-user-directory__empty">載入指派清單…</div>'; await sweepExpired(); renderExamAssign(sub, paper.id, resultsPublished); }
     else if (examAdminSubview === "practice") renderExamPracticeRecords(sub, paper.id);
-    else if (examAdminSubview === "stats") { sub.innerHTML = '<div class="admin-user-directory__empty">載入統計…</div>'; await sweepExpired(); renderExamStats(sub, paper.id, hasShortSection); }
+    else if (examAdminSubview === "stats") { sub.innerHTML = '<div class="admin-user-directory__empty">載入統計…</div>'; await sweepExpired(); renderExamStats(sub, paper.id, hasShortSection, paper.title); }
     else if (!canEditPaper) sub.innerHTML = '<div class="admin-user-directory__empty">正式版的題目與試卷設定不提供編輯，一律由對應的測試版按「推上正式版」維護。要查看題目請用上方「預覽試卷」。</div>';
     else if (examAdminSubview === "meta") renderExamMetaForm(sub, paper, rerender);
     else renderExamQuestionBank(sub, paper, questions, rerender);
@@ -557,11 +569,24 @@ function renderExamNoticeForm(host, paper, rerender) {
 }
 
 // ── 統計報表（整體 / 大區 / 牧區 / 小組 / 逐題正確率 / 名單）──
-async function renderExamStats(host, paperId, hasShort = true) {
+async function renderExamStats(host, paperId, hasShort = true, paperTitle = null) {
   host.innerHTML = '<div class="admin-user-directory__empty">載入統計…</div>';
-  const res = await db.getExamStats(paperId);
+  let book = parseExamReadingBook(paperTitle);
+  const fetchOpts = () => (book
+    ? { readingBook: book.name, bookChapters: book.chapters, requireFirstRound: examStatsRequireRead }
+    : {});
+  let res = await db.getExamStats(paperId, fetchOpts());
+  // 沒帶標題進來 → 用回傳的 title 解析書卷，解得出就重抓一次拿 firstRoundDone 欄
+  if (res.success && !book) {
+    book = parseExamReadingBook(res.data && res.data.paper && res.data.paper.title);
+    if (book) res = await db.getExamStats(paperId, fetchOpts());
+  }
   if (!res.success) { host.innerHTML = `<div class="admin-user-directory__empty">${esc(res.message || "載入失敗")}</div>`; return; }
   const d = res.data || {};
+  const readingBook = d.readingBook || (book && book.name) || null;
+  const requireRead = d.requireFirstRound === true;
+  const notReadCount = Number((d.overall && d.overall.notReadCount) || 0);
+  const resolvedTitle = (d.paper && d.paper.title) || paperTitle || null;
   const o = d.overall || {};
   const num = (v) => (v == null ? "—" : v);
   const rateBar = (r) => {
@@ -592,6 +617,10 @@ async function renderExamStats(host, paperId, hasShort = true) {
     ${scoped ? '<p class="exam-admin__meta exam-stats__scope">只顯示你負責範圍內的作答；隊伍總分也只計入範圍內成員，且只列出範圍內有人作答的隊。</p>' : ""}
     <p class="exam-admin__meta">團隊平均固定以隊伍編制計算：3 人隊除以 3、6 人隊除以 6；未完成／未作答的成員一律按 0 分計。${scoped ? "" : "沒有人作答的隊也會列出（0 分、排在最後）。"}</p>
     <p class="exam-admin__meta">PR 值＝在「全教會同層級」（全體參加者／各大區／各牧區／各小組／同型團隊）的百分等級，夾 1–99；母體不足 5 顯示「—」。名次僅後台可見，公布給會友的內容不含名次。${prPending ? "<strong>成績尚未公布，PR 值待公布後才顯示。</strong>" : ""}</p>
+    ${readingBook ? `<label class="exam-admin__meta exam-stats__readgate" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+      <input type="checkbox" id="exam-stats-readgate"${requireRead ? " checked" : ""}>
+      <span>只統計「已讀完《${esc(readingBook)}》至少一遍」的人${notReadCount ? `　·　目前有 <strong>${notReadCount}</strong> 人未讀完` : ""}</span>
+    </label>${requireRead ? `<p class="exam-admin__meta">已排除未讀完《${esc(readingBook)}》的作答：整體平均、各大區/牧區/小組、組隊規模、團隊排行、PR 母體都只算讀過的人。下方作答名單仍列出全部（未讀完者標「不計入」）。</p>` : ""}` : ""}
     <div class="exam-stats__tiles">
       <div class="exam-stats__tile"><span>作答</span><strong>${num(o.submitted)}</strong></div>
       <div class="exam-stats__tile"><span>已批改</span><strong>${num(o.graded)}</strong></div>
@@ -661,6 +690,14 @@ async function renderExamStats(host, paperId, hasShort = true) {
         ] : [
           { h: "分數", f: (r) => (r.status === "graded" ? `<strong>${num(r.totalScore ?? r.autoScore)}</strong>` : "計分中") }
         ]),
+        ...(readingBook ? [{
+          h: `讀完《${readingBook}》`,
+          f: (r) => (r.firstRoundDone === true
+            ? '<span class="exam-stats__readok">已讀完</span>'
+            : r.firstRoundDone === false
+              ? `<span class="exam-stats__readno">未讀完${requireRead ? "・不計入" : ""}</span>`
+              : "—")
+        }] : []),
         ...(prVisible ? [
           { h: "全教會PR", f: (r) => prCell(r.prChurch) },
           { h: "牧區PR", f: (r) => prCell(r.prZone) },
@@ -668,13 +705,23 @@ async function renderExamStats(host, paperId, hasShort = true) {
         ] : [])])}</div>
     </details>`;
 
+  // 「只統計已讀完對應書卷一遍的人」開關 → 重新抓一次統計
+  host.querySelector("#exam-stats-readgate")?.addEventListener("change", (e) => {
+    examStatsRequireRead = e.target.checked === true;
+    renderExamStats(host, paperId, hasShort, resolvedTitle);
+  });
+
   host.querySelector("#exam-stats-csv")?.addEventListener("click", () => {
     const rows = d.roster || [];
+    const readHead = readingBook ? [`讀完《${readingBook}》`] : [];
+    const readVal = (r) => (readingBook
+      ? [r.firstRoundDone === true ? "已讀完" : r.firstRoundDone === false ? "未讀完" : ""]
+      : []);
     const prHead = prVisible ? ["全教會PR", "牧區PR", "小組PR"] : [];
     const prVals = (r) => (prVisible ? [r.prChurch, r.prZone, r.prGroup] : []);
     const head = (hasShort
       ? ["姓名", "大區", "牧區", "小組", "組隊", "狀態", "自動", "簡答", "總分", "送出時間"]
-      : ["姓名", "大區", "牧區", "小組", "組隊", "狀態", "分數", "送出時間"]).concat(prHead);
+      : ["姓名", "大區", "牧區", "小組", "組隊", "狀態", "分數", "送出時間"]).concat(readHead, prHead);
     const csv = [head.join(",")].concat(rows.map((r) => (hasShort ? [
       r.name, r.greatRegion, r.pastoralZone, r.smallGroup,
       r.teamLabel || "個人",
@@ -683,7 +730,7 @@ async function renderExamStats(host, paperId, hasShort = true) {
       r.name, r.greatRegion, r.pastoralZone, r.smallGroup,
       r.teamLabel || "個人",
       r.status, r.totalScore ?? r.autoScore, r.submittedAt
-    ]).concat(prVals(r)).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))).join("\r\n");
+    ]).concat(readVal(r), prVals(r)).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))).join("\r\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

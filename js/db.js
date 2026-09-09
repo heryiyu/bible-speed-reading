@@ -3790,8 +3790,13 @@ const db = {
   },
 
   // 統計報表（admin/pastor）
-  async getExamStats(paperId) {
-    return this._callExamRpc("exam_get_stats", { p_paper_id: paperId });
+  async getExamStats(paperId, opts = {}) {
+    return this._callExamRpc("exam_get_stats", {
+      p_paper_id: paperId,
+      p_require_first_round: opts.requireFirstRound === true,
+      p_reading_book: opts.readingBook || null,
+      p_book_chapters: Number.isFinite(opts.bookChapters) ? opts.bookChapters : null
+    });
   },
   // 匯出完整作答（每位 × 每題攤平；migration 0132）
   async exportExamAnswers(paperId) {

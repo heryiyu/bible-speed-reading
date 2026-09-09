@@ -15746,6 +15746,10 @@ textarea::placeholder {
 .exam-stats__bar-fill { display: block; height: 100%; background: var(--color-brand); }
 .exam-stats__toolbar { margin: 0.6rem 0; }
 .exam-stats__roster { max-height: 420px; overflow: auto; }
+.exam-stats__readgate { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.exam-stats__readgate input { flex: none; }
+.exam-stats__readok { color: var(--color-success, #15803d); }
+.exam-stats__readno { color: var(--text-muted); }
 
 /* ── 每日靈修（devotional plan）——沿用計畫的日曆 + 打勾任務列樣式 ────────── */
 .devotion-view { display: flex; flex-direction: column; gap: 1rem; padding: 0.25rem 0 2rem; }
