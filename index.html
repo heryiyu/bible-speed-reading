@@ -1371,6 +1371,12 @@
               style="display: flex; flex-direction: column; gap: 0.8rem; width: 100%;">
 
               <!-- 所有權限範圍下的各種統計：大區／牧區／小組逐層展開的條列清單 -->
+              <div class="org-stats-toolbar px-4">
+                <button type="button" id="admin-org-stats-export-zones-btn" class="secondary-btn">
+                  <span class="nlc-icon nlc-icon--sm" data-icon="download" aria-hidden="true"></span>
+                  <span>匯出各牧區完成人數</span>
+                </button>
+              </div>
               <div id="admin-org-stats-tree" class="org-stats-tree px-4 pt-4" aria-live="polite"></div>
 
 
@@ -2730,7 +2736,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260911_org_stats_tree"></script>
+  <script type="module" src="js/app.js?v=20260911_zone_completion_export"></script>
 </body>
 
 </html>

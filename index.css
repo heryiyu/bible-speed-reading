@@ -16289,6 +16289,7 @@ textarea::placeholder {
 .exam-assign__table th { color: var(--text-secondary); font-weight: var(--type-weight-strong, 600); }
 
 /* ==================== 計畫統計：權限範圍條列清單（大區／牧區／小組逐層展開） ==================== */
+.org-stats-toolbar { display: flex; justify-content: flex-end; margin-bottom: 0.6rem; }
 .org-stats-tree { display: flex; flex-direction: column; gap: 0.6rem; }
 .org-stats-tree__empty {
   padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;

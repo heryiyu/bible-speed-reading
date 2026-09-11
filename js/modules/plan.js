@@ -24,6 +24,7 @@ import {
   resetPlanProgressState
 } from "./plan-progress-reset.mjs";
 import { computePlanScopedStreak } from "./team-progress-metrics.mjs";
+import { formatTaiwanDate, prependTaiwanExportTime } from "./export-time.mjs";
 
 // Reading plans tab view controller
 
@@ -6296,6 +6297,82 @@ async function renderOrgStatsTree() {
   container.innerHTML = tree.map(renderOrgStatsNode).join("");
   bindOrgStatsTreeEvents(container);
   if (typeof hydrateIcons === "function") hydrateIcons(container);
+  bindOrgStatsExportButton();
+}
+
+// 從組織樹裡收集所有「牧區」層級的節點（大區長／全教會範圍的樹在大區底下才有牧區；
+// 牧區長的樹本身就是從牧區開始）；小組長的樹只到小組層級，沒有牧區可匯出。
+function collectZoneStatsForExport(tree) {
+  const rows = [];
+  const walk = (node, regionName) => {
+    if (node.level === "region") {
+      (node.children || []).forEach(child => walk(child, node.name));
+    } else if (node.level === "zone") {
+      rows.push({ region: regionName || "", zone: node.name, stats: node.stats });
+    }
+  };
+  (tree || []).forEach(node => walk(node, null));
+  return rows;
+}
+
+function convertZoneCompletionToCSV(rows, exportedAt = new Date()) {
+  if (!rows || rows.length === 0) return "";
+  const headers = ["大區", "牧區", "參與人數", "完成計畫人數", "完成率"];
+  const csvRows = rows.map(r => {
+    const rate = r.stats.totalMembers > 0 ? `${Math.round((r.stats.totalCompleted / r.stats.totalMembers) * 100)}%` : "0%";
+    return [r.region || "未設定", r.zone, r.stats.totalMembers, r.stats.totalCompleted, rate];
+  });
+  return prependTaiwanExportTime([
+    headers.join(","),
+    ...csvRows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))
+  ].join("\n"), exportedAt);
+}
+
+async function exportZoneCompletionCSV() {
+  if (!state.activePlan) {
+    if (typeof showToast === "function") showToast("請先選擇一個計畫。");
+    return;
+  }
+
+  if (!state.orgStructure || !Array.isArray(state.orgStructure.regions) || state.orgStructure.regions.length === 0) {
+    if (typeof db.loadOrgStructure === "function") {
+      try { await db.loadOrgStructure(); } catch (e) { console.warn('Failed to load org structure for zone export', e); }
+    }
+  }
+
+  let allUsers = [];
+  try {
+    allUsers = await db.fetchMergedUsersList();
+  } catch (e) {
+    console.warn('Failed to fetch users for zone export', e);
+  }
+
+  const tree = buildAccessibleOrgStatsTree(allUsers);
+  const rows = collectZoneStatsForExport(tree);
+  if (rows.length === 0) {
+    if (typeof showToast === "function") showToast("目前權限範圍內沒有可匯出的牧區資料。");
+    return;
+  }
+
+  const csvContent = convertZoneCompletionToCSV(rows);
+  const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const today = formatTaiwanDate();
+  link.setAttribute("href", url);
+  link.setAttribute("download", `zone_completion_${today}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function bindOrgStatsExportButton() {
+  const btn = document.getElementById("admin-org-stats-export-zones-btn");
+  if (!btn || btn.dataset.listenerBound === "true") return;
+  btn.dataset.listenerBound = "true";
+  btn.addEventListener("click", () => {
+    exportZoneCompletionCSV().catch(e => console.warn('[Plan] exportZoneCompletionCSV error:', e));
+  });
 }
 
 function logMatchesPlan(log, currentPlanId, currentPresetKey) {
