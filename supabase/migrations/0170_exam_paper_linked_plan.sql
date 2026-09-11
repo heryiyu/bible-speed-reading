@@ -1,8 +1,8 @@
--- 0171_exam_paper_linked_plan.sql
+-- 0170_exam_paper_linked_plan.sql
 --
--- 併入原本規劃的 0170_exam_stats_first_round_filter.sql（那支從未實際部署
--- 過就被本檔的 exam_get_stats 整個取代——拆兩支只會造成「先跑一支再跑另一
--- 支把它蓋掉」的困惑，所以直接刪掉 0170、內容併進來這一支）：
+-- 併入原本規劃、後來刪除的 exam_stats_first_round_filter.sql（那支從未實際
+-- 部署過就被本檔的 exam_get_stats 整個取代——拆兩支只會造成「先跑一支再跑
+-- 另一支把它蓋掉」的困惑，所以直接刪掉、內容併進來這一支）：
 --
 --  A. 大測驗統計加「該書卷是否讀過至少一遍」的判定，可切換「只統計已讀完的人」。
 --     規則（使用者 2026-09-09）：例如「聖經速讀測驗_創世紀」對應速讀第一階段
@@ -37,8 +37,8 @@
 --       所以正式版發布之後這個設定自然鎖住，不需要額外加限制。
 --   · exam_get_stats 的 teamRanking / byTeamSize**只跟著 pr.linked_plan_id 走**
 --     （使用者：「排名邏輯就是跟著綁定的 id 去做就好不用再額外多出不必要的
---     判斷」）：設定了就只鎖那一個計畫；拿掉 0170 那版「書卷比對」「考生目前
---     掛哪個計畫」兩層 fallback——判斷依據只剩「有沒有綁定」一件事。
+--     判斷」）：設定了就只鎖那一個計畫；拿掉舊版「書卷比對」「考生目前掛哪個
+--     計畫」兩層 fallback——判斷依據只剩「有沒有綁定」一件事。
 --   · **沒綁定，或綁定的計畫本身沒有登記任何 3/6 人隊，就完全不顯示團隊統計**
 --     （使用者：「沒有綁定計畫就不用團隊排名了，那些有關團隊統計就直接隱藏，
 --     不要亂對應團隊跑出錯誤資訊」＋「如果計畫本身也沒有團隊資訊也不用團隊
@@ -60,7 +60,7 @@ ALTER TABLE public.exam_papers
 COMMENT ON COLUMN public.exam_papers.linked_plan_id IS
   '這份測驗卷對應哪一個計畫（通常是某個 church_campaign_stage）。NULL＝獨立測驗卷，不對應任何計畫。設定後，exam_get_stats 的團隊排行只統計這個計畫底下登記的隊伍，不受標題書卷比對或考生現況影響。';
 
--- ── 0. _user_read_book_once：「讀過該書卷一遍」的判定（原 0170）──────────
+-- ── 0. _user_read_book_once：「讀過該書卷一遍」的判定 ──────────────────────
 CREATE OR REPLACE FUNCTION public._user_read_book_once(p_user_id UUID, p_book TEXT, p_chapters INTEGER)
 RETURNS BOOLEAN
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, public

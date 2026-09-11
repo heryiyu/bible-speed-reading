@@ -4,13 +4,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-// 0170 已併入 0171（0170 從未實際部署過就被 0171 的 exam_get_stats 整個取代，
-// 拆兩支徒增「先跑一支再跑另一支把它蓋掉」的困惑，所以刪掉 0170、內容併過來）。
-const sql = readFileSync(join(root, "supabase", "migrations", "0171_exam_paper_linked_plan.sql"), "utf8");
+// 原本規劃另一支 exam_stats_first_round_filter.sql，從未實際部署過就被
+// 0170_exam_paper_linked_plan.sql 的 exam_get_stats 整個取代，拆兩支徒增
+// 「先跑一支再跑另一支把它蓋掉」的困惑，所以刪掉、內容併過來這一支。
+const sql = readFileSync(join(root, "supabase", "migrations", "0170_exam_paper_linked_plan.sql"), "utf8");
 const ui = readFileSync(join(root, "js", "modules", "exam.js"), "utf8");
 const db = readFileSync(join(root, "js", "db.js"), "utf8");
 
-describe("0171: _user_read_book_once — 讀過該書卷一遍的判定", () => {
+describe("0170: _user_read_book_once — 讀過該書卷一遍的判定", () => {
   it("current_round >= 2，或第 1 遍打卡相異章數 >= 該書卷章數", () => {
     expect(sql).toContain("CREATE OR REPLACE FUNCTION public._user_read_book_once(p_user_id UUID, p_book TEXT, p_chapters INTEGER)");
     expect(sql).toContain("p_user_id IS NULL OR p_book IS NULL OR BTRIM(p_book) = '' OR EXISTS");
@@ -27,7 +28,7 @@ describe("0171: _user_read_book_once — 讀過該書卷一遍的判定", () => 
   });
 });
 
-describe("0171: exam_get_stats — 5 參數簽章 + 過濾旗標", () => {
+describe("0170: exam_get_stats — 5 參數簽章 + 過濾旗標", () => {
   it("DROP 舊 2 參數版、5 參數版用 CREATE OR REPLACE（本檔可重複執行、不撞 42723）", () => {
     expect(sql).toContain("DROP FUNCTION IF EXISTS public.exam_get_stats(UUID, UUID);");
     expect(sql).toContain("CREATE OR REPLACE FUNCTION public.exam_get_stats(");
@@ -138,7 +139,7 @@ describe("exam.js — 統計頁「讀完一遍」欄 + 過濾開關", () => {
   });
 });
 
-describe("0171: teamRanking 缺口拆三類（notRead / notTested / emptySlots）", () => {
+describe("0170: teamRanking 缺口拆三類（notRead / notTested / emptySlots）", () => {
   const fn = sql.slice(sql.indexOf("'teamRanking',COALESCE(("), sql.indexOf("'byQuestion',"));
 
   it("JOIN 放寬到未過濾 scoped，才看得出誰只是沒考試", () => {

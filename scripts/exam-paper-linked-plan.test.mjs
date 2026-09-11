@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const sql = readFileSync(join(root, "supabase", "migrations", "0171_exam_paper_linked_plan.sql"), "utf8");
+const sql = readFileSync(join(root, "supabase", "migrations", "0170_exam_paper_linked_plan.sql"), "utf8");
 const ui = readFileSync(join(root, "js", "modules", "exam.js"), "utf8");
 const db = readFileSync(join(root, "js", "db.js"), "utf8");
 const ef = readFileSync(join(root, "supabase", "functions", "nlc-data", "index.ts"), "utf8");
@@ -18,14 +18,14 @@ const ef = readFileSync(join(root, "supabase", "functions", "nlc-data", "index.t
 //   作答的「聖經速讀測驗_創世紀」沒有草稿路徑可補，破例用檔尾註解的手動
 //   SQL 一次性處理，不走程式碼路徑。
 
-describe("0171: exam_papers.linked_plan_id 欄位", () => {
+describe("0170: exam_papers.linked_plan_id 欄位", () => {
   it("新增欄位，FK 到 global_plans，可為 NULL（獨立測驗卷）", () => {
     expect(sql).toContain("ALTER TABLE public.exam_papers");
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS linked_plan_id UUID REFERENCES public.global_plans(id) ON DELETE SET NULL");
   });
 });
 
-describe("0171: exam_upsert_paper — 只有測試版草稿能設定 linked_plan_id", () => {
+describe("0170: exam_upsert_paper — 只有測試版草稿能設定 linked_plan_id", () => {
   const fn = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.exam_upsert_paper"), sql.indexOf("-- ── 2."));
 
   it("用 JSONB `?` 判斷 payload 有沒有帶這個 key，沒帶就不動舊值", () => {
@@ -48,7 +48,7 @@ describe("0171: exam_upsert_paper — 只有測試版草稿能設定 linked_plan
   });
 });
 
-describe("0171: exam_push_to_live — 推正式版時把 linked_plan_id 一併帶過去", () => {
+describe("0170: exam_push_to_live — 推正式版時把 linked_plan_id 一併帶過去", () => {
   const fn = sql.slice(sql.indexOf("CREATE OR REPLACE FUNCTION public.exam_push_to_live"), sql.indexOf("-- ── 3."));
 
   it("新建正式版（INSERT）帶 linked_plan_id", () => {
@@ -65,7 +65,7 @@ describe("0171: exam_push_to_live — 推正式版時把 linked_plan_id 一併�
   });
 });
 
-describe("0171 不新增任何 RPC：沒有 exam_set_linked_plan 這種例外後門", () => {
+describe("0170 不新增任何 RPC：沒有 exam_set_linked_plan 這種例外後門", () => {
   it("SQL / nlc-data / db.js 都不該出現 exam_set_linked_plan", () => {
     expect(sql).not.toContain("exam_set_linked_plan");
     expect(ef).not.toContain("exam_set_linked_plan");
@@ -80,7 +80,7 @@ describe("0171 不新增任何 RPC：沒有 exam_set_linked_plan 這種例外後
   });
 });
 
-describe("0171: exam_get_stats — v_plans 優先看 pr.linked_plan_id", () => {
+describe("0170: exam_get_stats — v_plans 優先看 pr.linked_plan_id", () => {
   const fn = sql.slice(sql.indexOf("-- ── 3. exam_get_stats"));
 
   it("只跟著 pr.linked_plan_id 走：沒有書卷比對、沒有考生現況 fallback，也沒有多餘的 v_plans/v_plan_scoped 變數", () => {
