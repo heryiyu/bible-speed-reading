@@ -6109,175 +6109,17 @@ async function renderPlanHistoryView() {
   // 1. Render Group Rankings/Participants table at top (Wait, the ranking table is no longer at top of stats, but we still trigger it to update scoped user list)
   await renderGroupParticipantsRankingTable();
 
-  // 2. Render group mini-cards and stats
-  await renderGroupMiniStats();
-
-  // 4. Render pastoral ranking bar chart
-  renderGroupPastoralChart();
-
-  // 5. Render small group chart (with zone selector)
-  renderGroupZoneChartWithSelector();
-
-  // 6. Render 7-day growth trend line chart
-  renderGroupGrowthTrend();
-
-  // 7. Render team heatmap
-  renderGroupTeamHeatmap();
-
-  // 7.5 Render Group Progress Distribution (only visible on Admin tab)
-  const distCard = document.getElementById("grp-distribution-card");
-  if (distCard) {
-    if (window._currentStatsTab === 'admin') {
-      distCard.classList.remove("hidden");
-      distCard.style.display = "";
-      renderGroupProgressDistribution();
-    } else {
-      distCard.classList.add("hidden");
-      distCard.style.display = "none";
-    }
-  }
-
-  // 8. Render Bible Pilgrimage Trail canvas
-  // Pilgrimage Card is strictly moved to Reading Team Inline view, completely removed from Admin / Group Stats.
+  // 2. Render the permission-scope org stats tree (大區／牧區／小組 逐層展開)
+  await renderOrgStatsTree();
 }
 
-async function renderGroupMiniStats(overrideFilter) {
-  if (!state.activePlan) return;
-
-  let allUsers = [];
-  try {
-    allUsers = await db.fetchMergedUsersList();
-  } catch (e) {
-    console.warn('Failed to fetch users for group stats mini-cards', e);
-  }
-
-  // Use the selector's scoped users if available, otherwise fallback to user's scope.
-  // Priority: explicit overrideFilter param → _statsTabScope → cached _grpScopedUsers → default scope
-  let scopedUsers = window._grpScopedUsers;
-  const effectiveFilter = overrideFilter !== undefined ? overrideFilter : window._statsTabScope;
-  if (effectiveFilter !== null && effectiveFilter !== undefined && allUsers.length > 0) {
-
-    if (effectiveFilter === "all") {
-      scopedUsers = allUsers;
-    } else if (effectiveFilter === "me") {
-      scopedUsers = allUsers.filter(u => u.name === state.currentUser.name);
-    } else if (effectiveFilter === "all_groups") {
-      const userGroupStr = state.currentUser.managed_groups || state.currentUser.small_group
-        || getLeadershipAssignmentNodeNames(state.currentUser, "小組") || "";
-      const myGroups = userGroupStr.split(",").map(value => value.trim()).filter(Boolean);
-      scopedUsers = allUsers.filter(u => myGroups.includes(u.small_group));
-    } else if (effectiveFilter === "all_great_region") {
-      const userGreatRegion = state.currentUser.managed_regions || state.currentUser.great_region
-        || getLeadershipAssignmentNodeNames(state.currentUser, "大區") || "";
-      const myRegions = userGreatRegion.split(",").map(s => s.trim()).filter(Boolean);
-      scopedUsers = allUsers.filter(u => myRegions.includes(u.great_region));
-    } else if (effectiveFilter === "all_zones") {
-      const userZoneStr = state.currentUser.managed_zones || state.currentUser.pastoral_zone
-        || getLeadershipAssignmentNodeNames(state.currentUser, "牧區") || "";
-      const myZones = userZoneStr.split(",").map(s => s.trim()).filter(Boolean);
-      scopedUsers = allUsers.filter(u => myZones.includes(u.pastoral_zone));
-    } else if (effectiveFilter.startsWith("region:")) {
-      const region = effectiveFilter.replace("region:", "");
-      scopedUsers = allUsers.filter(u => u.great_region === region);
-    } else if (effectiveFilter.startsWith("group:")) {
-      const group = effectiveFilter.replace("group:", "");
-      scopedUsers = allUsers.filter(u => u.small_group === group);
-    } else if (effectiveFilter.startsWith("zone:")) {
-      const zone = effectiveFilter.replace("zone:", "");
-      scopedUsers = allUsers.filter(u => u.pastoral_zone === zone);
-    }
-  } else if (scopedUsers === undefined) {
-    scopedUsers = getScopedUsers(allUsers, state.currentUser);
-  }
-  if (!scopedUsers) scopedUsers = [];
-
-
-  const totalChapters = scopedUsers.reduce((sum, u) => sum + (u.chapters_read || 0), 0);
-  const totalMembers = scopedUsers.length;
-  const totalActive = scopedUsers.filter(u => (u.chapters_read || 0) > 0 || Boolean(u.last_read)).length;
-
-  // Determine current scope label from selector
-  let scopeLabel = "全教會";
-  const rankingZoneSelector = document.getElementById("ranking-zone-selector");
-  const selectedFilter = overrideFilter !== undefined
-    ? overrideFilter
-    : (window._statsTabScope !== null
-      ? window._statsTabScope
-      : (rankingZoneSelector ? rankingZoneSelector.value : null));
-
-  if (selectedFilter) {
-    if (selectedFilter === "all") {
-      scopeLabel = "全教會";
-    } else if (selectedFilter === "all_great_region") {
-      scopeLabel = state.currentUser.great_region || "大區";
-    } else if (selectedFilter === "all_zones") {
-      scopeLabel = state.currentUser.pastoral_zone || "牧區";
-    } else if (selectedFilter === "all_groups") {
-      scopeLabel = state.currentUser.small_group || "小組";
-    } else if (selectedFilter.startsWith("region:")) {
-      scopeLabel = selectedFilter.replace("region:", "");
-    } else if (selectedFilter.startsWith("zone:")) {
-      scopeLabel = selectedFilter.replace("zone:", "");
-    } else if (selectedFilter.startsWith("group:")) {
-      scopeLabel = selectedFilter.replace("group:", "");
-    }
-  } else {
-    // If no selector filter is loaded yet, guess label from user role
-    const userRole = getUserRoleCode(state.currentUser) || "member";
-    if (hasWholeChurchPlanScope(userRole)) {
-      scopeLabel = "全教會";
-    } else if (userRole === "great_zone_leader") {
-      scopeLabel = state.currentUser.great_region || "大區";
-    } else if (userRole === "zone_leader") {
-      scopeLabel = state.currentUser.pastoral_zone || "牧區";
-    } else {
-      scopeLabel = state.currentUser.small_group || "小組";
-    }
-  }
-
-  // Update labels based on scope
-  const labelTotal = document.getElementById('grp-label-total-read');
-  const labelMembers = document.getElementById('grp-label-members');
-  const labelActive = document.getElementById('grp-label-active');
-
-  if (labelTotal) labelTotal.textContent = scopeLabel === "全教會" ? '全教會總閱讀章數' : `${scopeLabel} 總閱讀章數`;
-  if (labelMembers) labelMembers.textContent = scopeLabel === "全教會" ? '全教會參與人數' : `${scopeLabel} 參與人數`;
-  if (labelActive) labelActive.textContent = scopeLabel === "全教會" ? '每日活躍' : `${scopeLabel} 每日活躍`;
-
-  const elTotal = document.getElementById('grp-total-read');
-  const elMembers = document.getElementById('grp-total-members');
-  const elActive = document.getElementById('grp-active-members');
-
-  if (elTotal) elTotal.textContent = totalChapters;
-  if (elMembers) elMembers.textContent = totalMembers;
-  if (elActive) elActive.textContent = totalActive;
-
-  // Also stash for charts
-  window._grpScopedUsers = scopedUsers;
-  window._grpAllUsers = allUsers;
-}
-
-function renderGroupProgressDistribution(overrideFilter) {
-  const scopedUsers = window._grpScopedUsers || [];
-  const totalCount = scopedUsers.length;
-
-  let titleSuffix = "團體進度狀態分佈";
-  const rankingZoneSelector = document.getElementById("ranking-zone-selector");
-  const selectedFilter = overrideFilter !== undefined
-    ? overrideFilter
-    : (window._statsTabScope !== null
-      ? window._statsTabScope
-      : (rankingZoneSelector ? rankingZoneSelector.value : null));
-
-  if (selectedFilter) {
-    if (selectedFilter === "all") titleSuffix = "全教會進度狀態分佈";
-    else if (selectedFilter === "all_great_region") titleSuffix = `${state.currentUser.great_region || "大區"}進度狀態分佈`;
-    else if (selectedFilter === "all_zones") titleSuffix = `${state.currentUser.pastoral_zone || "牧區"}進度狀態分佈`;
-    else if (selectedFilter === "all_groups") titleSuffix = `${state.currentUser.small_group || "小組"}進度狀態分佈`;
-    else if (selectedFilter.startsWith("region:")) titleSuffix = `${selectedFilter.replace("region:", "")}大區進度狀態分佈`;
-    else if (selectedFilter.startsWith("zone:")) titleSuffix = `${selectedFilter.replace("zone:", "")}牧區進度狀態分佈`;
-    else if (selectedFilter.startsWith("group:")) titleSuffix = `${selectedFilter.replace("group:", "")}小組進度狀態分佈`;
-  }
+// 單一組織單位（大區／牧區／小組）範圍內的 6 項統計數字，供各層節點共用。
+function computeOrgUnitStats(users) {
+  const list = users || [];
+  const totalChapters = list.reduce((sum, u) => sum + (u.chapters_read || 0), 0);
+  const totalMembers = list.length;
+  const totalActive = list.filter(u => (u.chapters_read || 0) > 0 || Boolean(u.last_read)).length;
+  const totalCompleted = list.filter(u => (u.current_round || 1) > 1 || (u.plan_progress || 0) >= 100).length;
 
   let expectedPct = 50;
   if (state.activePlan) {
@@ -6290,343 +6132,170 @@ function renderGroupProgressDistribution(overrideFilter) {
     expectedPct = Math.round((elapsed / totalDays) * 100) || 0;
   }
 
-  const toLocalStr = window.toLocalYYYYMMDD || ((val) => {
-    if (!val) return "";
-    const date = val instanceof Date ? val : new Date(val);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
-  });
-  const todayStr = toLocalStr(new Date());
-  const todayDoneCount = scopedUsers.filter(u => u.last_read === todayStr).length;
-  const todayRate = totalCount ? Math.round((todayDoneCount / totalCount) * 100) : 0;
-  const totalChapters = scopedUsers.reduce((sum, u) => sum + (u.chapters_read || 0), 0);
-  const dailyActiveCount = scopedUsers.filter(u => u.last_read === todayStr).length;
-
-  let aheadCount = 0;
-  let onCount = 0;
   let behindCount = 0;
   let rereadCount = 0;
-
-  scopedUsers.forEach(u => {
+  list.forEach(u => {
     const currentRound = u.current_round !== undefined
       ? u.current_round
       : (u.chapters_read > 850 ? 3 : u.chapters_read > 500 ? 2 : 1);
     if (currentRound >= 2) {
       rereadCount++;
-      aheadCount++;
       return;
     }
-
     if (u.plan_progress === 0) behindCount++;
-    else if (u.plan_progress > expectedPct + 5) aheadCount++;
     else if (u.plan_progress < expectedPct - 5) behindCount++;
-    else onCount++;
   });
 
-  const behindPct = totalCount ? Math.round((behindCount / totalCount) * 100) : 0;
-  const onPct = totalCount ? Math.round((onCount / totalCount) * 100) : 0;
-  const aheadPct = totalCount ? Math.round((aheadCount / totalCount) * 100) : 0;
-
-  // Direct DOM Updates for Group Stats Bento Cards
-  const elTotal = document.getElementById('grp-total-read');
-  const elMembers = document.getElementById('grp-total-members');
-  const elActive = document.getElementById('grp-active-members');
-  const elBehindCount = document.getElementById('grp-behind-count');
-  const elReread = document.getElementById('grp-reread-count');
-
-  if (elTotal) elTotal.textContent = totalChapters;
-  if (elMembers) elMembers.textContent = totalCount;
-  if (elActive) elActive.textContent = dailyActiveCount;
-  if (elBehindCount) elBehindCount.textContent = behindCount;
-  if (elReread) elReread.textContent = rereadCount;
-
-  // Update segments of three-color progress bar
-  const barBehind = document.getElementById('grp-today-bar-behind');
-  const barOn = document.getElementById('grp-today-bar-on-schedule');
-  const barAhead = document.getElementById('grp-today-bar-ahead');
-
-  if (barBehind) {
-    barBehind.style.width = `${behindPct}%`;
-    barBehind.title = `落後: ${behindCount} 人 (${behindPct}%)`;
-  }
-  if (barOn) {
-    barOn.style.width = `${onPct}%`;
-    barOn.title = `在進度上: ${onCount} 人 (${onPct}%)`;
-  }
-  if (barAhead) {
-    barAhead.style.width = `${aheadPct}%`;
-    barAhead.title = `超前: ${aheadCount} 人 (${aheadPct}%)`;
-  }
+  return { totalChapters, totalMembers, totalActive, totalCompleted, behindCount, rereadCount };
 }
 
-function renderGroupPastoralChart() {
-  return; // Disabled
-}
+// 依目前登入者的管理權限（全教會／大區／牧區／小組）組出可查看的組織樹，
+// 每一層節點都帶著自己範圍內的統計數字，供 renderOrgStatsTree 畫成可逐層展開的條列清單。
+function buildAccessibleOrgStatsTree(allUsers) {
+  const userRole = (state.currentUser && getUserRoleCode(state.currentUser)) || "member";
+  const isAdmin = hasWholeChurchPlanScope(userRole);
+  const isGreatZoneLeader = userRole === "great_zone_leader";
+  const isZoneLeader = userRole === "zone_leader";
+  const isGroupLeader = userRole === "group_leader";
 
-function renderGroupZoneChartWithSelector() {
-  // Merged into renderGroupPastoralChart above
-  return;
-}
-
-function renderGroupGrowthTrend(overrideFilter) {
-  const scopedUsers = window._grpScopedUsers || [];
-  const chartCard = document.getElementById('grp-daily-active-chart-card');
-  const titleEl = document.getElementById('grp-daily-active-chart-title');
-  const canvasEl = document.getElementById('grp-daily-active-chart');
-
-  if (!canvasEl) return;
-
-  // Hide chart if no data
-  if (scopedUsers.length === 0) {
-    if (chartCard) chartCard.style.display = 'none';
-    return;
-  }
-  if (chartCard) chartCard.style.display = '';
-
-  // Update title based on scope
-  if (titleEl) {
-    const rankingZoneSelector = document.getElementById('ranking-zone-selector');
-    const selectedFilter = overrideFilter !== undefined
-      ? overrideFilter
-      : (window._statsTabScope !== null
-        ? window._statsTabScope
-        : (rankingZoneSelector ? rankingZoneSelector.value : null));
-    let scopeLabel = '全教會';
-    if (selectedFilter) {
-      if (selectedFilter === 'all') scopeLabel = '全教會';
-      else if (selectedFilter === 'all_great_region') scopeLabel = state.currentUser.great_region || '大區';
-      else if (selectedFilter === 'all_zones') scopeLabel = state.currentUser.pastoral_zone || '牧區';
-      else if (selectedFilter === 'all_groups') scopeLabel = state.currentUser.small_group || '小組';
-      else if (selectedFilter.startsWith('region:')) scopeLabel = selectedFilter.replace('region:', '');
-      else if (selectedFilter.startsWith('zone:')) scopeLabel = selectedFilter.replace('zone:', '');
-      else if (selectedFilter.startsWith('group:')) scopeLabel = selectedFilter.replace('group:', '');
-    } else {
-      const userRole = getUserRoleCode(state.currentUser) || 'member';
-      if (hasWholeChurchPlanScope(userRole)) scopeLabel = '全教會';
-      else if (userRole === 'great_zone_leader') scopeLabel = state.currentUser.great_region || '大區';
-      else if (userRole === 'zone_leader') scopeLabel = state.currentUser.pastoral_zone || '牧區';
-      else scopeLabel = state.currentUser.small_group || '小組';
+  const zonesOf = (rName) => {
+    if (!rName) return [];
+    if (state.isSupabaseMode && state.orgStructure.rawZones && state.orgStructure.rawRegions) {
+      const regionObj = state.orgStructure.rawRegions.find(r => r.name === rName);
+      if (!regionObj) return [];
+      return state.orgStructure.rawZones.filter(z => z.great_region_id === regionObj.id).map(z => z.name).sort();
     }
-    titleEl.textContent = `${scopeLabel} 每日活躍人數（近30天）`;
-  }
-
-  // Build 30-day window
-  const today = new Date();
-  const labels = [];
-  const data = [];
-  const DAYS = 30;
-
-  const userIds = new Set(scopedUsers.map(u => u.id).filter(Boolean));
-  const userNames = new Set(scopedUsers.map(u => u.name).filter(Boolean));
-  const scopedPlanIds = new Set(scopedUsers.map(u => u.plan_id).filter(Boolean));
-  const currentPlanId = state.activePlan && state.activePlan.id;
-  const currentPresetKey = state.activePlan && state.activePlan.presetKey;
-
-  // Build per-day unique user sets from logs
-  const activeByDate = {}; // date string -> Set of user_id / name
-
-  if (state.isSupabaseMode && state.allLogsCache) {
-    state.allLogsCache.forEach(log => {
-      if (!log.read_at) return;
-      if (!userIds.has(log.user_id)) return;
-      if (scopedPlanIds.size > 0) {
-        if (!scopedPlanIds.has(log.plan_id)) return;
-      } else if (!logMatchesPlan(log, currentPlanId, currentPresetKey)) {
-        return;
-      }
-      const dStr = log.read_at.substring(0, 10);
-      if (!activeByDate[dStr]) activeByDate[dStr] = new Set();
-      activeByDate[dStr].add(log.user_id || log.name);
-    });
-  } else {
-    (state.readingLogs || []).forEach(log => {
-      if (!log.read_at) return;
-      const nameMatch = log.name ? userNames.has(log.name) : true;
-      if (!nameMatch) return;
-      if (!logMatchesPlan(log, currentPlanId, currentPresetKey)) return;
-      const dStr = log.read_at.substring(0, 10);
-      if (!activeByDate[dStr]) activeByDate[dStr] = new Set();
-      activeByDate[dStr].add(log.user_id || log.name);
-    });
-  }
-
-  for (let i = DAYS - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const dStr = typeof toTaiwanISODate === "function" ? toTaiwanISODate(d) : d.toISOString().substring(0, 10);
-    const mmdd = dStr.substring(5).replace('-', '/');
-    // Only show every 5th label to avoid crowding on mobile
-    labels.push(i % 5 === 0 || i === 0 ? mmdd : '');
-    data.push(activeByDate[dStr] ? activeByDate[dStr].size : 0);
-  }
-
-  const isDark = state.theme === 'dark' ||
-    document.body.classList.contains('dark-theme') ||
-    document.body.classList.contains('dark') ||
-    document.documentElement.getAttribute('data-theme') === 'dark';
-  const fontColor = isDark ? 'rgba(180,180,180,0.85)' : 'rgba(60,60,60,0.75)';
-  const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
-  const brandColor = '#04A9D2';
-  const brandFill = isDark
-    ? 'rgba(4,169,210,0.18)'
-    : 'rgba(4,169,210,0.10)';
-
-  renderOrUpdateChart('dailyActive', canvasEl, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: '活躍人數',
-        data,
-        borderColor: brandColor,
-        backgroundColor: brandFill,
-        borderWidth: 2,
-        fill: true,
-        tension: 0.42,
-        pointRadius: 2.5,
-        pointBackgroundColor: brandColor,
-        pointHoverRadius: 5,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => `${ctx.parsed.y} 人`
-          },
-          backgroundColor: isDark ? 'rgba(30,30,35,0.92)' : 'rgba(255,255,255,0.95)',
-          borderColor: brandColor,
-          borderWidth: 1,
-          titleColor: isDark ? '#fff' : '#111',
-          bodyColor: isDark ? 'rgba(200,200,200,0.9)' : 'rgba(60,60,60,0.85)',
-          padding: 10,
-          cornerRadius: 8,
-        }
-      },
-      scales: {
-        x: {
-          ticks: {
-            color: fontColor,
-            font: { size: 10 },
-            maxRotation: 0,
-          },
-          grid: { display: false },
-          border: { display: false },
-        },
-        y: {
-          ticks: {
-            color: fontColor,
-            font: { size: 10 },
-            stepSize: 1,
-            precision: 0,
-          },
-          grid: { color: gridColor },
-          border: { display: false },
-          beginAtZero: true,
-        }
-      }
+    return (state.orgStructure.zones[rName] || []).slice().sort();
+  };
+  const groupsOf = (zName) => {
+    if (!zName) return [];
+    if (state.isSupabaseMode && state.orgStructure.rawGroups && state.orgStructure.rawZones) {
+      const zoneObj = state.orgStructure.rawZones.find(z => z.name === zName);
+      if (!zoneObj) return [];
+      return state.orgStructure.rawGroups.filter(g => g.pastoral_zone_id === zoneObj.id).map(g => g.name).sort();
     }
+    return (state.orgStructure.groups[zName] || []).slice().sort();
+  };
+
+  const usersInRegion = name => allUsers.filter(u => u.great_region === name);
+  const usersInZone = name => allUsers.filter(u => u.pastoral_zone === name);
+  const usersInGroup = name => allUsers.filter(u => u.small_group === name);
+
+  const makeGroupNode = name => ({ level: "group", name, stats: computeOrgUnitStats(usersInGroup(name)), children: [] });
+  const makeZoneNode = name => ({ level: "zone", name, stats: computeOrgUnitStats(usersInZone(name)), children: groupsOf(name).map(makeGroupNode) });
+  const makeRegionNode = name => ({ level: "region", name, stats: computeOrgUnitStats(usersInRegion(name)), children: zonesOf(name).map(makeZoneNode) });
+
+  if (isAdmin) {
+    return (state.orgStructure.regions || []).map(makeRegionNode);
+  }
+  if (isGreatZoneLeader) {
+    const userGreatRegion = state.currentUser.managed_regions || state.currentUser.great_region
+      || getLeadershipAssignmentNodeNames(state.currentUser, "大區") || "";
+    const myRegions = userGreatRegion.split(",").map(s => s.trim()).filter(Boolean);
+    return myRegions.map(makeRegionNode);
+  }
+  if (isZoneLeader) {
+    const userZone = state.currentUser.managed_zones || state.currentUser.pastoral_zone
+      || getLeadershipAssignmentNodeNames(state.currentUser, "牧區") || "";
+    const myZones = userZone.split(",").map(s => s.trim()).filter(Boolean);
+    return myZones.map(makeZoneNode);
+  }
+  if (isGroupLeader) {
+    const userGroupStr = state.currentUser.managed_groups || state.currentUser.small_group
+      || getLeadershipAssignmentNodeNames(state.currentUser, "小組") || "";
+    const myGroups = userGroupStr.split(",").map(s => s.trim()).filter(Boolean);
+    return myGroups.map(makeGroupNode);
+  }
+  return [];
+}
+
+window._orgStatsExpandedKeys = window._orgStatsExpandedKeys || new Set();
+const ORG_STATS_LEVEL_LABEL = { region: "大區", zone: "牧區", group: "小組" };
+
+function renderOrgStatsMetrics(stats) {
+  return `
+    <div class="org-stats-metrics">
+      <div class="org-stats-metrics__row">
+        <div class="org-stats-metric"><span class="nlc-icon org-stats-metric__icon" data-icon="peoples" aria-hidden="true"></span><span class="org-stats-metric__value">${stats.totalChapters}</span><span class="org-stats-metric__label">總閱讀章數</span></div>
+        <div class="org-stats-metric"><span class="nlc-icon org-stats-metric__icon" data-icon="people" aria-hidden="true"></span><span class="org-stats-metric__value">${stats.totalMembers}</span><span class="org-stats-metric__label">參與人數</span></div>
+        <div class="org-stats-metric"><span class="nlc-icon org-stats-metric__icon" data-icon="lightning" aria-hidden="true"></span><span class="org-stats-metric__value">${stats.totalActive}</span><span class="org-stats-metric__label">每日活躍</span></div>
+      </div>
+      <div class="org-stats-metrics__row">
+        <div class="org-stats-metric"><span class="nlc-icon org-stats-metric__icon" data-icon="hourglass" aria-hidden="true"></span><span class="org-stats-metric__value">${stats.behindCount}</span><span class="org-stats-metric__label">落後人數</span></div>
+        <div class="org-stats-metric"><span class="nlc-icon org-stats-metric__icon" data-icon="refresh" aria-hidden="true"></span><span class="org-stats-metric__value">${stats.rereadCount}</span><span class="org-stats-metric__label">複讀人數</span></div>
+        <div class="org-stats-metric"><span class="nlc-icon org-stats-metric__icon" data-icon="trophy" aria-hidden="true"></span><span class="org-stats-metric__value">${stats.totalCompleted}</span><span class="org-stats-metric__label">完成計畫人數</span></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderOrgStatsNode(node) {
+  const key = `${node.level}:${node.name}`;
+  const expanded = window._orgStatsExpandedKeys.has(key);
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const safeName = escapeHTML(node.name);
+  const levelLabel = ORG_STATS_LEVEL_LABEL[node.level] || "";
+
+  return `
+    <div class="org-stats-node org-stats-node--${node.level}${expanded ? " is-expanded" : ""}" data-org-key="${escapeHTML(key)}">
+      <button type="button" class="org-stats-node__header">
+        <span class="nlc-icon org-stats-node__chevron" data-icon="chevronRight" aria-hidden="true"></span>
+        <span class="org-stats-node__name">${levelLabel ? `<span class="org-stats-node__level-tag">${levelLabel}</span>` : ""}${safeName}</span>
+        <span class="org-stats-node__badge">${node.stats.totalMembers} 人</span>
+      </button>
+      <div class="org-stats-node__body">
+        ${renderOrgStatsMetrics(node.stats)}
+        ${hasChildren ? `<div class="org-stats-node__children">${node.children.map(renderOrgStatsNode).join("")}</div>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function bindOrgStatsTreeEvents(container) {
+  if (!container || container.dataset.listenerBound === "true") return;
+  container.dataset.listenerBound = "true";
+  container.addEventListener("click", (event) => {
+    const header = event.target.closest(".org-stats-node__header");
+    if (!header) return;
+    const node = header.closest(".org-stats-node");
+    if (!node) return;
+    const key = node.dataset.orgKey;
+    const isExpanded = node.classList.toggle("is-expanded");
+    if (isExpanded) window._orgStatsExpandedKeys.add(key);
+    else window._orgStatsExpandedKeys.delete(key);
   });
 }
 
+// 「計畫統計」條列清單：先列出登入者權限範圍內的大區／牧區／小組（依角色決定
+// 從哪一層開始），每一列可各自展開看該範圍的 6 項統計，取代舊版單一篩選器 +
+// 熱力圖 + 趨勢圖的呈現方式。
+async function renderOrgStatsTree() {
+  const container = document.getElementById("admin-org-stats-tree");
+  if (!container || !state.activePlan) return;
 
+  if (!state.orgStructure || !Array.isArray(state.orgStructure.regions) || state.orgStructure.regions.length === 0) {
+    if (typeof db.loadOrgStructure === "function") {
+      try { await db.loadOrgStructure(); } catch (e) { console.warn('Failed to load org structure for stats tree', e); }
+    }
+  }
 
-function renderGroupTeamHeatmap(overrideFilter) {
-  const scopedUsers = window._grpScopedUsers || [];
-  const heatmapCard = document.getElementById("grp-heatmap-card");
+  let allUsers = [];
+  try {
+    allUsers = await db.fetchMergedUsersList();
+  } catch (e) {
+    console.warn('Failed to fetch users for org stats tree', e);
+  }
 
-  if (scopedUsers.length === 0) {
-    if (heatmapCard) heatmapCard.style.display = "none";
+  const tree = buildAccessibleOrgStatsTree(allUsers);
+
+  if (tree.length === 0) {
+    container.innerHTML = '<p class="org-stats-tree__empty">尚未設定可管理的組織範圍，請聯絡系統管理員。</p>';
     return;
-  } else {
-    if (heatmapCard) heatmapCard.style.display = "";
   }
 
-  // Determine current scope label from selector
-  let scopeLabel = "全教會";
-  const rankingZoneSelector = document.getElementById("ranking-zone-selector");
-  const selectedFilter = overrideFilter !== undefined
-    ? overrideFilter
-    : (window._statsTabScope !== null
-      ? window._statsTabScope
-      : (rankingZoneSelector ? rankingZoneSelector.value : null));
-
-  if (selectedFilter) {
-    if (selectedFilter === "all") {
-      scopeLabel = "全教會";
-    } else if (selectedFilter === "all_great_region") {
-      scopeLabel = state.currentUser.great_region || "大區";
-    } else if (selectedFilter === "all_zones") {
-      scopeLabel = state.currentUser.pastoral_zone || "牧區";
-    } else if (selectedFilter === "all_groups") {
-      scopeLabel = state.currentUser.small_group || "小組";
-    } else if (selectedFilter.startsWith("region:")) {
-      scopeLabel = selectedFilter.replace("region:", "");
-    } else if (selectedFilter.startsWith("zone:")) {
-      scopeLabel = selectedFilter.replace("zone:", "");
-    } else if (selectedFilter.startsWith("group:")) {
-      scopeLabel = selectedFilter.replace("group:", "");
-    }
-  } else {
-    const userRole = getUserRoleCode(state.currentUser) || "member";
-    if (hasWholeChurchPlanScope(userRole)) {
-      scopeLabel = "全教會";
-    } else if (userRole === "great_zone_leader") {
-      scopeLabel = state.currentUser.great_region || "大區";
-    } else if (userRole === "zone_leader") {
-      scopeLabel = state.currentUser.pastoral_zone || "牧區";
-    } else {
-      scopeLabel = state.currentUser.small_group || "小組";
-    }
-  }
-
-  const titleEl = document.getElementById('grp-heatmap-title');
-  if (titleEl) {
-    titleEl.textContent = scopeLabel === "全教會"
-      ? '全教會讀經活躍度 (計畫期間打卡活躍度)'
-      : `${scopeLabel} 讀經活躍度 (計畫期間打卡活躍度)`;
-  }
-
-  const userIds = new Set(scopedUsers.map(u => u.id).filter(Boolean));
-  const userNames = new Set(scopedUsers.map(u => u.name).filter(Boolean));
-  const scopedPlanIds = new Set(scopedUsers.map(u => u.plan_id).filter(Boolean));
-  const currentPlanId = state.activePlan && state.activePlan.id;
-  const currentPresetKey = state.activePlan && state.activePlan.presetKey;
-
-  const logsByDate = {};
-
-  if (state.isSupabaseMode && state.allLogsCache) {
-    // Supabase mode: use full log cache, filter by team users AND current plan
-    state.allLogsCache.forEach(log => {
-      if (!log.read_at) return;
-      if (!userIds.has(log.user_id)) return;
-      // Each participant has their own reading_plans.id for the same global plan.
-      if (scopedPlanIds.size > 0) {
-        if (!scopedPlanIds.has(log.plan_id)) return;
-      } else if (!logMatchesPlan(log, currentPlanId, currentPresetKey)) {
-        return;
-      }
-      const dStr = log.read_at.substring(0, 10);
-      logsByDate[dStr] = (logsByDate[dStr] || 0) + 1;
-    });
-  } else {
-    // Local / mock mode: filter state.readingLogs by plan
-    (state.readingLogs || []).forEach(log => {
-      if (!log.read_at) return;
-      const nameMatch = log.name ? userNames.has(log.name) : true;
-      if (!nameMatch) return;
-      if (!logMatchesPlan(log, currentPlanId, currentPresetKey)) return;
-      const dStr = log.read_at.substring(0, 10);
-      logsByDate[dStr] = (logsByDate[dStr] || 0) + 1;
-    });
-  }
-  const planStart = state.activePlan ? state.activePlan.startDate : null;
-  const planEnd = state.activePlan ? state.activePlan.endDate : null;
-  buildHeatmapGrid('grp-bible-heatmap-container', logsByDate, scopedUsers.length, '章', planStart, planEnd);
+  container.innerHTML = tree.map(renderOrgStatsNode).join("");
+  bindOrgStatsTreeEvents(container);
+  if (typeof hydrateIcons === "function") hydrateIcons(container);
 }
 
 function logMatchesPlan(log, currentPlanId, currentPresetKey) {
@@ -7564,8 +7233,6 @@ async function renderGroupParticipantsRankingTable() {
       }
     }
 
-    window._grpScopedUsers = groupMembers;
-
     groupMembers = groupMembers.map(u => {
       const isMe = u.name === state.currentUser.name;
       const hasAnyPlanRead = isMe
@@ -7971,25 +7638,11 @@ async function renderPlanMembersView() {
     await renderGroupParticipantsRankingTable();
   }
 
-  // When in org-stats mode, the members filter should also control all the
-  // statistics cards and charts on this page. After renderGroupParticipantsRankingTable
-  // has set window._grpScopedUsers for the selected scope, re-render the stats.
+  // The 計畫統計 admin section shows every org unit within the admin's
+  // permission scope at once (大區／牧區／小組 逐層展開), not a single
+  // selector-filtered scope, so it doesn't need the members filter's value.
   if (window.currentPlanViewState === PLAN_ROUTE.ORG_STATS) {
-    // Read the current filter value from the members selector directly.
-    // Do NOT sync to ranking-zone-selector because that would fire its own
-    // change listener and re-render with the wrong scope.
-    const currentOrgFilter = getActiveOrgFilter();
-
-    // Pass the filter explicitly so renderGroupMiniStats/charts use it for both
-    // scopedUsers calculation and scopeLabel, bypassing _statsTabScope.
-    await renderGroupMiniStats(currentOrgFilter);
-    renderGroupGrowthTrend(currentOrgFilter);
-    renderGroupTeamHeatmap(currentOrgFilter);
-
-    const distCard = document.getElementById("grp-distribution-card");
-    if (distCard && distCard.style.display !== "none") {
-      renderGroupProgressDistribution(currentOrgFilter);
-    }
+    await renderOrgStatsTree();
 
     // Also update the group stats section visibility
     const groupSec = document.getElementById("stats-group-section");

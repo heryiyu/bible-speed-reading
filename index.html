@@ -1367,129 +1367,11 @@
             <!-- Content: group stats + member list -->
             <div id="plan-org-stats-content" style="display: flex; flex-direction: column; gap: 1.2rem; flex: 1; min-height: 0; overflow-y: auto;">
             <!-- 團體統計部分 -->
-            <!-- 團體統計部分 -->
             <div id="stats-group-section" class="hidden"
               style="display: flex; flex-direction: column; gap: 0.8rem; width: 100%;">
 
-              <!-- 第一層：5格不對稱團體便當盒網格 + 融合三色進度條 -->
-              <div class="grid grid-cols-2 gap-3 px-4 pt-4" id="group-stats-card-container"
-                style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; width: 100%;">
-
-                <!-- 卡片 1 - 總閱讀章數 (核心主卡，橫跨兩欄) -->
-                <div class="col-span-2 bento-card stat-card--primary" style="grid-column: span 2 / span 2;">
-                  <div class="stat-bento__row">
-                    <div class="stat-bento__value stat-bento__value--hero">
-                      <span id="grp-total-read">0</span>
-                      <span class="stat-bento__unit">章</span>
-                    </div>
-                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--brand stat-bento__icon-wrap--hero"><span
-                        class="nlc-icon" data-icon="peoples" aria-hidden="true"></span></span>
-                  </div>
-                  <span class="stat-bento__label" id="grp-label-total-read">總閱讀章數</span>
-                </div>
-
-                <!-- 卡片 2 - 參與人數 -->
-                <div class="bento-card">
-                  <div class="stat-bento__row">
-                    <div class="stat-bento__value">
-                      <span id="grp-total-members">0</span>
-                      <span class="stat-bento__unit">人</span>
-                    </div>
-                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--success"><span class="nlc-icon"
-                        data-icon="people" aria-hidden="true"></span></span>
-                  </div>
-                  <span class="stat-bento__label" id="grp-label-members">參與人數</span>
-                </div>
-
-                <!-- 卡片 3 - 每日活躍 -->
-                <div class="bento-card">
-                  <div class="stat-bento__row">
-                    <div class="stat-bento__value">
-                      <span id="grp-active-members">0</span>
-                      <span class="stat-bento__unit">人</span>
-                    </div>
-                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--warning"><span class="nlc-icon"
-                        data-icon="lightning" aria-hidden="true"></span></span>
-                  </div>
-                  <span class="stat-bento__label" id="grp-label-active">每日活躍</span>
-                </div>
-
-                <!-- 卡片 4 - 落後人數 -->
-                <div class="bento-card">
-                  <div class="stat-bento__row">
-                    <div class="stat-bento__value">
-                      <span id="grp-behind-count">0</span>
-                      <span class="stat-bento__unit">人</span>
-                    </div>
-                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--danger"><span class="nlc-icon"
-                        data-icon="hourglass" aria-hidden="true"></span></span>
-                  </div>
-
-                  <!-- 三色進度條 -->
-                  <div class="progress-segment-track">
-                    <div id="grp-today-bar-behind" class="progress-segment--behind" style="width: 0%" title="落後"></div>
-                    <div id="grp-today-bar-on-schedule" class="progress-segment--on-schedule" style="width: 0%"
-                      title="在進度上"></div>
-                    <div id="grp-today-bar-ahead" class="progress-segment--ahead" style="width: 0%" title="超前"></div>
-                  </div>
-
-                  <span class="stat-bento__label">落後人數</span>
-                </div>
-
-                <!-- 卡片 5 - 複讀人數 -->
-                <div class="bento-card">
-                  <div class="stat-bento__row">
-                    <div class="stat-bento__value">
-                      <span id="grp-reread-count">0</span>
-                      <span class="stat-bento__unit">人</span>
-                    </div>
-                    <span class="stat-bento__icon-wrap stat-bento__icon-wrap--brand"><span class="nlc-icon"
-                        data-icon="refresh" aria-hidden="true"></span></span>
-                  </div>
-                  <span class="stat-bento__label">複讀人數</span>
-                </div>
-
-              </div>
-
-              <!-- 隱藏但保留的舊 ID，防止 JS 崩潰 -->
-              <div id="grp-distribution-card" class="hidden" style="display: none;">
-                <span id="grp-distribution-title"></span>
-              </div>
-
-
-
-              <!-- 第三層：收斂版「團隊讀經熱點地圖」卡片 -->
-              <div class="glass-card-upgrade mx-4 my-2" id="grp-heatmap-card">
-                <h3 class="card-title" id="grp-heatmap-title"
-                  style="margin-bottom: 0.75rem; font-size: 0.95rem; font-weight: 500; text-align: left;">團隊讀經活躍度</h3>
-
-                <div id="grp-bible-heatmap-container"
-                  style="overflow-x: auto; width: 100%; display: flex; align-items: center; justify-content: flex-start; padding: 0.25rem 0;">
-                  <!-- Generated dynamically -->
-                </div>
-
-                <div class="heatmap-legend">
-                  <span>少</span>
-                  <span class="heatmap-legend__swatch heatmap-legend__swatch--0"></span>
-                  <span class="heatmap-legend__swatch heatmap-legend__swatch--1"></span>
-                  <span class="heatmap-legend__swatch heatmap-legend__swatch--2"></span>
-                  <span class="heatmap-legend__swatch heatmap-legend__swatch--3"></span>
-                  <span class="heatmap-legend__swatch heatmap-legend__swatch--4"></span>
-                  <span>多</span>
-                </div>
-              </div>
-
-              <!-- 第四層：每日活躍人數折線面積圖 -->
-              <div class="glass-card-upgrade mx-4 my-2" id="grp-daily-active-chart-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                  <h3 class="card-title" id="grp-daily-active-chart-title"
-                    style="margin-bottom: 0; font-size: 0.95rem; font-weight: 500; text-align: left;">每日活躍人數（近30天）</h3>
-                  <span style="font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">人</span>
-                </div>
-                <div style="position: relative; height: 180px; width: 100%;">
-                  <canvas id="grp-daily-active-chart"></canvas>
-                </div>
-              </div>
+              <!-- 所有權限範圍下的各種統計：大區／牧區／小組逐層展開的條列清單 -->
+              <div id="admin-org-stats-tree" class="org-stats-tree px-4 pt-4" aria-live="polite"></div>
 
 
 
@@ -2848,7 +2730,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260911_exam_paper_linked_plan"></script>
+  <script type="module" src="js/app.js?v=20260911_org_stats_tree"></script>
 </body>
 
 </html>

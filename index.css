@@ -16287,4 +16287,108 @@ textarea::placeholder {
   color: var(--text-primary); white-space: nowrap;
 }
 .exam-assign__table th { color: var(--text-secondary); font-weight: var(--type-weight-strong, 600); }
+
+/* ==================== 計畫統計：權限範圍條列清單（大區／牧區／小組逐層展開） ==================== */
+.org-stats-tree { display: flex; flex-direction: column; gap: 0.6rem; }
+.org-stats-tree__empty {
+  padding: 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;
+}
+
+.org-stats-node {
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.org-stats-node__header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.org-stats-node__chevron {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-muted);
+  transition: transform 0.18s ease;
+}
+.org-stats-node.is-expanded > .org-stats-node__header .org-stats-node__chevron {
+  transform: rotate(90deg);
+  color: var(--color-brand);
+}
+
+.org-stats-node__name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.org-stats-node__level-tag {
+  flex: 0 0 auto;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-brand);
+  background: var(--color-brand-subtle);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+.org-stats-node__badge {
+  flex: 0 0 auto;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  background: var(--bg-app);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+}
+
+.org-stats-node__body { display: none; padding: 0 0.85rem 0.85rem; }
+.org-stats-node.is-expanded > .org-stats-node__body { display: block; }
+
+.org-stats-metrics { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.6rem; }
+.org-stats-metrics__row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+
+.org-stats-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.5rem 0.3rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  text-align: center;
+}
+.org-stats-metric__icon { color: var(--color-brand); font-size: 1rem; }
+.org-stats-metric__value { font-size: 1.05rem; font-weight: 500; color: var(--text-primary); }
+.org-stats-metric__label { font-size: 0.875rem; color: var(--text-muted); }
+
+.org-stats-node__children {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-left: 0.75rem;
+  margin-left: 0.4rem;
+  border-left: 2px solid var(--border-card);
+}
+
+@media (max-width: 480px) {
+  .org-stats-node__name { font-size: 0.9rem; }
+}
 .exam-assign__meta { font-size: 0.875rem; color: var(--text-muted); }
