@@ -4,11 +4,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const sql = readFileSync(join(root, "supabase", "migrations", "0170_exam_stats_first_round_filter.sql"), "utf8");
+// 0170 已併入 0171（0170 從未實際部署過就被 0171 的 exam_get_stats 整個取代，
+// 拆兩支徒增「先跑一支再跑另一支把它蓋掉」的困惑，所以刪掉 0170、內容併過來）。
+const sql = readFileSync(join(root, "supabase", "migrations", "0171_exam_paper_linked_plan.sql"), "utf8");
 const ui = readFileSync(join(root, "js", "modules", "exam.js"), "utf8");
 const db = readFileSync(join(root, "js", "db.js"), "utf8");
 
-describe("0170: _user_read_book_once — 讀過該書卷一遍的判定", () => {
+describe("0171: _user_read_book_once — 讀過該書卷一遍的判定", () => {
   it("current_round >= 2，或第 1 遍打卡相異章數 >= 該書卷章數", () => {
     expect(sql).toContain("CREATE OR REPLACE FUNCTION public._user_read_book_once(p_user_id UUID, p_book TEXT, p_chapters INTEGER)");
     expect(sql).toContain("p_user_id IS NULL OR p_book IS NULL OR BTRIM(p_book) = '' OR EXISTS");
@@ -25,7 +27,7 @@ describe("0170: _user_read_book_once — 讀過該書卷一遍的判定", () => 
   });
 });
 
-describe("0170: exam_get_stats — 5 參數簽章 + 過濾旗標", () => {
+describe("0171: exam_get_stats — 5 參數簽章 + 過濾旗標", () => {
   it("DROP 舊 2 參數版、5 參數版用 CREATE OR REPLACE（本檔可重複執行、不撞 42723）", () => {
     expect(sql).toContain("DROP FUNCTION IF EXISTS public.exam_get_stats(UUID, UUID);");
     expect(sql).toContain("CREATE OR REPLACE FUNCTION public.exam_get_stats(");
@@ -58,10 +60,9 @@ describe("0170: exam_get_stats — 5 參數簽章 + 過濾旗標", () => {
     expect(sql).toMatch(/'roster',COALESCE\(\(SELECT jsonb_agg[\s\S]*?WHERE a\.id=ANY\(scoped\)AND a\.status IN\('submitted','graded'\)\),'\[\]'::jsonb\)/);
   });
 
-  it("v_plans（後台 3/6 人隊排行的顯示清單）用未過濾的 scoped，開關開了也不讓整批隊消失", () => {
-    expect(sql).toMatch(/INTO v_plans\s+FROM public\.reading_team_members rtm\s+WHERE rtm\.user_id IN\(SELECT a\.user_id FROM public\.exam_attempts a WHERE a\.id=ANY\(scoped\)\)/);
-    expect(sql).not.toContain("INTO v_plans\n  FROM public.reading_team_members rtm\n  WHERE rtm.user_id IN(SELECT a.user_id FROM public.exam_attempts a WHERE a.id=ANY(scoped_stats))");
-  });
+  // 團隊排行「哪些隊算數」的邏輯（v_plans 書卷比對 → 改成直接跟著
+  // pr.linked_plan_id 走，見 scripts/exam-paper-linked-plan.test.mjs）已經不
+  // 在這支測驗，這裡只留跟「讀完一遍」過濾本身有關的斷言。
 
   it("roster 每列帶 firstRoundDone（沒帶書卷 → NULL）", () => {
     expect(sql).toContain("'firstRoundDone',CASE WHEN v_book IS NULL THEN NULL ELSE public._user_read_book_once(a.user_id,v_book,p_book_chapters)END");
@@ -137,7 +138,7 @@ describe("exam.js — 統計頁「讀完一遍」欄 + 過濾開關", () => {
   });
 });
 
-describe("0170: teamRanking 缺口拆三類（notRead / notTested / emptySlots）", () => {
+describe("0171: teamRanking 缺口拆三類（notRead / notTested / emptySlots）", () => {
   const fn = sql.slice(sql.indexOf("'teamRanking',COALESCE(("), sql.indexOf("'byQuestion',"));
 
   it("JOIN 放寬到未過濾 scoped，才看得出誰只是沒考試", () => {

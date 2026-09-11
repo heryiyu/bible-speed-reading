@@ -596,12 +596,21 @@ async function renderExamStats(host, paperId, hasShort = true, paperTitle = null
   const tbl = (rows, cols) => `<table class="exam-stats__table"><thead><tr>${cols.map((c) => `<th>${esc(c.h)}</th>`).join("")}</tr></thead>
     <tbody>${rows.map((r) => `<tr>${cols.map((c) => `<td>${c.f(r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 
+  const linkedPlanId = d.paper && d.paper.linkedPlanId;
+  const linkedPlanName = linkedPlanId
+    ? ((state.globalPlans || []).find((gp) => gp.id === linkedPlanId)?.name || linkedPlanId)
+    : null;
   const scoped = d.scope === "scoped";
   const prVisible = d.prVisible === true;          // admin/pastor 隨時；範圍主管要成績公布後
   const prPending = !prVisible;
   const prCell = (v) => (v == null ? "—" : v);     // 母體 < 5 或未公布 → server 回 null
   const rank3 = (d.teamRanking || []).filter((r) => r.division === 3);
   const rank6 = (d.teamRanking || []).filter((r) => r.division === 6);
+  // 沒綁定對應計畫、或那個計畫本身沒有登記任何 3/6 人隊：後台一律回傳空陣列
+  // （byTeamSize 只剩「未組隊」不算數，那只代表這計畫沒隊、不是有隊伍資訊），
+  // 這裡整段團隊統計（組隊規模／團隊排行）直接不顯示，不要拼湊出誤導性資訊。
+  const hasTeamStats = Boolean(linkedPlanId) && (rank3.length > 0 || rank6.length > 0
+    || (Array.isArray(d.byTeamSize) && d.byTeamSize.some((r) => r.label !== "未組隊")));
   const rankTbl = (rows, size) => rows.length ? tbl(rows, [
     { h: "名次", f: (r) => r.rank },
     { h: "隊名", f: (r) => esc(r.name || "") },
@@ -619,12 +628,12 @@ async function renderExamStats(host, paperId, hasShort = true, paperTitle = null
 
   host.innerHTML = `
     ${scoped ? '<p class="exam-admin__meta exam-stats__scope">只顯示你負責範圍內的作答；隊伍總分也只計入範圍內成員，且只列出範圍內有人作答的隊。</p>' : ""}
-    <p class="exam-admin__meta">團隊平均固定以隊伍編制計算：3 人隊除以 3、6 人隊除以 6；未完成／未作答的成員一律按 0 分計。${scoped ? "" : "沒有人作答的隊也會列出（0 分、排在最後）。"}${readingBook ? `<br>缺口分三類：<strong>未讀完</strong>＝有考試但沒讀完《${esc(readingBook)}》一遍（開「只統計讀完的人」時不計分）、<strong>未考試</strong>＝隊員完全沒作答、缺額＝隊伍沒滿編制（CSV 才有）。` : ""}</p>
+    ${hasTeamStats ? `<p class="exam-admin__meta">團隊平均固定以隊伍編制計算：3 人隊除以 3、6 人隊除以 6；未完成／未作答的成員一律按 0 分計。${scoped ? "" : "沒有人作答的隊也會列出（0 分、排在最後）。"}${readingBook ? `<br>缺口分三類：<strong>未讀完</strong>＝有考試但沒讀完《${esc(readingBook)}》一遍（開「只統計讀完的人」時不計分）、<strong>未考試</strong>＝隊員完全沒作答、缺額＝隊伍沒滿編制（CSV 才有）。` : ""}${linkedPlanName ? `<br>團隊排行已鎖定對應計畫「${esc(linkedPlanName)}」，只統計這個計畫底下登記的隊伍（去「試卷設定」可以改）。` : ""}</p>` : (linkedPlanId ? `<p class="exam-admin__meta">對應計畫「${esc(linkedPlanName)}」底下沒有登記任何 3／6 人隊，不顯示團隊統計。</p>` : `<p class="exam-admin__meta">這份試卷沒有設定對應計畫（獨立測驗卷），不顯示團隊統計（去「試卷設定」可以設定）。</p>`)}
     <p class="exam-admin__meta">PR 值＝在「全教會同層級」（全體參加者／各大區／各牧區／各小組／同型團隊）的百分等級，夾 1–99；母體不足 5 顯示「—」。名次僅後台可見，公布給會友的內容不含名次。${prPending ? "<strong>成績尚未公布，PR 值待公布後才顯示。</strong>" : ""}</p>
     ${readingBook ? `<label class="exam-admin__meta exam-stats__readgate" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
       <input type="checkbox" id="exam-stats-readgate"${requireRead ? " checked" : ""}>
       <span>只統計「已讀完《${esc(readingBook)}》至少一遍」的人${notReadCount ? `　·　目前有 <strong>${notReadCount}</strong> 人未讀完` : ""}</span>
-    </label>${requireRead ? `<p class="exam-admin__meta">已排除未讀完《${esc(readingBook)}》的作答：整體平均、各大區/牧區/小組、組隊規模、團隊排行、PR 母體都只算讀過的人。下方作答名單仍列出全部（未讀完者標「不計入」）。</p>` : ""}` : ""}
+    </label>${requireRead ? `<p class="exam-admin__meta">已排除未讀完《${esc(readingBook)}》的作答：整體平均、各大區/牧區/小組${hasTeamStats ? "、組隊規模、團隊排行" : ""}、PR 母體都只算讀過的人。下方作答名單仍列出全部（未讀完者標「不計入」）。</p>` : ""}` : ""}
     <div class="exam-stats__tiles">
       <div class="exam-stats__tile"><span>作答</span><strong>${num(o.submitted)}</strong></div>
       <div class="exam-stats__tile"><span>已批改</span><strong>${num(o.graded)}</strong></div>
@@ -652,22 +661,22 @@ async function renderExamStats(host, paperId, hasShort = true, paperTitle = null
         { h: "作答", f: (r) => r.count }, { h: "已批", f: (r) => r.graded }, { h: "平均總分", f: (r) => num(r.avgTotal) },
         ...(prVisible ? [{ h: "PR", f: (r) => prCell(r.pr) }] : [])])}
     </details>
-    <details class="exam-stats__sec" open><summary>組隊規模</summary>
+    ${hasTeamStats ? `<details class="exam-stats__sec" open><summary>組隊規模</summary>
       ${tbl(d.byTeamSize || [], [
         { h: "類別", f: (r) => esc(r.label) },
         { h: "作答", f: (r) => r.count }, { h: "已批", f: (r) => r.graded },
         { h: "平均總分", f: (r) => num(r.avgTotal) }])}
-      <p class="exam-admin__meta">依作答者本人的讀經團隊成員身分分類。同時在 3 人與 6 人團隊的人，兩邊都計入。</p>
+      <p class="exam-admin__meta">依作答者本人在對應計畫底下的讀經團隊成員身分分類。同時在 3 人與 6 人團隊的人，兩邊都計入。</p>
     </details>
-    ${(rank3.length || rank6.length) ? `<div class="exam-stats__toolbar">
+    <div class="exam-stats__toolbar">
       <button type="button" class="secondary-btn" id="exam-teamrank-csv">匯出團隊排行 CSV（3＋6 人隊）</button>
-    </div>` : ""}
+    </div>
     <details class="exam-stats__sec" open><summary>3 人隊排行（${rank3.length} 隊）</summary>
       ${rankTbl(rank3, 3)}
     </details>
     <details class="exam-stats__sec" open><summary>6 人隊排行（${rank6.length} 隊）</summary>
       ${rankTbl(rank6, 6)}
-    </details>
+    </details>` : ""}
     <details class="exam-stats__sec"><summary>逐題正確率（自動計分題）</summary>
       ${tbl(d.byQuestion || [], [
         { h: "大題", f: (r) => esc((SECTION_TITLE[r.section] || r.section).slice(0, 3)) },
@@ -902,9 +911,27 @@ function renderExamMetaForm(host, paper, rerender) {
     </div>`;
   }).join("");
 
+  // 對應計畫：通常是某個「教會速讀階段」計畫。設定了，這份卷的團隊排行就只統計
+  // 那個計畫底下登記的隊伍，不受標題書卷比對或考生現況影響；留空＝獨立測驗卷。
+  // 跟其他試卷設定一樣併進 #exam-meta-save，只有測試版草稿能改；推正式版時
+  // （exam_push_to_live）會一併帶過去，正式版本身不能單獨改這一項。
+  const stagePlans = [...(state.globalPlans || [])]
+    .filter((gp) => gp.planKind === "church_campaign_stage" || gp.planKind === "church_campaign_stage_cohort")
+    .sort((a, b) => (Number(a.stageNo) || 0) - (Number(b.stageNo) || 0) || String(a.name || "").localeCompare(String(b.name || ""), "zh-Hant"));
+  const linkedPlanId = p.linked_plan_id || "";
+  const planOptions = [`<option value="">（獨立測驗卷，不對應任何計畫）</option>`]
+    .concat(stagePlans.map((gp) => {
+      const books = Array.isArray(gp.books) && gp.books.length ? `　${gp.books.join("、")}` : "";
+      return `<option value="${esc(gp.id)}"${gp.id === linkedPlanId ? " selected" : ""}>${esc(gp.name || gp.id)}${esc(books)}</option>`;
+    })).join("");
+
   host.innerHTML = `
     <div class="exam-admin__form">
       <label>標題<input class="form-control" data-f="title" value="${esc(p.title)}"></label>
+      <label>對應計畫
+        <select class="form-control" id="exam-meta-linked-plan">${planOptions}</select>
+      </label>
+      <p class="exam-admin__meta">這份卷的統計頁「團隊排行」只會列出對應計畫底下登記的 3／6 人隊，不會抓到升到下一階段或其他計畫的隊。獨立測驗卷（不選）維持舊行為。跟其他設定一樣按下方「儲存試卷設定」才會存，且只有測試版草稿能改；推正式版時會一併帶過去。</p>
       <p class="exam-admin__meta">測試版與正式版是兩份獨立的卷。測試版改好後，用上方「推上正式版」把題目與設定複製過去。</p>
       <div class="exam-admin__form-row">
         <label>開放起<input type="datetime-local" class="form-control" data-f="open_at" value="${esc(toLocalInput(p.open_at))}"></label>
@@ -954,6 +981,7 @@ function renderExamMetaForm(host, paper, rerender) {
     e.target.disabled = true;
     const res = await db.upsertExamPaper({
       id: p.id, title: g("title"),
+      linked_plan_id: host.querySelector("#exam-meta-linked-plan").value || null,
       open_at: fromLocalInput(g("open_at")), close_at: fromLocalInput(g("close_at")),
       duration_minutes: Number(g("duration_minutes")) || 75,
       sections,
