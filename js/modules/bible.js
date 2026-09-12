@@ -1336,7 +1336,7 @@ function setVerseNoteBadge(verseDiv, hasNote) {
 
 /**
  * 統一「點選多節經文」工具列：上方顯示已選經文 chip（可跨章、可逐節移除），
- * 下方動作列（全清 ✕／複製／螢光筆／筆記（僅單節）／分享）。
+ * 下方動作列（全清 ✕／複製／標記／筆記（僅單節）／分享）。
  * 點經文區外面不關閉、不清選取（B 案）；只有全清 ✕、chip ✕、或把節全部取消才關閉。
  */
 function renderUnifiedSelectionBar() {
@@ -1389,19 +1389,21 @@ function renderUnifiedSelectionBar() {
 
   rootElement.innerHTML = `
     <div id="pwa-selection-bottom-bar" class="youversion-action-bar active${single ? "" : " youversion-action-bar--multi"}">
-      <div class="yv-selection-strip" role="list" aria-label="已選取的經文（共 ${sorted.length} 節）">${chipsHtml}</div>
+      <div class="yv-bar-top-row">
+        <div class="yv-selection-strip" role="list" aria-label="已選取的經文（共 ${sorted.length} 節）">${chipsHtml}</div>
+        <button type="button" class="yv-multi-cancel-button" data-action="clear-all" aria-label="全部取消" title="全部取消">
+          <span class="nlc-icon" data-icon="close" aria-hidden="true"></span>
+        </button>
+      </div>
       <div class="yv-content-row">
         <div class="yv-action-group">
-          <button type="button" class="yv-multi-cancel-button" data-action="clear-all" aria-label="全部取消" title="全部取消">
-            <span class="nlc-icon" data-icon="close" aria-hidden="true"></span>
-          </button>
           <button type="button" class="yv-tile" data-action="copy">
             <span class="nlc-icon" data-icon="copy" aria-hidden="true"></span>
             <span class="yv-tile-label">複製</span>
           </button>
           <button type="button" class="yv-tile${commonColor ? " is-active" : ""}" data-action="toggle-highlight" aria-expanded="false" aria-controls="yv-highlight-palette">
             <span class="nlc-icon" data-icon="pencil" aria-hidden="true"></span>
-            <span class="yv-tile-label">螢光筆</span>
+            <span class="yv-tile-label">標記</span>
           </button>
           <button type="button" class="yv-tile" data-action="note"${single ? "" : ' disabled aria-disabled="true"'}>
             <span class="nlc-icon" data-icon="journalText" aria-hidden="true"></span>
@@ -1413,7 +1415,7 @@ function renderUnifiedSelectionBar() {
           </button>
         </div>
       </div>
-      <div id="yv-highlight-palette" class="yv-highlight-section yv-highlight-popover hidden" data-highlight-palette role="dialog" aria-label="螢光筆色盤">
+      <div id="yv-highlight-palette" class="yv-highlight-section yv-highlight-popover hidden" data-highlight-palette role="dialog" aria-label="標記色盤">
         <span class="yv-section-label">選擇顏色${single ? "" : `（套用到全部 ${sorted.length} 節）`}</span>
         <div class="yv-color-capsule" role="group" aria-label="選擇螢光標註顏色">
           <button type="button" class="yv-dot-clear" data-action="clear" title="取消螢光標註" aria-label="取消螢光標註">
@@ -1425,7 +1427,7 @@ function renderUnifiedSelectionBar() {
             return `<button type="button" class="yv-dot ${cls}${a ? " is-active" : ""}" data-color="${c}" title="${label}" aria-label="${label}" aria-pressed="${a}"></button>`;
           }).join("")}
           <label class="yv-custom-color" title="自訂顏色">
-            <input type="color" data-custom-highlight-color value="${/^#[0-9a-f]{6}$/i.test(commonColor) ? commonColor : "#fef08a"}" aria-label="自訂螢光筆顏色">
+            <input type="color" data-custom-highlight-color value="${/^#[0-9a-f]{6}$/i.test(commonColor) ? commonColor : "#fef08a"}" aria-label="自訂標記顏色">
             <span aria-hidden="true"></span>
           </label>
         </div>

@@ -14420,28 +14420,33 @@ select,
   align-items: center;
   gap: 0.25rem;
   flex: 0 0 auto;
-  padding: 0.25rem 0.5rem 0.25rem 0.625rem;
-  border: 1px solid color-mix(in srgb, var(--color-brand) 40%, var(--border-card));
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-brand) 12%, transparent);
-  color: var(--text-primary);
+  padding: 0.25rem 0.125rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text-secondary);
   font-size: 0.875rem;
   line-height: 1.4;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .youversion-action-bar .yv-chip:hover,
 .youversion-action-bar .yv-chip:focus-visible {
-  background: color-mix(in srgb, var(--color-brand) 22%, transparent);
-  border-color: color-mix(in srgb, var(--color-brand) 60%, var(--border-card));
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  color: var(--text-primary);
+}
+
+.youversion-action-bar .yv-chip + .yv-chip {
+  border-left: 1px solid var(--border-card);
+  padding-left: 0.625rem;
 }
 
 .youversion-action-bar .yv-chip .nlc-icon {
-  width: 0.875rem;
-  height: 0.875rem;
-  opacity: 0.7;
+  width: 0.75rem;
+  height: 0.75rem;
+  opacity: 0.6;
 }
 
 .youversion-action-bar .yv-tile[disabled],
@@ -14455,21 +14460,20 @@ select,
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2rem;
+  height: 2rem;
   padding: 0;
-  border: 1px solid var(--border-card);
+  border: none;
   border-radius: 50%;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .youversion-action-bar .yv-multi-cancel-button:hover,
 .youversion-action-bar .yv-multi-cancel-button:focus-visible {
   background: color-mix(in srgb, var(--text-primary) 7%, transparent);
-  border-color: color-mix(in srgb, var(--text-primary) 20%, var(--border-card));
   color: var(--text-primary);
 }
 
@@ -14613,11 +14617,21 @@ select,
   border-radius: 8px !important;
 }
 
-/* Preset and user-defined verse highlights share the same theme-aware rendering. */
-#reader-view .bible-verse[data-highlight],
-.bible-verse[data-highlight] {
-  background-color: color-mix(in srgb, var(--verse-highlight-color, #fef08a) 65%, transparent) !important;
-  border-radius: 4px;
+/* 標記塗在經文本文上（像真的螢光筆掃過字），只套用在 .verse-text，不含節號；
+   box-decoration-break 讓換行後每一行各自有自己的圓角色塊，不會被拉成一個怪方塊。
+   深色主題把不透明度降低，避免亮色蓋過白色文字的可讀性。 */
+#reader-view .bible-verse[data-highlight] > .verse-text,
+.bible-verse[data-highlight] > .verse-text {
+  background-color: color-mix(in srgb, var(--verse-highlight-color, #fef08a) 55%, transparent);
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.05em 0.2em;
+}
+
+[data-theme="dark"] #reader-view .bible-verse[data-highlight] > .verse-text,
+[data-theme="dark"] .bible-verse[data-highlight] > .verse-text {
+  background-color: color-mix(in srgb, var(--verse-highlight-color, #fef08a) 28%, transparent);
 }
 
 .profile-settings-section-label {
@@ -14626,11 +14640,6 @@ select,
   font-size: 0.875rem;
   font-weight: var(--type-weight-strong);
   letter-spacing: 0.02em;
-}
-
-[data-theme="dark"] #reader-view .bible-verse[data-highlight],
-[data-theme="dark"] .bible-verse[data-highlight] {
-  background-color: color-mix(in srgb, var(--verse-highlight-color, #fef08a) 22%, transparent) !important;
 }
 
 /* Bible Version Picker Modal Design System */
@@ -14784,15 +14793,23 @@ select,
   transform: translateX(-50%) translateY(0);
 }
 
-.youversion-action-bar .yv-bar-header {
+.youversion-action-bar .yv-bar-top-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  margin-bottom: 0.65rem;
+  align-items: flex-start;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-card);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
-.youversion-action-bar .yv-selection-label,
+.youversion-action-bar .yv-bar-top-row .yv-selection-strip {
+  flex: 1;
+  min-width: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
 .youversion-action-bar .yv-section-label {
   font-size: 0.875rem;
   font-weight: 500;
@@ -14800,7 +14817,6 @@ select,
   color: var(--text-secondary);
 }
 
-.youversion-action-bar .yv-close-button,
 .youversion-action-bar .yv-dot-clear {
   display: inline-flex;
   align-items: center;
@@ -14815,12 +14831,6 @@ select,
   color: var(--text-muted);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.youversion-action-bar .yv-close-button:hover,
-.youversion-action-bar .yv-close-button:focus-visible {
-  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
-  color: var(--text-primary);
 }
 
 .youversion-action-bar .yv-content-row {
@@ -14971,32 +14981,36 @@ select,
 
 .youversion-action-bar .yv-action-group {
   display: flex;
-  flex: 0 0 auto;
-  gap: 0.5rem;
+  flex: 1 1 auto;
+  width: 100%;
+  gap: 0.25rem;
 }
 
 .youversion-action-bar .yv-tile {
-  flex: 0 0 auto;
-  min-width: 4.5rem;
-  height: 2.5rem;
-  padding: 0 0.5rem;
-  border-radius: 0.5rem;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.4rem 0.25rem;
+  border-radius: 0.75rem;
   background: transparent;
-  border: 1px solid var(--border-card);
+  border: none;
   color: var(--text-primary);
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.375rem;
+  gap: 0.25rem;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.youversion-action-bar .yv-tile .nlc-icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .youversion-action-bar .yv-tile:hover,
 .youversion-action-bar .yv-tile:focus-visible {
   background: color-mix(in srgb, var(--text-primary) 7%, transparent);
-  border-color: color-mix(in srgb, var(--text-primary) 20%, var(--border-card));
 }
 
 .youversion-action-bar .yv-tile-label {
@@ -15007,7 +15021,6 @@ select,
 
 .youversion-action-bar .yv-tile.is-active {
   background: color-mix(in srgb, var(--color-brand) 14%, transparent);
-  border-color: var(--color-brand);
   color: var(--color-brand);
 }
 
