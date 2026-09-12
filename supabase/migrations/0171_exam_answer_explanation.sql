@@ -18,10 +18,14 @@
 --     完整 referenceAnswer／rubric。
 --  4. _exam_public_payload（作答期間／成績公布前看到的 payload）也順手拿掉
 --     answerExplanation——不管開關狀態，成績還沒公布就不該先看到詳解。
+--  5. exam_set_question_explanation：單獨編輯一題的 answerExplanation，不受
+--     paper.status 影響（exam_upsert_question 要求 status='draft' 才能存，但
+--     通常是測驗關閉、看到結果之後才想補寫詳解，這支只動這一個欄位所以不用管
+--     試卷是否已鎖定）。前端在題目已鎖定時改用這支存檔，而不是整份 upsert。
 --
 -- 部署：SQL editor 執行即可；需另外重部署 nlc-data Edge Function
--- （把 exam_set_answer_explanation_visible 加進 EXAM_RPC_FUNCTIONS /
--- EXAM_ADMIN_RPC_FUNCTIONS 允許清單）。冪等。
+-- （把 exam_set_answer_explanation_visible、exam_set_question_explanation
+-- 加進 EXAM_RPC_FUNCTIONS / EXAM_ADMIN_RPC_FUNCTIONS 允許清單）。冪等。
 
 ALTER TABLE public.exam_papers
   ADD COLUMN IF NOT EXISTS show_answer_explanation BOOLEAN NOT NULL DEFAULT FALSE;
@@ -82,6 +86,32 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.exam_set_answer_explanation_visible(UUID, BOOLEAN, UUID) TO authenticated;
+
+-- ── 單題答案詳解：不受試卷鎖定影響，隨時可編輯 ──
+-- exam_upsert_question 要求 paper.status='draft'（題幹/選項/正解定稿後就鎖住），
+-- 但大部分時候管理員是在測驗關閉、看到作答結果之後才想補寫詳解——這支只動
+-- payload 裡的 answerExplanation 一個欄位，不碰題幹/選項/正解，所以不用管
+-- 試卷是不是還在草稿狀態。
+CREATE OR REPLACE FUNCTION public.exam_set_question_explanation(
+  p_question_id UUID, p_explanation TEXT, p_actor_id UUID DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public
+AS $$
+DECLARE actor_id UUID := public.resolve_quiz_actor(p_actor_id); q public.exam_questions%ROWTYPE;
+BEGIN
+  IF public._exam_actor_role(actor_id) NOT IN ('admin', 'pastor') THEN RAISE EXCEPTION 'exam_admin_required'; END IF;
+  SELECT * INTO q FROM public.exam_questions WHERE id = p_question_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'exam_question_not_found'; END IF;
+  UPDATE public.exam_questions
+    SET payload = COALESCE(payload, '{}'::jsonb) || jsonb_build_object('answerExplanation', COALESCE(TRIM(p_explanation), ''))
+    WHERE id = q.id
+    RETURNING * INTO q;
+  RETURN jsonb_build_object('questionId', q.id, 'answerExplanation', q.payload ->> 'answerExplanation');
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.exam_set_question_explanation(UUID, TEXT, UUID) TO authenticated;
 
 -- ── exam_get_my_result：payload 改走 _exam_member_answer_payload（其餘欄位與 0169 相同）──
 CREATE OR REPLACE FUNCTION public.exam_get_my_result(

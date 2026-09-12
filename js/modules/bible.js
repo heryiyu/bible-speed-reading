@@ -1396,7 +1396,7 @@ function renderUnifiedSelectionBar() {
         </button>
       </div>
       <div class="yv-content-row">
-        <div class="yv-action-group">
+        <div class="yv-action-group" data-yv-panel="actions">
           <button type="button" class="yv-tile" data-action="copy">
             <span class="nlc-icon" data-icon="copy" aria-hidden="true"></span>
             <span class="yv-tile-label">複製</span>
@@ -1414,22 +1414,24 @@ function renderUnifiedSelectionBar() {
             <span class="yv-tile-label">分享</span>
           </button>
         </div>
-      </div>
-      <div id="yv-highlight-palette" class="yv-highlight-section yv-highlight-popover hidden" data-highlight-palette role="dialog" aria-label="標記色盤">
-        <span class="yv-section-label">選擇顏色${single ? "" : `（套用到全部 ${sorted.length} 節）`}</span>
-        <div class="yv-color-capsule" role="group" aria-label="選擇螢光標註顏色">
-          <button type="button" class="yv-dot-clear" data-action="clear" title="取消螢光標註" aria-label="取消螢光標註">
-            <span class="nlc-icon" data-icon="noColor" aria-hidden="true"></span>
+        <div id="yv-highlight-palette" class="yv-color-row hidden" data-highlight-palette role="group" aria-label="標記色盤">
+          <button type="button" class="yv-color-back" data-action="close-palette" aria-label="返回">
+            <span class="nlc-icon" data-icon="chevronLeft" aria-hidden="true"></span>
           </button>
-          <span class="yv-section-divider" aria-hidden="true"></span>
-          ${dotDefs.map(([c, cls, label]) => {
-            const a = commonColor === c;
-            return `<button type="button" class="yv-dot ${cls}${a ? " is-active" : ""}" data-color="${c}" title="${label}" aria-label="${label}" aria-pressed="${a}"></button>`;
-          }).join("")}
-          <label class="yv-custom-color" title="自訂顏色">
-            <input type="color" data-custom-highlight-color value="${/^#[0-9a-f]{6}$/i.test(commonColor) ? commonColor : "#fef08a"}" aria-label="自訂標記顏色">
-            <span aria-hidden="true"></span>
-          </label>
+          <div class="yv-color-capsule" role="group" aria-label="選擇標記顏色">
+            <button type="button" class="yv-dot-clear" data-action="clear" title="取消標記" aria-label="取消標記">
+              <span class="nlc-icon" data-icon="noColor" aria-hidden="true"></span>
+            </button>
+            <span class="yv-section-divider" aria-hidden="true"></span>
+            ${dotDefs.map(([c, cls, label]) => {
+              const a = commonColor === c;
+              return `<button type="button" class="yv-dot ${cls}${a ? " is-active" : ""}" data-color="${c}" title="${label}" aria-label="${label}" aria-pressed="${a}"></button>`;
+            }).join("")}
+            <label class="yv-custom-color" title="自訂顏色">
+              <input type="color" data-custom-highlight-color value="${/^#[0-9a-f]{6}$/i.test(commonColor) ? commonColor : "#fef08a"}" aria-label="自訂標記顏色">
+              <span aria-hidden="true"></span>
+            </label>
+          </div>
         </div>
       </div>
     </div>
@@ -1441,17 +1443,13 @@ function renderUnifiedSelectionBar() {
 
   const highlightPalette = barDiv.querySelector("[data-highlight-palette]");
   const highlightToggle = barDiv.querySelector('[data-action="toggle-highlight"]');
+  const actionPanel = barDiv.querySelector('[data-yv-panel="actions"]');
 
-  const positionHighlightPalette = () => {
-    if (!highlightToggle || !highlightPalette || highlightPalette.classList.contains("hidden")) return;
-    const barRect = barDiv.getBoundingClientRect();
-    const toggleRect = highlightToggle.getBoundingClientRect();
-    highlightPalette.style.setProperty("--yv-highlight-anchor-x", `${toggleRect.left - barRect.left + (toggleRect.width / 2)}px`);
-  };
+  // 色盤不疊加成獨立浮層，直接取代動作列的內容（同一張卡片、同一個高度）。
   const setHighlightPaletteOpen = open => {
     highlightPalette?.classList.toggle("hidden", !open);
+    actionPanel?.classList.toggle("hidden", open);
     highlightToggle?.setAttribute("aria-expanded", String(open));
-    if (open) requestAnimationFrame(positionHighlightPalette);
   };
   const refreshHighlightDots = () => {
     const cs = new Set(getSelectedVersesSorted().map(v => state.highlights?.[`${v.bookName}_${v.chapter}_${v.verse}`] || ""));
@@ -1469,10 +1467,8 @@ function renderUnifiedSelectionBar() {
     if (barDiv.contains(e.target)) return;
     if (highlightPalette && !highlightPalette.classList.contains("hidden")) setHighlightPaletteOpen(false);
   };
-  window.addEventListener("resize", positionHighlightPalette, { passive: true });
   selectionBottomBarCleanup = () => {
     document.removeEventListener("click", onDocClick);
-    window.removeEventListener("resize", positionHighlightPalette);
   };
 
   barDiv.querySelectorAll("[data-remove-keys]").forEach(chip => {
@@ -1484,6 +1480,9 @@ function renderUnifiedSelectionBar() {
   highlightToggle?.addEventListener("click", e => {
     e.stopPropagation();
     setHighlightPaletteOpen(highlightPalette?.classList.contains("hidden"));
+  });
+  barDiv.querySelector('[data-action="close-palette"]')?.addEventListener("click", e => {
+    e.stopPropagation(); setHighlightPaletteOpen(false);
   });
   barDiv.querySelectorAll("[data-color]").forEach(btn => {
     btn.addEventListener("click", e => { e.stopPropagation(); applyHighlightToSelection(btn.getAttribute("data-color")); refreshHighlightDots(); });

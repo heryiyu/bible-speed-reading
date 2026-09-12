@@ -3691,6 +3691,11 @@ const db = {
   async setExamAnswerExplanationVisible(paperId, enabled) {
     return this._callExamRpc("exam_set_answer_explanation_visible", { p_paper_id: paperId, p_enabled: !!enabled });
   },
+  // 單題答案詳解：跟 exam_upsert_question 不同，不受 paper.status 影響，
+  // 題目已鎖定（發佈/關閉）時也能存。
+  async setExamQuestionExplanation(questionId, explanation) {
+    return this._callExamRpc("exam_set_question_explanation", { p_question_id: questionId, p_explanation: explanation || "" });
+  },
   async recomputeExamScores(paperId) {
     return this._callExamRpc("exam_recompute_scores", { p_paper_id: paperId });
   },

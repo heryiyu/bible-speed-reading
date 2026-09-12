@@ -1009,10 +1009,43 @@ function renderExamMetaForm(host, paper, rerender) {
   });
 }
 
+// ── 題目已鎖定時，仍可單獨編輯每一題的「答案詳解」（不影響題幹/選項/正解）──
+function explanationOnlyCard(q) {
+  const pl = q.payload || {};
+  const stem = pl.stem || "";
+  return `<div class="exam-admin__q-card" data-qid="${esc(q.id)}">
+    <p class="exam-admin__meta"><strong>${esc(SECTION_TITLE[q.section] || q.section)}　第 ${q.position} 題</strong>${stem ? `：${esc(stem)}` : ""}</p>
+    <label>答案詳解（選填；有爭議或需要補充說明的題目才填）<textarea class="form-control" rows="2" data-explain-text>${esc(pl.answerExplanation || "")}</textarea></label>
+    <div class="exam-admin__q-actions">
+      <button type="button" class="primary-btn" data-explain-save>儲存答案詳解</button>
+    </div>
+  </div>`;
+}
+
+function wireExplanationCards(host) {
+  host.querySelectorAll(".exam-admin__q-card[data-qid]").forEach((card) => {
+    card.querySelector("[data-explain-save]")?.addEventListener("click", async (e) => {
+      const qid = card.dataset.qid;
+      const text = card.querySelector("[data-explain-text]").value.trim();
+      e.target.disabled = true;
+      const res = await db.setExamQuestionExplanation(qid, text);
+      e.target.disabled = false;
+      if (!res.success) { toast(res.message || "儲存失敗"); return; }
+      toast("已儲存");
+    });
+  });
+}
+
 // ── 題庫編輯（依試卷啟用的題型，每題可存 / 刪 / 新增）──
 function renderExamQuestionBank(host, paper, questions, rerender) {
   if (paper.status !== "draft") {
-    host.innerHTML = `<div class="admin-user-directory__empty">試卷已${paper.status === "published" ? "發佈" : "關閉"}，題目已鎖定。要改題請先「改回草稿」（會影響已作答的人，請謹慎）。</div>`;
+    host.innerHTML = `
+      <div class="admin-user-directory__empty">試卷已${paper.status === "published" ? "發佈" : "關閉"}，題幹/選項/正解已鎖定，要改請先「改回草稿」（會影響已作答的人，請謹慎）。以下仍可個別補寫「答案詳解」，不受鎖定影響。</div>
+      <div class="exam-admin__q-list">${questions.slice()
+        .sort((a, b) => (SECTION_ORDER.indexOf(a.section) - SECTION_ORDER.indexOf(b.section)) || (a.position - b.position))
+        .map((q) => explanationOnlyCard(q)).join("")}</div>
+    `;
+    wireExplanationCards(host);
     return;
   }
   const cfg = examSectionCfg(paper);
