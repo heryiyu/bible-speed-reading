@@ -3688,6 +3688,9 @@ const db = {
   async setExamPracticeEnabled(paperId, enabled) {
     return this._callExamRpc("exam_set_practice_enabled", { p_paper_id: paperId, p_enabled: !!enabled });
   },
+  async setExamAnswerExplanationVisible(paperId, enabled) {
+    return this._callExamRpc("exam_set_answer_explanation_visible", { p_paper_id: paperId, p_enabled: !!enabled });
+  },
   async recomputeExamScores(paperId) {
     return this._callExamRpc("exam_recompute_scores", { p_paper_id: paperId });
   },

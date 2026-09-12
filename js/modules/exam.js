@@ -234,6 +234,7 @@ export async function renderExamPanel(root) {
   const autoScoreOn = paper.auto_score_enabled !== false;   // 預設開；答案未定稿時可先關
   const practiceEnabled = paper.practice_retake_enabled !== false;
   const resultsPublished = !!paper.results_published_at;     // 成績已公布 → 全部鎖定不得再改
+  const explanationOn = paper.show_answer_explanation === true;   // 預設關；不受成績公布鎖定
 
   const badge = paper.status === "published" ? "success" : "neutral";
   const statusLabel = { draft: "草稿（可編輯）", published: "測驗進行中", closed: "已關閉" }[paper.status] || paper.status;
@@ -250,10 +251,14 @@ export async function renderExamPanel(root) {
   if (isLive && paper.status !== "closed" && !resultsPublished) {
     actions.push(`<button type="button" class="secondary-btn" data-exam-act="practice-toggle">${practiceEnabled ? "關閉複習" : "開啟複習"}</button>`);
   }
+  actions.push(`<button type="button" class="secondary-btn" data-exam-act="explain-toggle">${explanationOn ? "隱藏答案詳解" : "顯示答案詳解"}</button>`);
   const hints = [];
   if (resultsPublished) hints.push("成績已公布並鎖定：不可再修改正解、重新計分、批改或清除作答。");
   else if (!autoScoreOn) hints.push("自動評分已關閉：關閉測驗後也不會自動計分；答案定稿後再開啟並重新計分。");
   if (paper.status === "published") hints.push("測驗進行期間只保存答案，不會自動判分、簡答批改或公布正解；時間到會自動關閉。");
+  hints.push(explanationOn
+    ? "「答案詳解」目前對會友開放：每一題編輯處若有填寫答案詳解，成績公布後會友就看得到；簡答題的參考答案／評分要點永遠不會外流。"
+    : "「答案詳解」目前對會友隱藏：開啟後，題目編輯處有填寫答案詳解的題目，會友才看得到（一般題目不用填，只有有爭議或需要補充說明時才個別填寫；簡答題的參考答案／評分要點不受影響，一律不對外顯示）。");
 
   // ── 預告文（只有正式版有；獨立於 status，不鎖題庫）──
   if (hasNotice) {
@@ -326,7 +331,7 @@ export async function renderExamPanel(root) {
   body.innerHTML = `
     ${pickerBar}
     <div class="exam-admin__paper">
-      <p><strong>${esc(paper.title)}</strong>　<span class="stat-badge stat-badge--${isLive ? "brand" : "neutral"}">${isLive ? "正式版" : "測試版"}</span>　<span class="stat-badge stat-badge--${badge}">${esc(statusLabel)}</span>${hasNotice ? annBadge : ""}${autoScoreOn || resultsPublished ? "" : '　<span class="stat-badge stat-badge--danger">自動評分關閉</span>'}${resultsPublished ? '　<span class="stat-badge stat-badge--brand">成績已公布（鎖定）</span>' : ""}</p>
+      <p><strong>${esc(paper.title)}</strong>　<span class="stat-badge stat-badge--${isLive ? "brand" : "neutral"}">${isLive ? "正式版" : "測試版"}</span>　<span class="stat-badge stat-badge--${badge}">${esc(statusLabel)}</span>${hasNotice ? annBadge : ""}${autoScoreOn || resultsPublished ? "" : '　<span class="stat-badge stat-badge--danger">自動評分關閉</span>'}${resultsPublished ? '　<span class="stat-badge stat-badge--brand">成績已公布（鎖定）</span>' : ""}${explanationOn ? '　<span class="stat-badge stat-badge--brand">答案詳解已開放</span>' : ""}</p>
       <div class="exam-admin__actions">${actions.join("")}</div>
       ${actionHint ? `<p class="exam-admin__meta">${esc(actionHint)}</p>` : ""}
       ${isTest ? `<details class="exam-admin__testers"><summary>測試名單（開放指定會友作答這份測試版）</summary>
@@ -441,6 +446,16 @@ export async function renderExamPanel(root) {
       b.disabled = false;
       if (!r.success) { toast(r.message || "切換失敗"); return; }
       toast(turnOn ? "已開放複習" : "已停止建立新的複習");
+      rerender();
+      return;
+    }
+    if (act === "explain-toggle") {
+      const turnOn = !explanationOn;
+      b.disabled = true;
+      const r = await db.setExamAnswerExplanationVisible(paper.id, turnOn);
+      b.disabled = false;
+      if (!r.success) { toast(r.message || "切換失敗"); return; }
+      toast(turnOn ? "已對會友開放答案詳解" : "已隱藏答案詳解");
       rerender();
       return;
     }
@@ -1077,10 +1092,13 @@ function qEditCard(sec, q, secCfg) {
     body += `<label>事件（每行 id|文字，＝待排序區呈現順序）<textarea class="form-control" rows="5" data-p="items">${esc((pl.items || []).map((x) => x.id + "|" + x.text).join("\n"))}</textarea></label>
       <label>正確順序（id 以逗號分隔）<input class="form-control" data-a="order" value="${esc((Array.isArray(ak) ? ak : []).join(","))}"></label>`;
   } else if (sec === "shortanswer") {
-    body += `<label>參考答案<textarea class="form-control" rows="3" data-p="ref">${esc(pl.referenceAnswer || "")}</textarea></label>
-      <label>評分要點（每行一項）<textarea class="form-control" rows="3" data-p="rubric">${esc((pl.rubric || []).join("\n"))}</textarea></label>
+    body += `<label>參考答案（僅供批改內部參考，不會給會友看）<textarea class="form-control" rows="3" data-p="ref">${esc(pl.referenceAnswer || "")}</textarea></label>
+      <label>評分要點（每行一項，僅供批改內部參考，不會給會友看）<textarea class="form-control" rows="3" data-p="rubric">${esc((pl.rubric || []).join("\n"))}</textarea></label>
       <p class="exam-admin__meta">配分 ${(secCfg && secCfg.pointsPer) ?? 10} 分（在「試卷設定 → 題型與配分」調整）</p>`;
   }
+  // 六種題型都可以填「答案詳解」：預設空白、一般題目不用填，只有題目有爭議或
+  // 需要補充說明時才個別填寫；要在試卷上方按「顯示答案詳解」開關後才會出現給會友看。
+  body += `<label>答案詳解（選填；有爭議或需要補充說明的題目才填）<textarea class="form-control" rows="2" data-p="explain">${esc(pl.answerExplanation || "")}</textarea></label>`;
   return `<div class="exam-admin__q-card" ${idAttr}>
     ${body}
     <div class="exam-admin__q-actions">
@@ -1131,6 +1149,7 @@ function collectQCard(card, sec, secCfg) {
     payload.maxPoints = points;
     answer_key = null;
   }
+  payload.answerExplanation = card.querySelector('[data-p="explain"]').value.trim();
   return { payload, answer_key, points };
 }
 
@@ -3004,13 +3023,13 @@ function choiceAnswerText(a) {
 function examResultRow(a, graded) {
   const head = `${esc(SECTION_TITLE[a.section] || a.section)}　第 ${a.position} 題`;
   const questionBody = examResultQuestionBody(a);
+  // 六種題型都可能有答案詳解（管理員針對有爭議或需要補充說明的題目個別填寫）；
+  // 只有成績已公布（graded=fullReview）且開關開著、該題確實有填才會出現。
+  const explanation = graded && a.payload && a.payload.answerExplanation
+    ? `<p class="exam-result__ln"><span class="exam-result__k">答案詳解：</span>${esc(a.payload.answerExplanation)}</p>` : "";
 
   if (a.section === "shortanswer") {
     const scored = a.awardedPoints != null;
-    const ref = graded && a.payload && a.payload.referenceAnswer
-      ? `<p class="exam-result__ln"><span class="exam-result__k">參考答案：</span>${esc(a.payload.referenceAnswer)}</p>` : "";
-    const rubric = graded && a.payload && (a.payload.rubric || []).length
-      ? `<p class="exam-result__ln"><span class="exam-result__k">評分要點：</span>${(a.payload.rubric).map(esc).join("／")}</p>` : "";
     // server 上是空的、但本機暫存有內容 → 顯示本機版並標注（見 renderResult 的送出後救援）
     const serverEmpty = a.response == null || String(a.response).trim() === "";
     const usingLocal = serverEmpty && a._localFallback != null && String(a._localFallback).trim() !== "";
@@ -3023,7 +3042,7 @@ function examResultRow(a, graded) {
       ${usingLocal ? '<p class="exam-result__ln" style="color:var(--color-warning);">此題送出時可能沒收到，已用你這台裝置的暫存版顯示並嘗試補送。請截圖此畫面，並聯絡同工確認。</p>' : ""}
       <p class="exam-result__ln"><span class="exam-result__k">得分：</span>${scored ? `<strong>${a.awardedPoints} / ${a.points}</strong>` : "尚未評分"}</p>
       ${a.graderComment ? `<p class="exam-result__ln"><span class="exam-result__k">評語：</span>${esc(a.graderComment)}</p>` : ""}
-      ${ref}${rubric}
+      ${explanation}
     </div>`;
   }
 
@@ -3041,6 +3060,7 @@ function examResultRow(a, graded) {
       ${questionBody}
       ${(a.section === "matching" || a.section === "single" || a.section === "multiple")
         ? "" : `<p class="exam-result__ln"><span class="exam-result__k">你的作答：</span>${describeExamValue(a.section, a.payload, a.response)}</p>`}
+      ${explanation}
     </div>`;
   }
   // 連連看→畫線；單選/複選→選項用綠底標「你選的」；其餘（是非/排序）維持文字
@@ -3056,6 +3076,7 @@ function examResultRow(a, graded) {
         }</strong></p>`
       : ""}
     <p class="exam-result__ln"><span class="exam-result__k">得　　分：</span><strong>${a.awardedPoints ?? (ok ? a.points : 0)} / ${a.points}</strong></p>
+    ${explanation}
   </div>`;
 }
 
