@@ -352,6 +352,7 @@ export async function renderExamPanel(root) {
       <button type="button" data-exam-sub="assign" class="${examAdminSubview === "assign" ? "active" : ""}">簡答指派</button>` : ""}
       ${isLive ? `<button type="button" data-exam-sub="practice" class="${examAdminSubview === "practice" ? "active" : ""}">複習紀錄${practiceAttemptCount ? `（${practiceAttemptCount}）` : ""}</button>` : ""}
       <button type="button" data-exam-sub="stats" class="${examAdminSubview === "stats" ? "active" : ""}">統計</button>
+      <button type="button" data-exam-sub="explain" class="${examAdminSubview === "explain" ? "active" : ""}">答案詳解</button>
     </nav>
     <div id="exam-admin-sub"></div>`;
 
@@ -408,7 +409,8 @@ export async function renderExamPanel(root) {
     else if (examAdminSubview === "assign") { sub.innerHTML = '<div class="admin-user-directory__empty">載入指派清單…</div>'; await sweepExpired(); renderExamAssign(sub, paper.id, resultsPublished); }
     else if (examAdminSubview === "practice") renderExamPracticeRecords(sub, paper.id);
     else if (examAdminSubview === "stats") { sub.innerHTML = '<div class="admin-user-directory__empty">載入統計…</div>'; await sweepExpired(); renderExamStats(sub, paper.id, hasShortSection, paper.title); }
-    else if (!canEditPaper) sub.innerHTML = '<div class="admin-user-directory__empty">正式版的題目與試卷設定不提供編輯，一律由對應的測試版按「推上正式版」維護。要查看題目請用上方「預覽試卷」。</div>';
+    else if (examAdminSubview === "explain") renderExamExplanationEditor(sub, questions);
+    else if (!canEditPaper) sub.innerHTML = '<div class="admin-user-directory__empty">正式版的題目與試卷設定不提供編輯，一律由對應的測試版按「推上正式版」維護。要查看題目請用上方「預覽試卷」；要編輯答案詳解請切到「答案詳解」分頁。</div>';
     else if (examAdminSubview === "meta") renderExamMetaForm(sub, paper, rerender);
     else renderExamQuestionBank(sub, paper, questions, rerender);
   };
@@ -1036,16 +1038,23 @@ function wireExplanationCards(host) {
   });
 }
 
+// ── 答案詳解分頁：獨立於「題庫編輯」，正式版／已鎖定的試卷也看得到、改得了 ──
+// （「題庫編輯」分頁本身只有測試版才會出現，正式版一律不能編輯題目——見 canEditPaper。
+// 但答案詳解通常是測驗結束、看到結果之後才想補寫，所以另外開一個永遠看得到的分頁。）
+function renderExamExplanationEditor(host, questions) {
+  const sorted = questions.slice()
+    .sort((a, b) => (SECTION_ORDER.indexOf(a.section) - SECTION_ORDER.indexOf(b.section)) || (a.position - b.position));
+  host.innerHTML = `
+    <p class="exam-admin__meta">答案詳解不受題目鎖定影響，正式版發佈或關閉後也能隨時補寫、修改；預設空白，一般題目不用填，只有有爭議或需要補充說明的題目才個別填寫。要不要讓會友看到，由上方「顯示/隱藏答案詳解」開關決定。</p>
+    <div class="exam-admin__q-list">${sorted.map((q) => explanationOnlyCard(q)).join("")}</div>
+  `;
+  wireExplanationCards(host);
+}
+
 // ── 題庫編輯（依試卷啟用的題型，每題可存 / 刪 / 新增）──
 function renderExamQuestionBank(host, paper, questions, rerender) {
   if (paper.status !== "draft") {
-    host.innerHTML = `
-      <div class="admin-user-directory__empty">試卷已${paper.status === "published" ? "發佈" : "關閉"}，題幹/選項/正解已鎖定，要改請先「改回草稿」（會影響已作答的人，請謹慎）。以下仍可個別補寫「答案詳解」，不受鎖定影響。</div>
-      <div class="exam-admin__q-list">${questions.slice()
-        .sort((a, b) => (SECTION_ORDER.indexOf(a.section) - SECTION_ORDER.indexOf(b.section)) || (a.position - b.position))
-        .map((q) => explanationOnlyCard(q)).join("")}</div>
-    `;
-    wireExplanationCards(host);
+    host.innerHTML = '<div class="admin-user-directory__empty">試卷已' + (paper.status === "published" ? "發佈" : "關閉") + '，題目已鎖定。要改題請先「改回草稿」（會影響已作答的人，請謹慎）。要編輯答案詳解請切到上方「答案詳解」分頁，不受鎖定影響。</div>';
     return;
   }
   const cfg = examSectionCfg(paper);
