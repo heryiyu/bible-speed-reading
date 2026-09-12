@@ -6186,28 +6186,43 @@ function buildAccessibleOrgStatsTree(allUsers) {
   const makeZoneNode = name => ({ level: "zone", name, stats: computeOrgUnitStats(usersInZone(name)), children: groupsOf(name).map(makeGroupNode) });
   const makeRegionNode = name => ({ level: "region", name, stats: computeOrgUnitStats(usersInRegion(name)), children: zonesOf(name).map(makeZoneNode) });
 
+  let nodes = [];
+  let summaryLabel = "";
+  let summaryUsers = [];
+
   if (isAdmin) {
-    return (state.orgStructure.regions || []).map(makeRegionNode);
-  }
-  if (isGreatZoneLeader) {
+    nodes = (state.orgStructure.regions || []).map(makeRegionNode);
+    summaryLabel = "全教會";
+    summaryUsers = allUsers;
+  } else if (isGreatZoneLeader) {
     const userGreatRegion = state.currentUser.managed_regions || state.currentUser.great_region
       || getLeadershipAssignmentNodeNames(state.currentUser, "大區") || "";
     const myRegions = userGreatRegion.split(",").map(s => s.trim()).filter(Boolean);
-    return myRegions.map(makeRegionNode);
-  }
-  if (isZoneLeader) {
+    nodes = myRegions.map(makeRegionNode);
+    summaryLabel = "全部大區";
+    summaryUsers = allUsers.filter(u => myRegions.includes(u.great_region));
+  } else if (isZoneLeader) {
     const userZone = state.currentUser.managed_zones || state.currentUser.pastoral_zone
       || getLeadershipAssignmentNodeNames(state.currentUser, "牧區") || "";
     const myZones = userZone.split(",").map(s => s.trim()).filter(Boolean);
-    return myZones.map(makeZoneNode);
-  }
-  if (isGroupLeader) {
+    nodes = myZones.map(makeZoneNode);
+    summaryLabel = "全部牧區";
+    summaryUsers = allUsers.filter(u => myZones.includes(u.pastoral_zone));
+  } else if (isGroupLeader) {
     const userGroupStr = state.currentUser.managed_groups || state.currentUser.small_group
       || getLeadershipAssignmentNodeNames(state.currentUser, "小組") || "";
     const myGroups = userGroupStr.split(",").map(s => s.trim()).filter(Boolean);
-    return myGroups.map(makeGroupNode);
+    nodes = myGroups.map(makeGroupNode);
+    summaryLabel = "全部小組";
+    summaryUsers = allUsers.filter(u => myGroups.includes(u.small_group));
+  } else {
+    return [];
   }
-  return [];
+
+  if (nodes.length === 0) return [];
+
+  const summaryNode = { level: "summary", name: summaryLabel, stats: computeOrgUnitStats(summaryUsers), children: [] };
+  return [summaryNode, ...nodes];
 }
 
 window._orgStatsExpandedKeys = window._orgStatsExpandedKeys || new Set();

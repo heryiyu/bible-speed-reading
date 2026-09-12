@@ -1839,7 +1839,8 @@ function setAdminSection(id, options = {}) {
     activeAdminPlanSubtab = section.sub;
     const sharedOrgFilter = document.querySelector('.admin-plan-filter-card--org');
     if (sharedOrgFilter) {
-      const hideSharedOrgFilter = section.sub === 'quizzes' || section.sub === 'exam';
+      const hideSharedOrgFilter = section.sub === 'quizzes' || section.sub === 'exam'
+        || section.sub === 'devotions' || section.sub === 'group-meeting' || section.sub === 'statistics';
       sharedOrgFilter.classList.toggle('hidden', hideSharedOrgFilter);
       sharedOrgFilter.style.display = hideSharedOrgFilter ? 'none' : 'flex';
     }

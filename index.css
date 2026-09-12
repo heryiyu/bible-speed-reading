@@ -16302,6 +16302,15 @@ textarea::placeholder {
   overflow: hidden;
 }
 
+.org-stats-node--summary {
+  border-color: var(--color-brand);
+  background: var(--color-brand-subtle);
+}
+.org-stats-node--summary > .org-stats-node__header .org-stats-node__name {
+  font-weight: 500;
+  color: var(--color-brand);
+}
+
 .org-stats-node__header {
   width: 100%;
   display: flex;
