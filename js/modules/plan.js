@@ -7391,6 +7391,9 @@ async function renderGroupParticipantsRankingTable() {
       return {
         id: u.id,
         name: u.name,
+        greatRegion: u.great_region || "",
+        pastoralZone: u.pastoral_zone || "",
+        smallGroup: u.small_group || "",
         streak: streak,
         completed: completed,
         makeup: makeup,
@@ -7660,6 +7663,54 @@ window.displayParticipantsList = function (limit = 100) {
   }
 }
 
+function convertParticipantsOverviewToCSV(members, titleText, exportedAt = new Date()) {
+  if (!Array.isArray(members) || members.length === 0) return "";
+  const esc = val => `"${String(val ?? "").replace(/"/g, '""')}"`;
+  const lines = [];
+  if (titleText) lines.push([esc("範圍"), esc(titleText)].join(","));
+  if (state.activePlan && state.activePlan.name) lines.push([esc("計畫"), esc(state.activePlan.name)].join(","));
+  if (lines.length > 0) lines.push("");
+  lines.push([esc("名次"), esc("姓名"), esc("大區"), esc("牧區"), esc("小組"), esc("最高連續"), esc("累計完成"), esc("補讀"), esc("進度狀態")].join(","));
+  members.forEach(m => {
+    lines.push([
+      m.rank ?? "",
+      m.name || "",
+      m.greatRegion || "未設定",
+      m.pastoralZone || "未設定",
+      m.smallGroup || "未設定",
+      m.streak ?? 0,
+      m.completed ?? 0,
+      m.makeup ?? 0,
+      m.statusStr || ""
+    ].map(esc).join(","));
+  });
+  lines.push("");
+  lines.push([esc("總人數"), esc(`${members.length} 人`)].join(","));
+  return prependTaiwanExportTime(lines.join("\n"), exportedAt);
+}
+
+function exportParticipantsOverviewCSV() {
+  const members = window._grpScopedProcessedMembers || [];
+  if (members.length === 0) {
+    if (typeof showToast === "function") showToast("目前沒有可供匯出的參與者資料。");
+    return;
+  }
+  const titleEl = document.getElementById("members-ranking-title");
+  const titleText = titleEl ? titleEl.textContent.trim() : "";
+  const csvContent = convertParticipantsOverviewToCSV(members, titleText);
+  const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const today = formatTaiwanDate();
+  link.setAttribute("href", url);
+  link.setAttribute("download", `participants_overview_${today}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+window.convertParticipantsOverviewToCSV = convertParticipantsOverviewToCSV;
+window.exportParticipantsOverviewCSV = exportParticipantsOverviewCSV;
+
 // ==================== 組員狀況 TAB ====================
 async function renderPlanMembersView() {
   if (!state.activePlan) return;
@@ -7674,6 +7725,12 @@ async function renderPlanMembersView() {
       toggleBtn.querySelector("span:first-child").textContent = isCollapsed ? "展開" : "收合";
       toggleBtn.querySelector("span:last-child").textContent = isCollapsed ? "▼" : "▲";
     });
+  }
+
+  const exportBtn = document.getElementById("btn-export-members-ranking");
+  if (exportBtn && !exportBtn.dataset.listenerBound) {
+    exportBtn.dataset.listenerBound = "true";
+    exportBtn.addEventListener("click", () => exportParticipantsOverviewCSV());
   }
 
   const refreshBtn = document.getElementById("btn-refresh-members-ranking");

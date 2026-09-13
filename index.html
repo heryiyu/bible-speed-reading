@@ -1391,8 +1391,13 @@
                     <h3 class="card-title" id="members-ranking-title"
                       style="margin-bottom: 0; font-size: 1.15rem; font-weight: 500; color: var(--text-primary);">
                       參與者總覽</h3>
+                    <button id="btn-export-members-ranking" type="button" class="tab-btn"
+                      style="font-size: 0.875rem; padding: 0.2rem 0.5rem; height: auto; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; margin-left: auto;">
+                      <span class="nlc-icon nlc-icon--sm" data-icon="download" aria-hidden="true"></span>
+                      <span>匯出</span>
+                    </button>
                     <button id="btn-refresh-members-ranking" type="button" class="tab-btn"
-                      style="font-size: 0.875rem; padding: 0.2rem 0.5rem; height: auto; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; margin-left: auto; margin-right: 0.5rem;">
+                      style="font-size: 0.875rem; padding: 0.2rem 0.5rem; height: auto; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; margin-right: 0.5rem;">
                       <span class="nlc-icon nlc-icon--sm" data-icon="refresh" aria-hidden="true"></span>
                       <span>更新</span>
                     </button>
@@ -2017,6 +2022,10 @@
                 </summary>
                 <div id="admin-team-status-panel">
                   <div style="display:flex; justify-content:flex-end; margin-bottom:0.6rem;">
+                    <button type="button" id="admin-team-roster-export-btn" class="secondary-btn" style="padding:0.4rem 0.75rem; font-size:0.875rem; display:inline-flex; align-items:center; gap:0.35rem; white-space:nowrap;" title="匯出 3 人團隊組員總攬（每位組員一列，含牧養歸屬）">
+                      <span class="nlc-icon nlc-icon--sm" data-icon="users" aria-hidden="true"></span>
+                      <span>匯出組員總攬</span>
+                    </button>
                     <button type="button" id="admin-team-status-export-btn" class="secondary-btn" style="padding:0.4rem 0.75rem; font-size:0.875rem; display:inline-flex; align-items:center; gap:0.35rem; white-space:nowrap;" title="匯出 3 人團隊報名狀況（含計畫資訊與完整名單）">
                       <span class="nlc-icon nlc-icon--sm" data-icon="download" aria-hidden="true"></span>
                       <span>匯出</span>
@@ -2042,6 +2051,10 @@
                 </summary>
                 <div id="admin-team-status-panel-6">
                   <div style="display:flex; justify-content:flex-end; margin-bottom:0.6rem;">
+                    <button type="button" id="admin-team-roster-export-btn-6" class="secondary-btn" style="padding:0.4rem 0.75rem; font-size:0.875rem; display:inline-flex; align-items:center; gap:0.35rem; white-space:nowrap;" title="匯出 6 人團隊組員總攬（每位組員一列，含牧養歸屬）">
+                      <span class="nlc-icon nlc-icon--sm" data-icon="users" aria-hidden="true"></span>
+                      <span>匯出組員總攬</span>
+                    </button>
                     <button type="button" id="admin-team-status-export-btn-6" class="secondary-btn" style="padding:0.4rem 0.75rem; font-size:0.875rem; display:inline-flex; align-items:center; gap:0.35rem; white-space:nowrap;" title="匯出 6 人團隊報名狀況（含計畫資訊與完整名單）">
                       <span class="nlc-icon nlc-icon--sm" data-icon="download" aria-hidden="true"></span>
                       <span>匯出</span>

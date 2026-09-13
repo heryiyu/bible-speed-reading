@@ -3660,6 +3660,80 @@ export function exportTeamRegistrationStatusCSV(division) {
 }
 window.convertTeamRegistrationStatusToCSV = convertTeamRegistrationStatusToCSV;
 window.exportTeamRegistrationStatusCSV = exportTeamRegistrationStatusCSV;
+
+export function convertTeamMemberRosterToCSV(plans, division, exportedAt = new Date()) {
+  if (!Array.isArray(plans) || plans.length === 0) return "";
+  const esc = val => `"${String(val ?? "").replace(/"/g, '""')}"`;
+  const lines = [];
+  let totalMembers = 0;
+
+  plans.forEach((item, index) => {
+    const teams = Array.isArray(item.teams) ? item.teams : [];
+    const planName = item.plan?.name || item.name || "（無名稱）";
+    const planStart = formatTeamPlanDate(item.plan?.startDate || item.startDate);
+    const planEnd = formatTeamPlanDate(item.plan?.endDate || item.endDate);
+    const planPeriod = planStart && planEnd ? `${planStart}－${planEnd}` : "";
+
+    if (index > 0) lines.push("");
+    lines.push([esc("計畫"), esc(planName)].join(","));
+    if (planPeriod) lines.push([esc("計畫期間"), esc(planPeriod)].join(","));
+    lines.push("");
+    lines.push([esc("大區"), esc("牧區"), esc("小組"), esc("隊名"), esc("隊伍狀態"), esc("角色"), esc("姓名")].join(","));
+
+    const sortedTeams = sortByChurchOrgOrder(teams, comparePastoralZones, team => {
+      const members = Array.isArray(team.members) ? team.members : [];
+      const captain = members.find(member => member.role === "captain") || {};
+      return team.captainPastoralZone || captain.pastoralZone || "";
+    });
+    sortedTeams.forEach(team => {
+      const members = Array.isArray(team.members) ? team.members : [];
+      const teamStatus = team.status === "ready" ? "已成隊" : "招募中";
+      const sortedMembers = [...members].sort((a, b) => {
+        if (a.role === "captain" && b.role !== "captain") return -1;
+        if (a.role !== "captain" && b.role === "captain") return 1;
+        return 0;
+      });
+      sortedMembers.forEach(member => {
+        totalMembers += 1;
+        lines.push([
+          member.greatRegion || "未設定",
+          member.pastoralZone || "未設定",
+          member.smallGroup || "未設定",
+          team.name || "（無名稱）",
+          teamStatus,
+          member.role === "captain" ? "隊長" : "隊員",
+          member.name || "未命名"
+        ].map(esc).join(","));
+      });
+    });
+  });
+
+  lines.push("");
+  lines.push([esc("總人數"), esc(`${totalMembers} 人`)].join(","));
+
+  return prependTaiwanExportTime(lines.join("\n"), exportedAt);
+}
+
+export function exportTeamMemberRosterCSV(division) {
+  const plans = lastRenderedTeamPlans[Number(division)] || [];
+  const hasAnyTeam = plans.some(item => Array.isArray(item.teams) && item.teams.length > 0);
+  if (!hasAnyTeam) {
+    if (typeof showToast === "function") showToast("目前沒有可供匯出的組員資料。");
+    return;
+  }
+  const csvContent = convertTeamMemberRosterToCSV(plans, division);
+  const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const today = formatTaiwanDate();
+  link.setAttribute("href", url);
+  link.setAttribute("download", `team_member_roster_${division}person_${today}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+window.convertTeamMemberRosterToCSV = convertTeamMemberRosterToCSV;
+window.exportTeamMemberRosterCSV = exportTeamMemberRosterCSV;
 let cachedUnjoinedPlanKey = "";
 let cachedUnjoinedPlanMembers = [];
 let unjoinedPlanRequestId = 0;
@@ -4033,6 +4107,8 @@ export async function renderAdminTeamRegistrationStatus(forceRefresh = false, di
   lastRenderedTeamPlans[Number(division)] = processedPlans;
   const exportBtn = document.getElementById(Number(division) === 6 ? "admin-team-status-export-btn-6" : "admin-team-status-export-btn");
   if (exportBtn) exportBtn.onclick = () => exportTeamRegistrationStatusCSV(division);
+  const rosterExportBtn = document.getElementById(Number(division) === 6 ? "admin-team-roster-export-btn-6" : "admin-team-roster-export-btn");
+  if (rosterExportBtn) rosterExportBtn.onclick = () => exportTeamMemberRosterCSV(division);
 
   if (processedPlans.length === 0) {
     contentEl.innerHTML = `
