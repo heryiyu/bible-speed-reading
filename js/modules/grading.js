@@ -51,6 +51,7 @@ class GradingWorkspace {
     this.paper = null;
     this.roster = [];
     this.currentId = null;
+    this.rosterFilter = "";          // 名單搜尋關鍵字（姓名／牧區／小組／序號）
     this.sheetCache = new Map();     // attemptId -> { questions, examinee, attemptStatus }
     this.working = null;             // { scores:{qid:val}, overall:str }
     this.baseRev = 0;                // 目前這張的 rev（樂觀鎖基準）
@@ -381,9 +382,21 @@ class GradingWorkspace {
     </div>`;
   }
 
-  _rosterPanel() {
-    const hasSeq = this.roster.some((r) => r.seq != null);
-    const rows = this.roster.map((r) => {
+  // 搜尋比對：姓名／牧區／小組／序號，不分大小寫、關鍵字去頭尾空白。
+  _matchesRosterFilter(r) {
+    const q = this.rosterFilter.trim().toLowerCase();
+    if (!q) return true;
+    const org = [r.pastoralZone, r.smallGroup].filter(Boolean).join(" ");
+    const seqStr = r.seq != null ? String(r.seq) : "";
+    return [r.name, org, seqStr].some((v) => String(v || "").toLowerCase().includes(q));
+  }
+
+  _rosterRows() {
+    const filtered = this.roster.filter((r) => this._matchesRosterFilter(r));
+    if (!filtered.length) {
+      return `<p class="grade-roster__empty">沒有符合「${esc(this.rosterFilter.trim())}」的名單</p>`;
+    }
+    return filtered.map((r) => {
       const org = [r.pastoralZone, r.smallGroup].filter(Boolean).join("・") || "—";
       return `<button type="button" class="grade-rrow${r.attemptId === this.currentId ? " grade-rrow--on" : ""}" data-g-open="${esc(r.attemptId)}">
         ${r.seq != null ? `<span class="grade-rrow__seq">第 ${r.seq} 份</span>` : ""}
@@ -392,6 +405,19 @@ class GradingWorkspace {
         ${this._statusBadge(r)}
       </button>`;
     }).join("");
+  }
+
+  // 只換掉名單列表本身（不重繪整個 details），保留搜尋框的輸入焦點與游標位置。
+  _refreshRosterList() {
+    const list = this.root.querySelector("[data-g-roster-list]");
+    if (!list) return;
+    list.innerHTML = this._rosterRows();
+    list.querySelectorAll("[data-g-open]").forEach((b) =>
+      b.addEventListener("click", () => this.openAttempt(b.getAttribute("data-g-open"))));
+  }
+
+  _rosterPanel() {
+    const hasSeq = this.roster.some((r) => r.seq != null);
     const seqs = this.roster.map((r) => r.seq).filter((s) => s != null);
     const jump = hasSeq && seqs.length ? `
       <form class="grade-roster__jump" data-g-jump>
@@ -402,8 +428,12 @@ class GradingWorkspace {
       </form>` : "";
     return `<details class="grade-roster" open>
       <summary>名單（${this.roster.length}）</summary>
+      <div class="grade-roster__search">
+        <input type="search" data-g-roster-search placeholder="搜尋姓名／牧區／小組"
+          value="${esc(this.rosterFilter)}" aria-label="搜尋名單">
+      </div>
       ${jump}
-      <div class="grade-roster__list">${rows}</div>
+      <div class="grade-roster__list" data-g-roster-list>${this._rosterRows()}</div>
     </details>`;
   }
 
@@ -426,6 +456,11 @@ class GradingWorkspace {
       } else if (msg) {
         msg.textContent = "沒有第 " + (inp ? inp.value : "") + " 份";
       }
+    });
+
+    r.querySelector("[data-g-roster-search]")?.addEventListener("input", (e) => {
+      this.rosterFilter = e.target.value;
+      this._refreshRosterList();
     });
 
     const onEdit = () => {
