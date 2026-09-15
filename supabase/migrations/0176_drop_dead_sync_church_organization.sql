@@ -1,0 +1,31 @@
+-- Migration 0176: Drop the orphaned sync_church_organization function
+--
+-- Security Advisor flagged sync_church_organization as anon-executable, and
+-- auditing it (while chasing why 0173's anon-revoke sweep didn't touch it)
+-- surfaced a real bug: its only permission check is
+--
+--   SELECT my_role INTO v_role FROM public.get_my_profile();
+--   IF v_role NOT IN ('admin', 'senior_pastor') THEN RAISE EXCEPTION ...
+--
+-- When called by `anon` (not logged in at all), get_my_profile() resolves
+-- no row, v_role is NULL, and `IF NULL THEN ...` in PL/pgSQL is treated as
+-- false — the RAISE EXCEPTION never fires, so an anonymous caller falls
+-- straight through into deleting/rewriting every great_region, pastoral_zone,
+-- and small_group row. It also still checks the pre-0079 role code
+-- 'senior_pastor' instead of 'pastor', so even a legitimate pastor calling
+-- it today would (if the NULL bug weren't masking it) be wrongly denied.
+--
+-- Rather than patch this logic, drop the function outright: it is dead code.
+-- js/db.js's syncChurchOrganization() has been a no-op stub since org
+-- structure was changed to be reconstructed dynamically from member data:
+--
+--   async syncChurchOrganization(regions, zones, groups) {
+--     // 組織架構已改為動態從使用者資料重構，不需手動更新組織表
+--     return { success: true };
+--   }
+--
+-- Nothing in js/db.js or supabase/functions/nlc-data calls the RPC by name
+-- — removing it closes the bug permanently instead of leaving patched-but-
+-- unused logic behind.
+
+DROP FUNCTION IF EXISTS public.sync_church_organization(TEXT[], JSONB, JSONB);
