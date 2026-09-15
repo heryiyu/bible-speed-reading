@@ -33,45 +33,19 @@ The app aggressively fights stale caches because church members run it on mobile
 - See `docs/pwa-architecture.md` before changing caching or offline synchronization.
 ## Architecture
 
-### Script load order (globals, not modules)
+### Entry points and script loading (hybrid: legacy globals + real ES modules)
 
-All JS is plain `<script>` tags sharing globals via `window` — **there are no ES module imports**. Load order in `index.html` matters and is deliberate: `config.js` → `bible_data.js` → `bible_verse_counts.js` → `zh-Hant.js` → `design-tokens.js` → `state.js` → `auth.js` → `plan.js` → `db.js` → `utils.js` → `gamification.js` → view files (`dashboard`, `reader`, `stats`, `profile`) → `main.js`. Functions are called across files via `typeof fn === "function"` guards.
+There are **four separate static HTML entry points**, each bootstrapping its own single `<script type="module">` — there is no `main.js`:
+- `index.html` → `js/app.js` (the main SPA: all tabs, PWA/offline, onboarding).
+- `exam.html` → `js/exam-entry.js` → mounts `js/modules/exam.js` (`mountExamRunner`).
+- `grade.html` → `js/grade-entry.js` → mounts `js/modules/grading.js` (`mountGradingWorkspace`).
+- `repair.html` — static cache-recovery fallback page (see `window.showAppStyleRecovery` in `index.html`).
 
-### Central state
+Each entry script starts with a fixed, order-dependent chain of plain side-effect `import './x.js'` statements for the shared "core" files: `config.js` → `data/bible_data.js` → `data/bible_verse_counts.js` → `copy/zh-Hant.js` → `data/church_campaign.js` → `design/design-tokens.js` → `design/design-system-helpers.js` → `design/icon-registry.js` → `design/icons.js` → `state.js` → `auth.js` (+ `auth-launch.mjs`) → `db.js` → `utils.js` → `gamification.js`. This is real ES module syntax now (`type="module"`, `import`), **not** separate `<script>` tags — but `state.js`/`db.js`/`auth.js`/`utils.js`/`gamification.js` are still written pre-ESM style: they attach their API to `window` (`window.state = state`, `window.db = db`, …) instead of exporting it, and every consumer — including modules loaded much later — reads them back as bare identifiers (`state.activePlan`, `db.foo()`) or via `typeof fn === "function"` guards. This works because a module's unresolved free variables still fall through to the shared global object, same as a classic script. **The load order above is still load-bearing**: these files run once, in sequence, to populate that shared surface, and later code assumes it's already there.
 
-`js/state.js` defines a single global `state` object (current user, org structure, active plans, reading logs, reader state, highlights, chart instances, admin filters) plus:
-- `CHURCH_PLAN_PRESETS` — the hardcoded quarterly plan definitions (books + monthly breakdown for 2026–2027).
-- `appRouter` — tab/view switcher (`switchTab`, `goBack`, `updateNavigationChrome`). Views are `.view-pane` sections toggled by `.active`; there is no URL routing.
-- Theme management (light/dark/warm) persisted to `localStorage`.
-- `escapeHTML()` — use this for any user-supplied string rendered into innerHTML.
+Everything built more recently (`js/modules/*.mjs`, `js/data/*.mjs`, `js/pwa/*.js`) is a real ES module with proper named `export`/`import` and no `window` involved — prefer this style for new cross-file logic instead of adding another `window.foo`.
 
-### Data layer — the dual-client shim (`js/db.js`)
-
-`db.js` (~2000 lines) is the entire data-access layer. The key design: `state.supabase` is **either** a real Supabase client **or** an `NlcDataClient` shim, chosen at runtime by login method. Both expose the same `.from(table).select().eq()...` chainable API so callers don't care which is active:
-
-- **Google/email login (dev/localhost only):** real `@supabase/supabase-js` client, RLS-enforced.
-- **NLC Logto SSO (production):** `createNlcDataClient()` returns a shim whose `NlcQueryBuilder` serializes queries to JSON and POSTs them to the `nlc-data` Edge Function, which verifies the Logto token and uses the service role. This exists because the app uses **church Logto auth, not Supabase Auth**, so RLS can't see a Supabase JWT.
-
-When adding data access, use the `state.supabase.from(...)` builder so it works in both modes. Note the shim only implements a subset of PostgREST (`select/insert/update/delete/upsert/eq/is/in/or/order/limit/single/maybeSingle`).
-
-### Auth (`js/auth.js`)
-
-Logto OIDC + PKCE client for NLC SSO. Does discovery on `issuer`, handles the redirect callback, stores tokens in `localStorage` (`nlc_*` keys), and exchanges the Logto token for a Supabase profile via the `nlc-session` Edge Function. `auth.getValidAccessToken()` transparently refreshes; `db.js` retries once on 401.
-
-### Bible text (`js/data/bible_data.js`)
-
-Chapter text is fetched live from public Bible APIs (bible-api.com, bolls.life) with `assertCompleteEnough()` validation (must be Chinese, not truncated to 10 verses) and a small hardcoded `BIBLE_FALLBACK` for offline/failure. `bible_verse_counts.js` holds per-chapter verse counts. `CHURCH_PLAN_PRESETS` book names are Traditional Chinese; `BOLLS_BOOK_CODES` maps English names to API codes.
-
-### Views (`js/views/`)
-
-Each view file renders one tab and wires its controls: `dashboard.js` (verse of the day, announcements, devotional), `reader.js` (immersive Bible reader, highlights, TTS, font/version controls), `plan.js` (~4500 lines — plan list, plan detail, daily task checklists, admin plan CRUD, inline reader), `stats.js` (Chart.js dashboards, personal + group/admin scopes), `profile.js` (account settings, badge wall, admin user/org management). `main.js` bootstraps everything in `DOMContentLoaded`.
-
-## Backend (`supabase/`)
-## Architecture
-
-### Script load order (globals, not modules)
-
-All JS is plain `<script>` tags sharing globals via `window` — **there are no ES module imports**. Load order in `index.html` matters and is deliberate: `config.js` → `bible_data.js` → `bible_verse_counts.js` → `zh-Hant.js` → `design-tokens.js` → `state.js` → `auth.js` → `plan.js` → `db.js` → `utils.js` → `gamification.js` → view files (`dashboard`, `reader`, `stats`, `profile`) → `main.js`. Functions are called across files via `typeof fn === "function"` guards.
+Tab views are **not** loaded eagerly at boot. `js/app.js` lazy-loads `js/modules/home.js`, `bible.js`, `plan.js`, `admin.js`, `profile.js`, `team-registration.js` on first use via an internal `loadModule(name, path)` helper — dynamic `import()`, retried on failure, cached in `moduleCache`, then calls the module's exported `init()`. (There is no `js/views/` directory — view/tab controllers live in `js/modules/`.) Each still carries its own `?v=` cache-bust query string that must be bumped on change; it just isn't fetched until the user opens that tab.
 
 ### Central state
 
@@ -81,14 +55,14 @@ All JS is plain `<script>` tags sharing globals via `window` — **there are no 
 - Theme management (light/dark/warm) persisted to `localStorage`.
 - `escapeHTML()` — use this for any user-supplied string rendered into innerHTML.
 
-### Data layer — the dual-client shim (`js/db.js`)
+### Data layer — the dual-client shim (`js/db.js`, ~6,100 lines)
 
-`db.js` (~2000 lines) is the entire data-access layer. The key design: `state.supabase` is **either** a real Supabase client **or** an `NlcDataClient` shim, chosen at runtime by login method. Both expose the same `.from(table).select().eq()...` chainable API so callers don't care which is active:
+`db.js` is the entire data-access layer (grown well past its original size — budget accordingly when estimating changes here). The key design: `state.supabase` is **either** a real Supabase client **or** an `NlcDataClient` shim, chosen at runtime by login method. Both expose the same `.from(table).select().eq()...` chainable API so callers don't care which is active:
 
 - **Google/email login (dev/localhost only):** real `@supabase/supabase-js` client, RLS-enforced.
 - **NLC Logto SSO (production):** `createNlcDataClient()` returns a shim whose `NlcQueryBuilder` serializes queries to JSON and POSTs them to the `nlc-data` Edge Function, which verifies the Logto token and uses the service role. This exists because the app uses **church Logto auth, not Supabase Auth**, so RLS can't see a Supabase JWT.
 
-When adding data access, use the `state.supabase.from(...)` builder so it works in both modes. Note the shim only implements a subset of PostgREST (`select/insert/update/delete/upsert/eq/is/in/or/order/limit/single/maybeSingle`).
+When adding data access, use the `state.supabase.from(...)` builder so it works in both modes. Note the shim only implements a subset of PostgREST (`select/insert/update/delete/upsert/eq/is/in/or/order/limit/single/maybeSingle`) — a query chain that works against the real client in dev can silently misbehave through the shim in production; there's no automated check that the two stay behaviorally equivalent.
 
 ### Auth (`js/auth.js`)
 
@@ -98,9 +72,15 @@ Logto OIDC + PKCE client for NLC SSO. Does discovery on `issuer`, handles the re
 
 Chapter text is fetched live from public Bible APIs (bible-api.com, bolls.life) with `assertCompleteEnough()` validation (must be Chinese, not truncated to 10 verses) and a small hardcoded `BIBLE_FALLBACK` for offline/failure. `bible_verse_counts.js` holds per-chapter verse counts. `CHURCH_PLAN_PRESETS` book names are Traditional Chinese; `BOLLS_BOOK_CODES` maps English names to API codes.
 
-### Views (`js/views/`)
+### Tab modules (`js/modules/`, lazy-loaded — see above)
 
-Each view file renders one tab and wires its controls: `dashboard.js` (verse of the day, announcements, devotional), `reader.js` (immersive Bible reader, highlights, TTS, font/version controls), `plan.js` (~4500 lines — plan list, plan detail, daily task checklists, admin plan CRUD, inline reader), `stats.js` (Chart.js dashboards, personal + group/admin scopes), `profile.js` (account settings, badge wall, admin user/org management). `main.js` bootstraps everything in `DOMContentLoaded`.
+- `home.js` — dashboard tab: verse of the day, announcements, devotional highlights.
+- `bible.js` — immersive Bible reader: highlights, TTS, font/version controls.
+- `plan.js` (**~10,300 lines** — by far the largest file in the app) — plan list, plan detail, daily task checklists, admin plan CRUD, inline reader, **and** the Chart.js personal/group/admin stats & leaderboard dashboards (there is no separate `stats.js`; it's all in here).
+- `admin.js` (~4,300 lines) — admin user/org management, most of "系統管理".
+- `profile.js` — account settings, badge wall.
+- `team-registration.js` — team join/switch flows.
+- `exam.js` / `grading.js` — mounted from the standalone `exam.html` / `grade.html` entry points, not from `app.js`.
 
 ## Backend (`supabase/`)
 
