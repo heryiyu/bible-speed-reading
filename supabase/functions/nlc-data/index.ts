@@ -36,6 +36,19 @@ const READ_TABLES = new Set([
 const USER_TABLES = new Set(["reading_plans", "reading_logs", "devotional_notes", "highlights"]);
 const ADMIN_WRITE_TABLES = new Set(["great_regions", "pastoral_zones", "small_groups", "global_plans", "church_announcements", "profiles", "app_feature_settings"]);
 const OWN_WRITE_TABLES = new Set(["reading_plans", "reading_logs", "devotional_notes", "devotional_likes", "devotional_comments", "care_reminders", "highlights", "verse_notes"]);
+// care_reminders: the generic OWN_WRITE_TABLES path below has no per-action
+// distinction, so being in that set would let ANY authenticated member
+// insert/delete rows on this table directly (not just update their own) —
+// insert isn't even payload-protected here (see forceUserPayload's
+// writeProtected list), so it could forge an arbitrary sender_id/recipient_id
+// pastoral care message, and delete has no forced-scope branch in
+// applyForcedScope at all, so it could wipe any/all rows. The only
+// legitimate self-service action on this table is a recipient acknowledging
+// their own reminder (UPDATE, scoped to recipient_id in applyForcedScope);
+// creating one must go through the dedicated `send_care_reminder` action,
+// which enforces the sender's pastoral role/org scope and forces sender_id
+// server-side. Restrict the generic path to that one action.
+const OWN_WRITE_UPDATE_ONLY_TABLES = new Set(["care_reminders"]);
 const TEAM_RPC_FUNCTIONS = new Set([
   "get_my_reading_team",
   "get_reading_team_registration_overview",
@@ -576,6 +589,18 @@ async function applyForcedScope(query: any, table: string, action: string, profi
   // way reading_logs/devotional_notes are — always restrict to the caller's
   // own rows regardless of role, on every action (not just select).
   if (table === "verse_notes") return { query: query.eq("user_id", profile.id) };
+  // devotional_likes / devotional_comments: select is intentionally left open
+  // (a note's likes/comments are visible to the sharing group — the original
+  // RLS policy is devotional_likes_select_group, and insert is already
+  // payload-forced to the caller in forceUserPayload), but update/delete had
+  // no forced scope at all here, unlike the RLS this table used to rely on
+  // (devotional_likes_manage_own: USING/WITH CHECK user_id = current_profile_id())
+  // — which never applies to nlc-data's service-role client anyway. Without
+  // this, any authenticated member could edit or delete another member's
+  // like/comment by id. Reproduce the "own rows only" rule here.
+  if ((table === "devotional_likes" || table === "devotional_comments") && (action === "update" || action === "delete")) {
+    return { query: query.eq("user_id", profile.id) };
+  }
   return { query };
 }
 
@@ -1234,7 +1259,9 @@ Deno.serve(async (req: Request) => {
       )
     );
     const canRead = action === "select" && (READ_TABLES.has(table) || canReportOwnSelect);
-    const canOwnWrite = (["insert", "update", "delete", "upsert"].includes(action) && OWN_WRITE_TABLES.has(table)) || canReportInsert;
+    const canOwnWrite = (["insert", "update", "delete", "upsert"].includes(action)
+      && OWN_WRITE_TABLES.has(table)
+      && !(OWN_WRITE_UPDATE_ONLY_TABLES.has(table) && action !== "update")) || canReportInsert;
     const canAdminWrite = ["insert", "update", "delete", "upsert"].includes(action) && (ADMIN_WRITE_TABLES.has(table) || table === "issue_reports") && (isAdmin(profile) || canManagePlans(profile));
     if (!canRead && !canOwnWrite && !canAdminWrite) return jsonResponse({ error: "forbidden" }, 403);
 
