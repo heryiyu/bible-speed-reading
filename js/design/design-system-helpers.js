@@ -9,37 +9,14 @@ import {
   countRound1ChaptersRead,
 } from "../data/schedule-progress.mjs";
 
-function isChapterReadForRound(ch, round) {
-  if (!ch) return false;
-  const chRound = ch.round || 1;
-  if (chRound < round) return true;
-  if (chRound > round) return false;
-  return Boolean(ch["isReadR" + round] || ch.isRead);
-}
-
-function isPlanDayCompletedForRound(day, round) {
-  if (!day || !day.chapters || day.chapters.length === 0) return false;
-  return day.chapters.every(ch => isChapterReadForRound(ch, round));
-}
-
-function getNextReadingPlanDayPure(plan) {
-  if (!plan || !plan.days || plan.days.length === 0) return null;
-  const currentRound = plan.currentRound || 1;
-  const nextDay = plan.days.find(day => day.chapters && day.chapters.length > 0 && !isPlanDayCompletedForRound(day, currentRound));
-  return nextDay || [...plan.days].reverse().find(day => day.chapters && day.chapters.length > 0) || null;
-}
-
-function getExpectedPlanDayCountPure(plan, now = new Date()) {
-  if (!plan || !plan.days) return 0;
-  const planStart = new Date(plan.startDate + "T00:00:00");
-  if (isNaN(planStart.getTime())) return 0;
-  planStart.setHours(0, 0, 0, 0);
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const elapsedDays = Math.round((today - planStart) / (1000 * 60 * 60 * 24)) + 1;
-  const elapsedPlanDays = plan.days.slice(0, Math.max(0, Math.min(plan.days.length, elapsedDays)));
-  return elapsedPlanDays.filter(day => day.chapters && day.chapters.length > 0).length;
-}
+// isChapterReadForRound / isPlanDayCompletedForRound / getNextReadingPlanDayPure /
+// getExpectedPlanDayCountPure removed 2026-09-16: this whole chain only ever
+// called each other (verified: none attached to window, none referenced
+// outside this file) — the live consumer below, getPlanProgressStatusFromDesignSystem,
+// uses schedule-progress.mjs's counters instead. Note plan.js has its own,
+// separate, still-live local functions with the same two names
+// (isChapterReadForRound/isPlanDayCompletedForRound) — those are unrelated
+// and unaffected by this removal.
 
 function getPlanProgressStatusFromDesignSystem(plan) {
   if (!plan || !plan.days || plan.days.length === 0) {

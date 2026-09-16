@@ -33,15 +33,8 @@ function getSecureRandomBytes(byteLength) {
   return bytes;
 }
 
-function toBase32(value, length) {
-  let remaining = value;
-  let out = "";
-  for (let i = 0; i < length; i += 1) {
-    out = FLOW_ID_ALPHABET[(remaining >>> 0) % 32] + out;
-    remaining = Math.floor(remaining / 32);
-  }
-  return out.replace(/[^0-9A-Z]/g, "0");
-}
+// toBase32 removed 2026-09-16: zero callers — encodeUlidSuffix (below) does
+// its own base32 encoding inline rather than using it.
 
 function encodeUlidSuffix() {
   const randomValues = getSecureRandomBytes(16);

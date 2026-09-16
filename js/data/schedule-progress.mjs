@@ -49,12 +49,8 @@ export function countExpectedScheduleDays(baselineDays, startDate, now = new Dat
     .length;
 }
 
-// { completedDays, expectedDays, diff }。diff < 0 落後、> 0 超前、-1 顯示「今日未完成」。
-export function scheduleDayDiff({ baselineDays, startDate, chaptersRead, now = new Date() }) {
-  const completedDays = countScheduleDaysCoveredByChapters(baselineDays, chaptersRead);
-  const expectedDays = countExpectedScheduleDays(baselineDays, startDate, now);
-  return { completedDays, expectedDays, diff: completedDays - expectedDays };
-}
+// scheduleDayDiff removed 2026-09-16: exported but imported nowhere in js/
+// or scripts/ (not even a test).
 
 // 補讀天數：基準日程上「該天所有章節都讀了、且最後一章讀在排程日之後」的天數。
 // chapterReadDateByKey: Map<`${book}_${chapter}`, 'YYYY-MM-DD'>，只放第一遍的 log。

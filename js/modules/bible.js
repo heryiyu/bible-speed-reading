@@ -491,46 +491,18 @@ export function initReaderControls() {
     });
   }
 
-  const testamentButtons = document.querySelectorAll("#reader-testament-buttons .reader-picker-tab");
-  testamentButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
-      const filter = btn.dataset.testament || "all";
-      if (testamentSelect) testamentSelect.value = filter;
-      populateBookSelector(filter);
-      populateChapterSelector();
-      renderReaderPicker();
-      updatePillLabels();
-    });
-  });
-
-  if (testamentSelect) {
-    testamentSelect.addEventListener("change", (e) => {
-      populateBookSelector(e.target.value);
-      populateChapterSelector();
-      renderReaderPicker();
-      updatePillLabels();
-    });
-  }
-
-  if (bookSelect) {
-    bookSelect.addEventListener("change", () => {
-      populateChapterSelector();
-      saveReaderPreferences();
-      renderReaderText();
-      renderReaderPicker();
-      updatePillLabels();
-    });
-  }
-
-  if (chapterSelect) {
-    chapterSelect.addEventListener("change", () => {
-      state.readerState.chapter = parseInt(chapterSelect.value);
-      saveReaderPreferences();
-      renderReaderText();
-      renderReaderPicker();
-      updatePillLabels();
-    });
-  }
+  // Removed 2026-09-16: event-listener registration for the legacy
+  // <select>-based reader picker (#reader-testament-buttons/-select,
+  // #reader-book-select, #reader-chapter-select). None of those elements
+  // exist anymore (the picker moved to the #bible-nav-content overlay), so
+  // every one of these `if (x)` guards was always false and nothing ever
+  // attached. NOTE: renderReaderPicker() and its three sub-functions
+  // (renderReaderTestamentTabs/BookGrid/ChapterGrid) are left in place —
+  // they're still called from several other live sites in this file
+  // (initReaderControls itself, plus a couple of others) and are 100%
+  // harmless no-ops there (same missing-DOM guards), but removing the
+  // function definitions safely means finding and removing every call site
+  // too, which is a bigger, separate pass, not bundled into this cleanup.
 
   const incFont = document.getElementById("reader-font-increase");
   const decFont = document.getElementById("reader-font-decrease");
@@ -2613,104 +2585,9 @@ function handleReaderScroll(event) {
   checkReaderBottomDwell(getReaderScrollSurface() || event.currentTarget || event.target);
 }
 
-function showPlanNavigationPrompt(options = {}) {
-  let onCatchUp = options.onCatchUp;
-  let onReadAhead = options.onReadAhead;
-  let readAheadDayNum = options.readAheadDayNum || 2;
-  let hasCatchUp = options.hasCatchUp || false;
-  let catchUpDayNum = options.catchUpDayNum || null;
-
-  if (typeof options === "function") {
-    onCatchUp = arguments[0];
-    onReadAhead = arguments[1];
-    readAheadDayNum = arguments[2] || 2;
-    hasCatchUp = false;
-  }
-
-  // Remove existing dialog if any
-  const existing = document.getElementById("plan-nav-prompt-overlay");
-  if (existing) existing.remove();
-
-  const overlay = document.createElement("div");
-  overlay.id = "plan-nav-prompt-overlay";
-  overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 9999;
-    background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center;
-    padding: 1rem;
-    animation: fadeIn 0.2s ease;
-  `;
-
-  const catchUpBtnHtml = hasCatchUp
-    ? `<button id="plan-nav-catchup-btn" type="button" style="
-        padding: 0.75rem; border-radius: var(--radius-md, 12px); font-size: 0.9rem; font-weight: 500;
-        border: none; background: var(--color-brand); color: white; cursor: pointer;
-      ">繼續補讀第 ${catchUpDayNum || ''} 天未完進度</button>`
-    : '';
-
-  const readAheadStyle = hasCatchUp
-    ? `border: 1.5px solid var(--color-brand); background: var(--bg-input); color: var(--color-brand);`
-    : `border: none; background: var(--color-brand); color: white;`;
-
-  overlay.innerHTML = `
-    <div id="plan-nav-prompt-dialog" style="
-      background: var(--bg-card, white);
-      border-radius: 16px;
-      padding: 1.5rem;
-      width: 100%; max-width: 400px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-      animation: slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1);
-      text-align: center;
-    ">
-      <div style="display:flex; flex-direction:column; align-items:center; gap:0.6rem; margin-bottom:1.2rem;">
-        <span style="font-size: 2.2rem; display: block; margin-bottom: 0.4rem;">🎉</span>
-        <h3 style="margin:0; font-size:1.15rem; font-weight:700; color:var(--text-primary);">恭喜完成今日進度！</h3>
-        <p style="margin:0.5rem 0 0; font-size:0.88rem; color:var(--text-secondary); line-height: 1.5;">
-          您已讀完今日計畫的所有章節。接下來，您想要繼續做什麼？
-        </p>
-      </div>
-
-      <div style="display:flex; flex-direction:column; gap:0.75rem; width:100%;">
-        ${catchUpBtnHtml}
-
-        <button id="plan-nav-readahead-btn" type="button" style="
-          padding: 0.75rem; border-radius: var(--radius-md, 12px); font-size: 0.9rem; font-weight: 500;
-          cursor: pointer; ${readAheadStyle}
-        ">超前閱讀第 ${readAheadDayNum} 天進度</button>
-
-        <button id="plan-nav-cancel-btn" type="button" style="
-          padding: 0.6rem; border-radius: var(--radius-md, 12px); font-size: 0.875rem; font-weight: 500;
-          border: none; background: transparent; color: var(--text-muted); cursor: pointer;
-        ">取消</button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-
-  // Bind actions
-  overlay.querySelector("#plan-nav-catchup-btn").onclick = () => {
-    overlay.remove();
-    if (typeof onCatchUp === "function") onCatchUp();
-  };
-
-  overlay.querySelector("#plan-nav-readahead-btn").onclick = () => {
-    overlay.remove();
-    if (typeof onReadAhead === "function") onReadAhead();
-  };
-
-  overlay.querySelector("#plan-nav-cancel-btn").onclick = () => {
-    overlay.remove();
-  };
-
-  // Close when clicking overlay backdrop
-  overlay.onclick = (e) => {
-    if (e.target === overlay) {
-      overlay.remove();
-    }
-  };
-}
-
+// showPlanNavigationPrompt removed 2026-09-16: zero callers anywhere in
+// js/ — the "finished today, catch up or read ahead?" modal it built
+// (#plan-nav-prompt-overlay) was never wired to any real completion event.
 export function init() {
   initReaderControls();
 }

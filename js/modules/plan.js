@@ -117,14 +117,6 @@ function getPlanDetailTabs() {
   return document.querySelector(".plan-detail-tabs");
 }
 
-function getPlanGroupNodes() {
-  return [
-    getPlanDetailTabs(),
-    document.getElementById("subview-plan-stats"),
-    document.getElementById("subview-plan-ranking")
-  ].filter(Boolean);
-}
-
 function moveGroupNodesToDetail(shell = ensurePlanRouteShell()) {
   if (!shell || !shell.legacyDetail) return;
 
@@ -145,13 +137,6 @@ function moveGroupNodesToDetail(shell = ensurePlanRouteShell()) {
   const stats = document.getElementById("subview-plan-stats");
   const members = document.getElementById("subview-plan-members");
   if (stats && members && members.parentElement !== stats) stats.insertBefore(members, stats.firstChild);
-}
-
-function moveGroupNodesToGroup(shell = ensurePlanRouteShell()) {
-  if (!shell || !shell.groupView) return;
-  getPlanGroupNodes().forEach(node => {
-    if (node.parentElement !== shell.groupView) shell.groupView.appendChild(node);
-  });
 }
 
 function forceHidden(el, hidden) {
@@ -2031,107 +2016,11 @@ function formatCampaignReadingRange(reading) {
   return reading.book + " " + (from === to ? from : from + "–" + to) + "章";
 }
 
-// ==================== 加入模式選擇對話框 ====================
-// 顯示「個人 or 團體」選擇，在加入計畫之前呼叫。
-// 回傳 3（3人團隊）、6（6人團隊）或 null（先自己開始）。
-function openJoinModeDialog(plan) {
-  return new Promise(resolve => {
-    const existing = document.getElementById("join-mode-dialog");
-    if (existing) existing.remove();
-
-    const overlay = document.createElement("div");
-    overlay.id = "join-mode-dialog";
-    overlay.className = "modal-overlay";
-    overlay.style.cssText = "position:fixed;inset:0;z-index:10001;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1rem;animation:fadeIn 0.18s ease;";
-
-    overlay.innerHTML = `
-      <div class="glass-card" role="dialog" aria-modal="true" aria-labelledby="join-mode-title"
-        style="width:min(400px,100%);padding:1.5rem;background:var(--bg-card);border:1px solid var(--border-card);box-shadow:var(--shadow-lg);border-radius:20px;animation:slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1);">
-
-        <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.35rem;">
-          <span class="nlc-icon nlc-icon--md" data-icon="people" style="color:var(--color-brand);" aria-hidden="true"></span>
-          <h3 id="join-mode-title" style="margin:0;font-size:1.05rem;font-weight:600;color:var(--text-primary);">要與夥伴一起讀嗎？</h3>
-        </div>
-        <p style="margin:0 0 1.2rem;font-size:0.875rem;color:var(--text-muted);line-height:1.5;">
-          計畫已加入！你可以額外選擇報名讀經小組團隊，與夥伴彼此鼓勵；若暫不組隊，請點擊下方的「先自己開始」。
-        </p>
-
-        <div style="display:flex;flex-direction:column;gap:.65rem;margin-bottom:1.4rem;">
-          <!-- 3人團隊 -->
-          <button type="button" id="join-mode-team-3"
-            style="display:flex;align-items:center;gap:.9rem;padding:.9rem 1rem;border-radius:14px;
-                   border:1.5px solid var(--border-card);background:var(--bg-input);
-                   cursor:pointer;transition:all .18s ease;text-align:left;width:100%;">
-            <span style="width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
-                         background:rgba(4,169,210,.10);flex-shrink:0;">
-              <span class="nlc-icon nlc-icon--sm" data-icon="people" aria-hidden="true"></span>
-            </span>
-            <span style="display:flex;flex-direction:column;gap:.18rem;">
-              <strong style="font-size:.92rem;font-weight:600;color:var(--text-primary);">報名 3 人團隊</strong>
-              <span style="font-size:0.875rem;color:var(--text-muted);">固定三人組隊，共同挑戰進度</span>
-            </span>
-            <span style="margin-left:auto;flex-shrink:0;display:inline-flex;color:var(--text-muted);">
-              <span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" aria-hidden="true"></span>
-            </span>
-          </button>
-
-          <!-- 6人團隊 -->
-          <button type="button" id="join-mode-team-6"
-            style="display:flex;align-items:center;gap:.9rem;padding:.9rem 1rem;border-radius:14px;
-                   border:1.5px solid var(--border-card);background:var(--bg-input);
-                   cursor:pointer;transition:all .18s ease;text-align:left;width:100%;">
-            <span style="width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
-                         background:rgba(34,197,94,.10);flex-shrink:0;">
-              <span class="nlc-icon nlc-icon--sm" data-icon="people" aria-hidden="true"></span>
-            </span>
-            <span style="display:flex;flex-direction:column;gap:.18rem;">
-              <strong style="font-size:.92rem;font-weight:600;color:var(--text-primary);">報名 6 人團隊</strong>
-              <span style="font-size:0.875rem;color:var(--text-muted);">固定六人組隊，挑戰更高榮譽</span>
-            </span>
-            <span style="margin-left:auto;flex-shrink:0;display:inline-flex;color:var(--text-muted);">
-              <span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" aria-hidden="true"></span>
-            </span>
-          </button>
-        </div>
-
-        <div style="display:flex;justify-content:flex-start;">
-          <button type="button" id="join-mode-cancel" class="secondary-btn"
-            style="font-size:0.875rem;padding:.45rem 1rem;cursor:pointer;">先自己開始</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-    if (typeof hydrateIcons === "function") hydrateIcons(overlay);
-
-    const close = value => { overlay.remove(); resolve(value); };
-
-    // Hover effects
-    const addHover = (btn, borderColor, bgColor) => {
-      if (!btn) return;
-      btn.addEventListener("mouseenter", () => {
-        btn.style.borderColor = borderColor;
-        btn.style.background = bgColor;
-      });
-      btn.addEventListener("mouseleave", () => {
-        btn.style.borderColor = "var(--border-card)";
-        btn.style.background = "var(--bg-input)";
-      });
-    };
-
-    const team3Btn = overlay.querySelector("#join-mode-team-3");
-    const team6Btn = overlay.querySelector("#join-mode-team-6");
-    const cancelBtn = overlay.querySelector("#join-mode-cancel");
-
-    addHover(team3Btn, "var(--color-brand)", "rgba(4,169,210,.06)");
-    addHover(team6Btn, "var(--color-success-foreground)", "rgba(34,197,94,.06)");
-
-    team3Btn?.addEventListener("click", () => close(3));
-    team6Btn?.addEventListener("click", () => close(6));
-    cancelBtn?.addEventListener("click", () => close("solo"));
-    overlay.addEventListener("click", e => { if (e.target === overlay) close(null); });
-  });
-}
+// openJoinModeDialog removed 2026-09-16: zero callers anywhere in js/ — the
+// preset-join flow that used to show this "個人 or 團體" picker was
+// rewritten to not call it anymore (see plan-primary-navigation.test.mjs's
+// assertion that the flow no longer contains it), and the body was left
+// behind.
 
 // ==================== 全域加入團隊支援 ====================
 async function joinTeamGlobally(inviteCode) {
@@ -2803,11 +2692,6 @@ function isChapterReadForRound(ch, round) {
 function isPlanDayCompletedForRound(day, round) {
   if (!day || !day.chapters || day.chapters.length === 0) return false;
   return day.chapters.every(ch => isChapterReadForRound(ch, round));
-}
-
-function countCompletedPlanDaysForRound(plan, round) {
-  if (!plan || !plan.days) return 0;
-  return plan.days.filter(day => isPlanDayCompletedForRound(day, round)).length;
 }
 
 function getNextReadingPlanDay(plan = state.activePlan) {
@@ -3982,20 +3866,6 @@ function getChapterCheckboxState(ch, currentRound) {
   return { cssClass: '', content: '' };
 }
 
-function getRoundBadge(ch, currentRound) {
-  if (currentRound >= 2) {
-    const prevRound = currentRound - 1;
-    const prevCompleted = Boolean(ch["isReadR" + prevRound]);
-    const currCompleted = Boolean(ch["isReadR" + currentRound]);
-    if (prevCompleted && !currCompleted) {
-      if (currentRound === 2) return '✓第1遍';
-      if (currentRound === 3) return '✓✓已讀';
-      return `✓第${prevRound}遍`;
-    }
-  }
-  return '';
-}
-
 window.toggleYouVersionChapter = function (checkboxEl, book, chapter, taskRound = null) {
 
   const isCurrentlyRead = checkboxEl.dataset.isCurrentRead === 'true';
@@ -4125,23 +3995,8 @@ window.toggleYouVersionChapter = function (checkboxEl, book, chapter, taskRound 
     });
 };
 
-function readChapterDirect(bookName, chapter) {
-  const book = BIBLE_BOOKS.find(b => b.name === bookName);
-  if (!book) return;
-  state.readerState.bookId = book.id;
-  state.readerState.chapter = chapter;
-
-  // 這幾個 DOM / 函式在部分情境（例如從靈修 viewer 呼叫、reader-view 尚未掛載）
-  // 不存在；缺了也沒關係，switchTab('reader-view') → renderReaderText() 會依
-  // state.readerState 重畫、renderReaderPicker() 會同步選單。
-  const tSel = document.getElementById("reader-testament-select");
-  if (tSel) tSel.value = "all";
-  try { if (typeof populateBookSelector === "function") populateBookSelector("all"); } catch (_) {}
-  try { if (typeof populateChapterSelector === "function") populateChapterSelector(); } catch (_) {}
-  try { if (typeof saveReaderPreferences === "function") saveReaderPreferences(); } catch (_) {}
-
-  appRouter.switchTab("reader-view");
-}
+// readChapterDirect removed 2026-09-16: zero callers anywhere in js/ —
+// superseded by openReaderPassage.
 
 // 靈修「打開閱讀器」：進入聖經讀經、整章顯示，直接跳到該經文的起始節。
 // ref = {book, chapterFrom, verseFrom, verseTo}
@@ -4272,12 +4127,9 @@ async function fetchDevotionPassagePlainText(ref) {
 }
 window.fetchDevotionPassagePlainText = fetchDevotionPassagePlainText;
 
-function updatePlanCheckboxState(key, isChecked) {
-  // Safe empty fallback since we redraw tasks on update
-  if (state.activePlan) {
-    renderPlanScheduleTracker();
-  }
-}
+// updatePlanCheckboxState removed 2026-09-16: zero callers anywhere in js/
+// (already just a redraw-fallback stub; scripts/plan-reader-immersive.test.mjs
+// already asserted bible.js doesn't call it).
 
 async function checkPlanSchedule(plan) {
   // Since manual settings and downgrades are removed, and levels only go up automatically,
@@ -8191,236 +8043,13 @@ function snapCalendarToMyProgress() {
 // the underlying views never existed in the active schema (only in
 // supabase/migrations_legacy, never carried into 0001_clean_schema.sql).
 
-// ─────────────────────────────────────────────
-// Personal Reading Stats Calculation & Rendering (Migrated from profile.js)
-// ─────────────────────────────────────────────
-
-/**
- * Calculate reading statistics for the active plan.
- */
-function calculateProfileStats(plan) {
-  if (!plan) return null;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(plan.startDate + "T00:00:00");
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(plan.endDate + "T00:00:00");
-  end.setHours(0, 0, 0, 0);
-
-  const totalDays = plan.totalDays || (Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
-  const elapsedDays = Math.max(0, Math.min(totalDays, Math.round((today - start) / (1000 * 60 * 60 * 24)) + 1));
-
-  // 落後/超前/補讀一律對「教會原始日程」算，且只在第一遍（見比對原則）。
-  const currentRound = plan.currentRound || 1;
-  const toLocalStr = window.toLocalYYYYMMDD || ((val) => {
-    if (!val) return "";
-    const date = val instanceof Date ? val : new Date(val);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
-  });
-  const canonicalDays = typeof window.getCanonicalStageScheduleDays === "function"
-    ? window.getCanonicalStageScheduleDays(plan)
-    : (plan.days || []);
-  const round1DateByChapter = new Map();
-  (state.readingLogs || []).forEach(l => {
-    if ((l.plan_id === plan.id || l.presetKey === plan.presetKey) && (l.round || 1) === 1) {
-      round1DateByChapter.set(`${l.book}_${l.chapter}`, toLocalStr(l.read_at));
-    }
-  });
-
-  let lagDays = 0;
-  let leadDays = 0;
-  if (currentRound === 1 && !plan.isPlanCompleted) {
-    const round1Chapters = round1DateByChapter.size;
-    const completedDays = countScheduleDaysCoveredByChapters(canonicalDays, round1Chapters);
-    const expectedDays = countExpectedScheduleDays(canonicalDays, plan.startDate, today);
-    const diff = completedDays - expectedDays;
-    if (diff > 0) leadDays = diff;
-    else if (diff < 0) lagDays = -diff;
-  }
-
-  // 補讀：只看第一遍的 log，第一遍後 log 不再變 → 數值自然凍結。
-  const makeupDays = countLateCompletedDays(canonicalDays, plan.startDate, round1DateByChapter);
-
-  return {
-    elapsedDays,
-    totalDays,
-    lagDays,
-    leadDays,
-    makeupDays,
-    startDateStr: plan.startDate,
-    endDateStr: plan.endDate,
-    currentRound
-  };
-}
-
-/**
- * Render personal reading stats card.
- */
-function renderProfileReadingStats(container) {
-  if (!container) return;
-
-  const plan = state.activePlan;
-  const streakDays = computePlanScopedStreak(state.readingLogs || [], {
-    planId: plan && plan.id,
-    presetKey: plan && plan.presetKey
-  });
-  const stats = calculateProfileStats(plan);
-
-  if (!plan || !stats) {
-    // Empty state
-    container.innerHTML = `
-      <div class="empty-state" style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
-        <div style="margin: 0 auto 1rem; opacity: 0.6; display: block; width: 48px;">
-          ${typeof renderIcon === "function" ? renderIcon("inbox", { size: "hero", className: "nlc-icon" }) : ""}
-        </div>
-        <p style="font-size: 0.9rem; font-weight: 500; margin-bottom: 0.5rem; color: var(--text-primary);">${(window.APP_COPY && window.APP_COPY.stats.noPlan) || "尚未加入讀經計畫"}</p>
-        <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 1.5rem;">
-          請至「計畫」分頁挑選計畫並加入，即可在此查看進度統計。
-        </p>
-        
-        <div class="stat-item-card" style="background: var(--bg-card); border: 1px solid var(--border-card); padding: 0.8rem 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between; text-align: left;">
-          <div style="display: flex; align-items: center; gap: 0.8rem;">
-            <div class="stat-icon-wrapper stat-icon-wrapper--sm stat-icon-wrapper--danger">
-              ${typeof renderIcon === "function" ? renderIcon("fire", { size: "sm", className: "nlc-icon" }) : ""}
-            </div>
-            <div>
-              <div style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">連續讀經</div>
-            </div>
-          </div>
-          <div class="stat-value stat-value--hero stat-value--danger">
-            ${streakDays} <span class="stat-value__unit">天</span>
-          </div>
-        </div>
-      </div>
-    `;
-    return;
-  }
-
-  // Determine Today's Progress display string
-  let todayProgressText = "";
-  const start = new Date(stats.startDateStr);
-  const end = new Date(stats.endDateStr);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  start.setHours(0, 0, 0, 0);
-  end.setHours(0, 0, 0, 0);
-
-  if (today < start) {
-    todayProgressText = `<span style="font-size: 0.875rem; font-weight: 500; color: var(--text-muted);">尚未開始 (預計 ${stats.startDateStr})</span>`;
-  } else if (today > end) {
-    todayProgressText = `<span style="font-size: 0.875rem; font-weight: 500; color: var(--text-muted);">已結束 (共 ${stats.totalDays} 天)</span>`;
-  } else {
-    todayProgressText = `<span style="font-size: 1.25rem; font-weight: 500; color: var(--primary-color);">${stats.elapsedDays}</span> <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);">/ ${stats.totalDays} 天</span>`;
-  }
-
-  const lagDisplay = stats.lagDays > 0
-    ? `${stats.lagDays} <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);">天</span>`
-    : `<span style="font-size: 0.95rem; font-weight: 500; color: var(--text-muted);">0 天</span>`;
-
-  const leadDisplay = stats.leadDays > 0
-    ? `${stats.leadDays} <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);">天</span>`
-    : `<span style="font-size: 0.95rem; font-weight: 500; color: var(--text-muted);">0 天</span>`;
-
-  const makeupDisplay = stats.makeupDays > 0
-    ? `${stats.makeupDays} <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);">天</span>`
-    : `<span style="font-size: 0.95rem; font-weight: 500; color: var(--text-muted);">0 天</span>`;
-
-  const lagIconClass = stats.lagDays > 0 ? "stat-icon-wrapper--danger" : "stat-icon-wrapper--neutral";
-  const lagValueClass = stats.lagDays > 0 ? "stat-value--danger" : "stat-value--muted";
-  const leadIconClass = stats.leadDays > 0 ? "stat-icon-wrapper--success" : "stat-icon-wrapper--neutral";
-  const leadValueClass = stats.leadDays > 0 ? "stat-value--success" : "stat-value--muted";
-  const makeupIconClass = stats.makeupDays > 0 ? "stat-icon-wrapper--brand" : "stat-icon-wrapper--neutral";
-  const makeupValueClass = stats.makeupDays > 0 ? "stat-value--brand" : "stat-value--muted";
-
-  container.innerHTML = `
-    <div class="profile-stats-grid" style="display: grid; grid-template-columns: 1fr; gap: 1rem;">
-      
-      <!-- Today's Day -->
-      <div class="stat-item-card" style="background: var(--bg-card); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 0.8rem;">
-          <div class="stat-icon-wrapper stat-icon-wrapper--brand">
-            ${typeof renderIcon === "function" ? renderIcon("calendar", { size: "sm", className: "nlc-icon" }) : ""}
-          </div>
-          <div>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">今日進度</div>
-            <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.1rem;">目前讀經進度天數</div>
-          </div>
-        </div>
-        <div class="stat-value stat-value--brand">
-          \\\${todayProgressText}
-        </div>
-      </div>
-
-      <!-- Consecutive Streak -->
-      <div class="stat-item-card" style="background: var(--bg-card); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 0.8rem;">
-          <div class="stat-icon-wrapper stat-icon-wrapper--danger">
-            ${typeof renderIcon === "function" ? renderIcon("fire", { size: "sm", className: "nlc-icon" }) : ""}
-          </div>
-          <div>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">連續讀經</div>
-            <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.1rem;">每日穩定靈修天數</div>
-          </div>
-        </div>
-        <div class="stat-value stat-value--danger">
-          \\\${streakDays} <span class="stat-value__unit">天</span>
-        </div>
-      </div>
-
-      <!-- Behind Days -->
-      <div class="stat-item-card" style="background: var(--bg-card); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 0.8rem;">
-          <div class="stat-icon-wrapper \\\${lagIconClass}">
-            \\\${typeof renderIcon === "function" ? renderIcon("exclamationCircle", { size: "sm", className: "nlc-icon" }) : ""}
-          </div>
-          <div>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">落後進度</div>
-            <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.1rem;">落後預計進度天數</div>
-          </div>
-        </div>
-        <div class="stat-value \\\${lagValueClass}">
-          \\\${lagDisplay}
-        </div>
-      </div>
-
-      <!-- Ahead Days -->
-      <div class="stat-item-card" style="background: var(--bg-card); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 0.8rem;">
-          <div class="stat-icon-wrapper \\\${leadIconClass}">
-            \\\${typeof renderIcon === "function" ? renderIcon("trendTwo", { size: "sm", className: "nlc-icon" }) : ""}
-          </div>
-          <div>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">超前進度</div>
-            <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.1rem;">超前預計進度天數</div>
-          </div>
-        </div>
-        <div class="stat-value \\\${leadValueClass}">
-          \\\${leadDisplay}
-        </div>
-      </div>
-
-      <!-- Makeup Days -->
-      <div class="stat-item-card" style="background: var(--bg-card); border: 1px solid var(--border-card); padding: 1rem; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 0.8rem;">
-          <div class="stat-icon-wrapper \\\${makeupIconClass}">
-            \\\${typeof renderIcon === "function" ? renderIcon("refresh", { size: "sm", className: "nlc-icon" }) : ""}
-          </div>
-          <div>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">補讀天數</div>
-            <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.1rem;">事後補讀完畢天數</div>
-          </div>
-        </div>
-        <div class="stat-value \\\${makeupValueClass}">
-          \\\${makeupDisplay}
-        </div>
-      </div>
-
-    </div>
-  `;
-}
+// calculateProfileStats / renderProfileReadingStats removed 2026-09-16:
+// renderProfileReadingStats had zero callers anywhere in js/ — this "Migrated
+// from profile.js" block never actually ran post-migration. Confirmed dead
+// (not just unreachable): its template literal has escaped `\${...}`
+// placeholders (e.g. what's now gone from around here used to read
+// `\${todayProgressText}`) that would have rendered as literal "${...}" text
+// on screen, so even if something had called it, the output was broken.
 
 async function enterPlanListState() {
   exitDevotionViewer();

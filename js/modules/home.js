@@ -52,10 +52,6 @@ function scheduleDashboardSecondaryWork() {
       loadTodayDevotional();
       refreshPastoralSharingWallAvailability();
       renderPilgrimageTrail();
-      if (!state.pilgrimageControlsInit) {
-        initPilgrimageControls();
-        state.pilgrimageControlsInit = true;
-      }
       if (typeof hydrateIcons === "function") {
         hydrateIcons(document.getElementById("dashboard-view"));
       }
@@ -995,13 +991,6 @@ function initDevotionalControls() {
     });
   }
 
-  const searchInput = document.getElementById("member-today-search");
-  if (searchInput) {
-    searchInput.addEventListener("input", (e) => {
-      renderProgressListFiltered(e.target.value);
-    });
-  }
-
   // 歷史靈修分享切換與篩選監聽器
   const tabToday = document.getElementById("btn-wall-tab-today");
   const tabHistory = document.getElementById("btn-wall-tab-history");
@@ -1089,9 +1078,6 @@ async function publishDevotionalNote() {
       devCard.classList.add("hidden");
     }
 
-    if (typeof renderTodayGroupProgress === "function") {
-      renderTodayGroupProgress();
-    }
     if (typeof fetchPastoralVerseWall === "function") {
       await fetchPastoralVerseWall();
     }
@@ -1207,142 +1193,13 @@ function showSaveSuccess(isAuto) {
   }, 2000);
 }
 
-// Group Progress Handlers
-async function renderTodayGroupProgress() {
-  const listEl = document.getElementById("member-today-list");
-  if (!listEl) return;
-
-  const hasPlan = state.activePlans && state.activePlans.length > 0;
-  if (!hasPlan) {
-    listEl.innerHTML = `<div style="font-size: 0.88rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">${(window.APP_COPY && window.APP_COPY.plan.joinProgressHint) || "請先至「計畫」加入計畫，以查看今日進度"}</div>`;
-    return;
-  }
-
-  if (firstPaint(listEl)) {
-    listEl.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
-      ? ComponentSkeletonLoader.getHtml("member-progress", { count: 4 })
-      : "";
-  }
-
-  const cardEl = listEl.closest('.glass-card');
-  if (cardEl) {
-    const cardTitleEl = cardEl.querySelector('.card-title');
-    const searchBoxEl = cardEl.querySelector('.search-box-wrapper');
-
-    if (state.currentUser && getUserRoleCode(state.currentUser) === 'member') {
-      if (cardTitleEl) {
-        cardTitleEl.innerHTML = `
-          <span style="color: var(--primary-color);">${typeof renderIcon === "function" ? renderIcon("user", { size: "sm", className: "nlc-icon" }) : ""}</span>
-          我的今日讀經進度
-        `;
-      }
-      if (searchBoxEl) {
-        searchBoxEl.style.display = 'none';
-      }
-    } else {
-      if (cardTitleEl) {
-        cardTitleEl.innerHTML = `
-          <span style="color: var(--primary-color);">${typeof renderIcon === "function" ? renderIcon("people", { size: "sm", className: "nlc-icon" }) : ""}</span>
-          小組今日讀經進度
-        `;
-      }
-      if (searchBoxEl) {
-        searchBoxEl.style.display = 'block';
-      }
-    }
-  }
-
-  let allUsers = await db.fetchMergedUsersList();
-
-  const mockUser = {
-    name: state.currentUser.name,
-    great_region: state.currentUser.great_region || "",
-    pastoral_zone: state.currentUser.pastoral_zone || "",
-    small_group: state.currentUser.small_group || "",
-    role_code: getUserRoleCode(state.currentUser) || "member"
-  };
-
-  let groupMembers = allUsers.filter(u =>
-    u.pastoral_zone === mockUser.pastoral_zone &&
-    u.small_group === mockUser.small_group
-  );
-
-  if (groupMembers.length === 0) {
-    groupMembers = allUsers.slice(0, 10);
-  }
-
-  state.todayGroupMembers = groupMembers;
-  renderProgressListFiltered("");
-}
-
-function renderProgressListFiltered(searchText) {
-  const listEl = document.getElementById("member-today-list");
-  if (!listEl || !state.todayGroupMembers) return;
-
-  listEl.innerHTML = "";
-  const todayStr = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
-  const query = searchText.trim().toLowerCase();
-  const filtered = state.todayGroupMembers.filter(m =>
-    m.name.toLowerCase().includes(query)
-  );
-
-  if (filtered.length === 0) {
-    listEl.innerHTML = '<div style="font-size: 0.875rem; color: var(--text-muted); text-align: center; padding: 1rem;">無相符成員</div>';
-    return;
-  }
-
-  filtered.forEach(m => {
-    const isRecentRead = m.last_read && (
-      m.last_read === todayStr ||
-      m.last_read === "2026-06-26" ||
-      m.last_read === "2026-06-25"
-    );
-
-    const item = document.createElement("div");
-    item.className = "member-progress-item";
-
-    const nameInfo = document.createElement("div");
-    nameInfo.className = "member-name-info";
-
-    const nameSpan = document.createElement("span");
-    nameSpan.className = "member-name";
-    nameSpan.textContent = m.name;
-    nameInfo.appendChild(nameSpan);
-
-    const metaSpan = document.createElement("span");
-    metaSpan.className = "member-meta";
-    metaSpan.textContent = `連續讀經: ${m.streak || 0}天 | 總章數: ${m.chapters_read || 0}章`;
-    nameInfo.appendChild(metaSpan);
-
-    if (m.today_devotional) {
-      const quoteDiv = document.createElement("div");
-      quoteDiv.className = "member-quote";
-      quoteDiv.style.cssText = "margin-top: 0.4rem; padding: 0.5rem 0.75rem; border-left: 3px solid var(--color-brand); background: var(--color-brand-muted); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5; font-style: italic;";
-      quoteDiv.textContent = `「${m.today_devotional}」`;
-      nameInfo.appendChild(quoteDiv);
-    }
-
-    item.appendChild(nameInfo);
-
-    const badge = document.createElement("span");
-    if (isRecentRead) {
-      badge.className = "progress-badge completed";
-      badge.innerHTML = `
-        ${typeof renderIcon === "function" ? renderIcon("check", { size: "sm", className: "nlc-icon nlc-icon--inline" }) : ""}
-        今日已讀
-      `;
-    } else {
-      badge.className = "progress-badge pending";
-      badge.textContent = "未打卡";
-    }
-    item.appendChild(badge);
-
-    listEl.appendChild(item);
-  });
-}
-
-state.pilgrimageZoom = 1.0;
-state.pilgrimageControlsInit = false;
+// renderTodayGroupProgress / renderProgressListFiltered removed 2026-09-16:
+// their target #member-today-list / #member-today-search don't exist
+// anywhere in index.html or any JS template — verified independently (not
+// just via the automated audit) that this isn't a feature-flag-hidden
+// element like the pastoral_sharing_wall's .devotional-card, it's genuinely
+// absent from the DOM everywhere. state.todayGroupMembers was only ever
+// written/read by this pair, so it goes too.
 
 function getTileCoords(index) {
   const cols = 8;
@@ -1377,43 +1234,12 @@ function getMemberColor(name) {
 
 window.renderPilgrimageTrail = renderPilgrimageTrail;
 
-function initPilgrimageControls() {
-  const board = document.getElementById("pilgrimage-trail-board");
-  const zoomIn = document.getElementById("increase-trail-zoom");
-  const zoomOut = document.getElementById("decrease-trail-zoom");
-  const zoomReset = document.getElementById("reset-trail-zoom");
-
-  if (!board) return;
-
-  const updateZoom = () => {
-    board.style.transform = `scale(${state.pilgrimageZoom})`;
-  };
-
-  if (zoomIn) {
-    zoomIn.onclick = () => {
-      if (state.pilgrimageZoom < 2.0) {
-        state.pilgrimageZoom += 0.15;
-        updateZoom();
-      }
-    };
-  }
-
-  if (zoomOut) {
-    zoomOut.onclick = () => {
-      if (state.pilgrimageZoom > 0.6) {
-        state.pilgrimageZoom -= 0.15;
-        updateZoom();
-      }
-    };
-  }
-
-  if (zoomReset) {
-    zoomReset.onclick = () => {
-      state.pilgrimageZoom = 1.0;
-      updateZoom();
-    };
-  }
-}
+// initPilgrimageControls removed 2026-09-16: its target #pilgrimage-trail-board
+// doesn't exist — the trail board moved into team-registration.js and was
+// renamed to #team-pilgrimage-trail-board, but this zoom-control wiring
+// (and its #increase-trail-zoom/-decrease-trail-zoom/-reset-trail-zoom
+// buttons) never got updated, so it was a guaranteed no-op (`if (!board) return;`)
+// on every call. renderPilgrimageTrail itself is unaffected and still live.
 
 async function updateAnnouncementsList() {
   const listContainer = document.getElementById("church-announcements-list");

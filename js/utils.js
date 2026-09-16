@@ -2359,10 +2359,6 @@ function calculateAllPlansProgress() {
 
 
 
-function getPlanVisibilityKey(plan) {
-  return plan ? String(plan.id || plan.presetKey || plan.globalPlanId || plan.name || '') : '';
-}
-
 function getHiddenPlanKeys() {
   try {
     return JSON.parse(localStorage.getItem('hidden_global_plan_keys') || '[]');

@@ -518,7 +518,11 @@ describe("NLC and browser integration", () => {
 
   it("connects joining to My Team and integrates team data into existing group views", () => {
     expect(plan).not.toContain("chooseReadingPlanParticipation(plan)");
-    expect(plan).toContain("openJoinModeDialog(plan)");
+    // openJoinModeDialog(plan) assertion removed 2026-09-16: it was only ever
+    // matching the function's own definition line (function openJoinModeDialog(plan) {),
+    // not a real caller — the function had zero callers and was deleted as
+    // dead code. See plan-primary-navigation.test.mjs's assertion that the
+    // preset-join flow does NOT call it, which is the real, current behavior.
     expect(plan).toContain("openReadingTeamDialog(plan");
     expect(plan).toContain("resolveTeamJoinEffectivePlan");
     expect(html).not.toContain('id="view-reading-team-btn"');

@@ -44,9 +44,8 @@ export function getPlanProgressBadgeClass(plan, deps = {}) {
   return getPlanProgressStatus(plan, deps).badgeClass;
 }
 
-export function getPlanProgressStatusLabel(plan, deps = {}) {
-  return getPlanProgressStatus(plan, deps).label;
-}
+// getPlanProgressStatusLabel removed 2026-09-16: exported but imported
+// nowhere (its twin getPlanProgressBadgeClass, right above, is still used).
 
 export function getPlanProgressStatus(plan, deps = {}) {
   const {

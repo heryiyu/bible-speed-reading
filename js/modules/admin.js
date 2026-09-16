@@ -1542,7 +1542,6 @@ export function init() {
   void renderAdminManagedScopes();
   void renderAdminRegistrationStatistics();
   void renderAdminAnnouncements();
-  initAdminTeamRegistration();
 
   // Bind collapse toggles for every 加入計畫狀況 card (已加入計畫 and 尚未加入計畫
   // both use the same .admin-unjoined-plan-card markup) — each header toggles
@@ -1828,11 +1827,6 @@ function renderAdminSectionNav() {
 
 window.renderAdminSectionNav = renderAdminSectionNav;
 window.setAdminSection = setAdminSection;
-
-function getManagementPlanStageNo(plan) {
-  const presetMatch = String(plan && plan.presetKey || '').match(/^church_stage_(\d+)$/);
-  return Number(plan && plan.stageNo || (presetMatch && presetMatch[1]) || 0);
-}
 
 function getManagementPlanStatus(plan, today = new Date()) {
   const startValue = plan && (plan.startDate || plan.start_date);
@@ -3500,7 +3494,6 @@ export async function renderAdminPlanManagement() {
 // Bind to window for global access compatibility
 window.renderAdminFeatureSettings = renderAdminFeatureSettings;
 window.renderAdminPlanManagement = renderAdminPlanManagement;
-let activeTeamDivision = 3;
 let cachedTeamsData = null;
 let cachedTeamsDataKey = "";
 let lastRenderedTeamPlans = { 3: [], 6: [] };
@@ -4144,30 +4137,10 @@ export async function renderAdminTeamRegistrationStatus(forceRefresh = false, di
   }
 }
 
-export function initAdminTeamRegistration() {
-  const tab3 = document.getElementById("admin-team-tab-3");
-  const tab6 = document.getElementById("admin-team-tab-6");
-
-  if (tab3 && tab6) {
-    tab3.onclick = (e) => {
-      e.preventDefault();
-      if (activeTeamDivision === 3) return;
-      activeTeamDivision = 3;
-      tab3.classList.add("active");
-      tab6.classList.remove("active");
-      renderAdminTeamRegistrationStatus();
-    };
-
-    tab6.onclick = (e) => {
-      e.preventDefault();
-      if (activeTeamDivision === 6) return;
-      activeTeamDivision = 6;
-      tab6.classList.add("active");
-      tab3.classList.remove("active");
-      renderAdminTeamRegistrationStatus();
-    };
-  }
-}
+// initAdminTeamRegistration removed 2026-09-16: its whole body was gated on
+// #admin-team-tab-3/-6, which don't exist — the 3人/6人 split is now done by
+// two direct renderAdminTeamRegistrationStatus() calls elsewhere in this
+// file, so this was a guaranteed no-op every time it ran.
 
 let adminTeamPlacementsData = [];
 let adminTeamPlacementsDataKey = "";
@@ -4259,4 +4232,3 @@ window.renderAdminJoinedPlanMembers = renderAdminJoinedPlanMembers;
 window.renderAdminTeamPlacementLookup = renderAdminTeamPlacementLookup;
 window.renderAdminTeamRegistrationStatus = renderAdminTeamRegistrationStatus;
 window.refreshAdminTeamRegistrationFilters = refreshAdminTeamRegistrationFilters;
-window.initAdminTeamRegistration = initAdminTeamRegistration;

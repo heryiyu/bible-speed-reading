@@ -1993,10 +1993,11 @@ const db = {
     }
   },
 
-  async syncChurchOrganization(regions, zones, groups) {
-    // 組織架構已改為動態從使用者資料重構，不需手動更新組織表
-    return { success: true };
-  },
+  // syncChurchOrganization removed 2026-09-16: zero callers anywhere in
+  // js/ — the DB side of this was already dropped in migration
+  // 0176_drop_dead_sync_church_organization.sql; this JS stub (itself
+  // already a no-op — "組織架構已改為動態從使用者資料重構") just hadn't been
+  // cleaned up to match.
 
   loadMockOrgStructure() {
     // 優先從 mock_stats.js 動態讀取以避免重複定義
@@ -3641,9 +3642,7 @@ const db = {
   async setExamStatus(paperId, status) {
     return this._callExamRpc("exam_set_status", { p_paper_id: paperId, p_status: status });
   },
-  async setExamMode(paperId, mode) {
-    return this._callExamRpc("exam_set_mode", { p_paper_id: paperId, p_mode: mode });
-  },
+  // setExamMode removed 2026-09-16: zero callers anywhere in js/.
   async pushExamToLive(testPaperId) {
     return this._callExamRpc("exam_push_to_live", { p_test_paper_id: testPaperId });
   },
@@ -3757,13 +3756,8 @@ const db = {
   async getExamGradingQueue(paperId, filter = "pending") {
     return this._callExamRpc("exam_get_grading_queue", { p_paper_id: paperId, p_filter: filter });
   },
-  async gradeExamAnswer(answerId, points, comment = "") {
-    return this._callExamRpc("exam_grade_answer", {
-      p_answer_id: answerId,
-      p_points: points,
-      p_comment: comment || ""
-    });
-  },
+  // gradeExamAnswer removed 2026-09-16: zero callers anywhere in js/ —
+  // superseded by gradeExamAnswersBatch (used by exam.js's grading flow).
 
   // 統計報表（admin/pastor）
   async getExamStats(paperId, opts = {}) {
@@ -5658,12 +5652,12 @@ const db = {
   async deleteGroupMeetingWeek(id) {
     return this._callGroupMeetingRpc("delete_group_meeting_week", { p_id: id });
   },
-  async bulkUpsertGroupMeetingWeeks(globalPlanId, rows) {
-    return this._callGroupMeetingRpc("bulk_upsert_group_meeting_weeks", {
-      p_global_plan_id: globalPlanId,
-      p_rows: Array.isArray(rows) ? rows : []
-    });
-  },
+  // bulkUpsertGroupMeetingWeeks removed 2026-09-16: zero callers anywhere in
+  // js/. The group_meeting_plan feature itself is live and unaffected —
+  // upsertGroupMeetingWeek (single-row) is what the admin editor actually
+  // uses; this bulk-paste-import convenience variant's backend RPC exists
+  // but never got a UI wired to it, unlike its devotion-side sibling
+  // bulkUpsertDevotionDays (used at admin.js).
   async setGroupMeetingPlanFutureOpen(globalPlanId, open) {
     return this._callGroupMeetingRpc("set_group_meeting_plan_future_open", {
       p_global_plan_id: globalPlanId,
