@@ -1236,15 +1236,41 @@ function getPlanCoverHtml(plan) {
   return `<div class="plan-cover-thumbnail" style="background: ${bg};">${label}</div>`;
 }
 
-function renderPlanCardHeader({ eyebrow = "", title = "", meta = "", description = "" } = {}) {
+function renderPlanCardHeader({ eyebrow = "", title = "", meta = "", metaClass = "", description = "", titleTrailing = "" } = {}) {
   return `
     <div class="plan-card__header">
       ${eyebrow ? `<div class="plan-card__eyebrow">${eyebrow}</div>` : ""}
-      <h4 class="plan-card__title">${title}</h4>
-      ${meta ? `<div class="plan-card__meta">${meta}</div>` : ""}
+      <div class="plan-card__title-row">
+        <h4 class="plan-card__title">${title}</h4>
+        ${titleTrailing ? `<div class="plan-card__title-trailing">${titleTrailing}</div>` : ""}
+      </div>
+      ${meta ? `<div class="plan-card__meta${metaClass ? ` ${escapeHTML(metaClass)}` : ""}">${meta}</div>` : ""}
       ${description ? `<p class="plan-card__description">${description}</p>` : ""}
     </div>
   `;
+}
+
+// 卡片精簡：進度用大數字當主角，取代「進度：」整行文字；徽章/獎項狀態
+// 改用 .stat-badge（跟排行榜共用同一套 tone 配色），不再用整行 icon+標籤+值。
+function renderPlanCardProgressHero({ value = "", caption = "", tone = "neutral" } = {}) {
+  if (!value) return "";
+  return `
+    <div class="plan-card__progress-hero plan-card__progress-hero--${escapeHTML(tone)}">
+      <span class="plan-card__progress-hero-value">${value}</span>
+      ${caption ? `<span class="plan-card__progress-hero-caption">${caption}</span>` : ""}
+    </div>
+  `;
+}
+
+function renderPlanCardBadge({ icon = "", label = "", tone = "neutral" } = {}) {
+  if (!label) return "";
+  const iconHtml = icon ? `<span class="nlc-icon nlc-icon--sm" data-icon="${escapeHTML(icon)}" aria-hidden="true"></span>` : "";
+  return `<span class="stat-badge stat-badge--${escapeHTML(tone)} plan-card__badge">${iconHtml}<span>${label}</span></span>`;
+}
+
+function renderPlanCardBadgeRow(badges = []) {
+  const html = badges.filter(Boolean).join("");
+  return html ? `<div class="plan-card__badges">${html}</div>` : "";
 }
 
 function renderPlanCardStatusSummary(items = []) {
@@ -1277,7 +1303,7 @@ function renderPlanCardActions(actions = []) {
   return `<div class="plan-card__actions plan-card-participation-actions">${buttons}</div>`;
 }
 
-function renderPlanCardShell({ plan, variant = "", header = "", status = "", progress = "", actions = "", after = "" } = {}) {
+function renderPlanCardShell({ plan, variant = "", header = "", status = "", progress = "", actions = "", after = "", trailing = "" } = {}) {
   const variantClass = variant ? ` plan-card--${escapeHTML(variant)}` : "";
   return `
     ${getPlanCoverHtml(plan)}
@@ -1288,6 +1314,7 @@ function renderPlanCardShell({ plan, variant = "", header = "", status = "", pro
       ${actions}
       ${after}
     </div>
+    ${trailing}
   `;
 }
 
@@ -1878,39 +1905,38 @@ function renderJoinedPlansList() {
       `;
 
       if (filter === "completed") {
-        // Expired plan: show status label instead of progress bar
+        // Expired plan: status becomes a small badge next to the title instead of a full text row
         const isCompleted = (currentRound > 1) || (progress === 100);
-        const statusText = isCompleted ? "已完成" : "未完成";
 
         card.innerHTML = renderPlanCardShell({
           plan,
           variant: "completed",
           header: renderPlanCardHeader({
             title: escapeHTML(plan.name),
+            titleTrailing: renderPlanCardBadge({
+              icon: isCompleted ? "check" : "hourglass",
+              label: isCompleted ? "已完成" : "未完成",
+              tone: isCompleted ? "success" : "danger"
+            }),
             meta: dateMeta
           }),
-          status: renderPlanCardStatusSummary([
-            isCampaignStage && {
+          status: renderPlanCardBadgeRow([
+            isCampaignStage && renderPlanCardBadge({
               icon: "award",
-              label: "獎項",
-              value: campaignAwardValue,
+              label: campaignAwardValue,
               tone: campaignAwardEarned ? "success" : "brand"
-            },
-            {
-              icon: isCompleted ? "check" : "hourglass",
-              label: "狀態",
-              value: escapeHTML(statusText),
-              tone: isCompleted ? "success" : "danger"
-            }
+            })
           ])
         });
       } else {
-        // Normal active plan: show progress bar
-        const progressText = isUpcomingFixed
-          ? escapeHTML(getPlanStartCountdownText(plan))
-          : (currentRound > 1
-            ? `已完成第 ${currentRound - 1} 遍 👑<br>第 ${currentRound} 遍：已讀 ${progress}% (${plan.completedChapters} / ${plan.currentRoundTotalChapters || plan.totalChapters} 章)`
-            : `已讀 ${progress}% (${plan.completedChapters} / ${plan.currentRoundTotalChapters || plan.totalChapters} 章)`);
+        // Normal active plan: a big progress number carries the card instead of a "進度：" text row
+        const totalChapters = plan.currentRoundTotalChapters || plan.totalChapters;
+        const progressCaption = currentRound > 1
+          ? `已讀 ${plan.completedChapters} / ${totalChapters} 章・第 ${currentRound} 遍（已完成 ${currentRound - 1} 遍 👑）`
+          : `已讀 ${plan.completedChapters} / ${totalChapters} 章`;
+        const progressHero = isUpcomingFixed
+          ? renderPlanCardProgressHero({ value: escapeHTML(getPlanStartCountdownText(plan)), tone: "warning" })
+          : renderPlanCardProgressHero({ value: `${progress}%`, caption: progressCaption });
 
         const isTeamPlan = typeof window.isReadingTeamPlan === "function" && window.isReadingTeamPlan(plan);
         const teamHtml = isTeamPlan ? `<div class="plan-card-team-controls"></div>` : "";
@@ -1920,37 +1946,33 @@ function renderJoinedPlansList() {
               <div class="plan-progress-bar" style="width: ${progress}%;"></div>
             </div>`;
 
+        // 日期範圍＋閱讀安排合併成一行，取代原本各自一整排的「安排：」文字列。
+        const scheduleMeta = `
+          <span class="nlc-icon nlc-icon--sm" data-icon="calendarThirty" aria-hidden="true"></span>
+          <span class="joined-plan-schedule-summary">${escapeHTML(plan.startDate)} ~ ${escapeHTML(plan.endDate)}・${escapeHTML(weeklyScheduleSummary)}</span>
+        `;
+
         card.innerHTML = renderPlanCardShell({
           plan,
           variant: isUpcomingFixed ? "upcoming" : "joined",
           header: renderPlanCardHeader({
             title: escapeHTML(plan.name),
-            meta: dateMeta
+            meta: scheduleMeta,
+            metaClass: "plan-card__meta--wrap"
           }),
-          status: renderPlanCardStatusSummary([
-            isCampaignStage && {
+          status: progressHero + renderPlanCardBadgeRow([
+            isCampaignStage && renderPlanCardBadge({
               icon: "award",
-              label: "獎項",
-              value: campaignAwardValue,
+              label: campaignAwardValue,
               tone: campaignAwardEarned ? "success" : "brand"
-            },
-            {
-              icon: isUpcomingFixed ? "hourglass" : "bookOpen",
-              label: isUpcomingFixed ? "開始時間" : "進度",
-              value: progressText,
-              tone: isUpcomingFixed ? "warning" : "neutral"
-            },
-            {
-              icon: "calendarThirty",
-              label: "安排",
-              value: `<span class="joined-plan-schedule-summary">${escapeHTML(weeklyScheduleSummary)}</span>`
-            }
+            })
           ]),
           progress: progressHtml,
           actions: renderPlanCardActions([
             upgradeAvailability.eligible && { kind: "primary", icon: "trophy", label: `開始${upgradeAvailability.nextRoundLabel}`, action: "upgrade" }
           ]),
-          after: teamHtml
+          after: teamHtml,
+          trailing: `<span class="plan-card__chevron"><span class="nlc-icon nlc-icon--sm" data-icon="chevronRight" aria-hidden="true"></span></span>`
         });
 
         if (typeof hydrateIcons === "function") hydrateIcons(card);

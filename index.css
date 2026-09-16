@@ -7212,18 +7212,10 @@ body.admin-quiz-editor-open {
 }
 
 .joined-plan-schedule-summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.35rem;
   color: var(--text-muted);
   font-size: 0.875rem;
   line-height: 1.4;
-}
-
-.joined-plan-schedule-summary .nlc-icon {
-  color: var(--color-icon-muted);
-  flex-shrink: 0;
+  min-width: 0;
 }
 
 
@@ -12959,6 +12951,7 @@ body.profile-subpage-open .main-content {
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   text-align: left;
+  position: relative;
   transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
 
@@ -13015,7 +13008,16 @@ body.profile-subpage-open .main-content {
   line-height: 1.25;
 }
 
+.plan-card__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .plan-card__title {
+  flex: 1 1 auto;
   margin: 0;
   color: var(--text-primary);
   font-size: 1.02rem;
@@ -13024,6 +13026,10 @@ body.profile-subpage-open .main-content {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.plan-card__title-trailing {
+  flex: 0 0 auto;
 }
 
 .plan-card__meta {
@@ -13041,6 +13047,21 @@ body.profile-subpage-open .main-content {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.plan-card__meta--wrap {
+  align-items: flex-start;
+}
+
+.plan-card__meta--wrap .nlc-icon {
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+}
+
+.plan-card__meta--wrap span:last-child {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .plan-card__description {
@@ -13108,6 +13129,58 @@ body.profile-subpage-open .main-content {
 
 .plan-card__status-value {
   min-width: 0;
+}
+
+.plan-card__progress-hero {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.5rem;
+  min-width: 0;
+}
+
+.plan-card__progress-hero-value {
+  color: var(--text-primary);
+  font-size: 1.3rem;
+  font-weight: var(--type-weight-strong);
+  line-height: 1.15;
+}
+
+.plan-card__progress-hero-caption {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.plan-card__progress-hero--warning .plan-card__progress-hero-value {
+  color: var(--color-warning);
+}
+
+.plan-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.plan-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.plan-card__badge .nlc-icon {
+  flex: 0 0 auto;
+}
+
+.plan-card__chevron {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.85rem;
+  display: flex;
+  color: var(--text-muted);
+  pointer-events: none;
 }
 
 .plan-card__actions,
