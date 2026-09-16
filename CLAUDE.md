@@ -6,16 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 新生命聖經速讀計畫 (NewLife Bible Speed Reading) — a Traditional-Chinese PWA for a church's quarterly Bible-reading challenges: reading tracker, plans, personal/group statistics, leaderboards, gamification badges, and devotional notes. It is a **satellite app** of the NewLife Member Hub and integrates with the NLC (紟道) ecosystem SSO.
 
-Stack: **vanilla JS, HTML, and CSS — no framework, no bundler for app code** (production uses `scripts/bundle.mjs` to hash JS/CSS). Third-party libs (Supabase JS, Chart.js, html2canvas) load from CDN in `index.html`. Icons are **Lucide**, built at compile time into `js/icon-registry.js`. Backend is Supabase (Postgres + Edge Functions). Hosted on Vercel.
+Stack: **vanilla JS, HTML, and CSS for all the main tabs — no framework, no bundler for app code in dev** (the production build runs a real `esbuild --bundle --minify` pipeline via `scripts/bundle.mjs`, not just hashing — see [Commands](#commands)). One deliberate exception: the issue-report feature (`components/issue-report/*.tsx`, mounted via React's `createRoot` from `js/modules/issue-report-ui.js`) is a real React + TypeScript island, bundled as its own separate lazy chunk (`issue-report-ui.bundle.js`) — "no framework" does not apply to that corner of the codebase. Third-party libs: Supabase JS loads from a CDN `<script>` in `index.html`; Chart.js and html2canvas are each lazy-loaded from CDN on demand by the module that needs them (`plan.js`, `home.js`) rather than declared upfront. Icons are **Lucide**, compiled at build time into `js/design/icon-registry.js` by `scripts/generate-icon-registry.mjs`. Backend is Supabase (Postgres + Edge Functions). Hosted on Vercel.
 
 ## Commands
 
 ```bash
-npm run build      # node build-config.js — regenerates config.js from .env (REQUIRED after cloning)
-npm run dev        # npx serve . — local static server (also `npm start`)
+npm run build             # generate-icon-registry.mjs → build-config.js → bundle.mjs — full pipeline, not just config.js
+npm run dev                # npx serve . — also `npm start` (see caveat below, this does not fully work as-is)
+npm test                    # vitest run — ~160 files / ~1,300 cases
+npm run test:watch          # vitest, watch mode
+npm run bump -- <label>     # scripts/bump-version.mjs — rewrites every ?v=YYYYMMDD_... string in js/app.js to one new version in one shot and syncs index.html, instead of hand-editing each tag
 ```
 
-There are **no tests, no linter, and no compile step**. "Building" only means regenerating `config.js`. On Vercel, `buildCommand` is `node build-config.js` and `outputDirectory` is `.` (the repo root is served as-is).
+There is **no linter**, but there **is** a real, actively-maintained `vitest` suite (jsdom, plus a handful of React Testing Library component tests under `components/`/`lib/`/`tests/`) — run `npm test` before calling a change done. Don't rely on `node --check` as a substitute: it only validates syntax, so it will not catch e.g. a leftover reference to a variable whose declaration got deleted in a refactor (that class of bug has caused a production incident before — see `feedback_refactor_verify_runtime_not_just_syntax` in project memory).
+
+`npm run build` is **not** just `config.js` regeneration — it runs three scripts in order: `scripts/generate-icon-registry.mjs` (compiles the Lucide icon manifest into `js/design/icon-registry.js`), `build-config.js` (regenerates `config.js` from `.env`), then `scripts/bundle.mjs` (runs `esbuild --bundle --minify --target=es2020` per entry point — `app.js`, `exam-entry.js`, `grade-entry.js` — content-hashes the output, e.g. `app.b294a7e2.js`, and rewrites `index.html`/`exam.html`/`grade.html` to reference the hashed files), all into a git-ignored `dist/`. **On Vercel, `buildCommand` is `npm run build` and `outputDirectory` is `dist`** — production serves this hashed `esbuild` bundle, not the raw repo root as-is.
+
+**`npm run dev` (`npx serve .`) does not correctly load the app as it currently stands**: `js/app.js` does `import '../lib/services/badge-service.ts'` directly, and a plain static file server serves that `.ts` file to the browser unmodified instead of stripping the TypeScript — only `esbuild` (inside `npm run build`) does that transform. To check a change in an actual browser, either run `npm run build && npx serve dist` and open that, or verify the specific behavior via a `vitest` test instead of the raw dev server.
 
 ### Config generation (important)
 
@@ -25,7 +32,11 @@ There are **no tests, no linter, and no compile step**. "Building" only means re
 
 The app aggressively fights stale caches because church members run it on mobile PWAs:
 
-- Every `<script>`/`<link>` in `index.html` has a `?v=YYYYMMDD_...` query string. **When you change a JS or CSS file, bump its version string in `index.html`** or clients may load an old file.
+- `index.html` itself only carries four `?v=` tags now: three CSS `<link>`s and the single `<script src="js/app.js?v=...">` (there's only one script tag — see [Architecture](#architecture)). Most JS cache-busting now happens *inside* the entry scripts instead:
+  - Core eagerly-imported files (`config.js`, `state.js`, `db.js`, `auth.js`, `utils.js`, …) each carry their own `?v=YYYYMMDD_label` on the `import './x.js?v=...'` line inside `js/app.js` / `js/exam-entry.js` / `js/grade-entry.js`. Bump the one in every entry file that imports the file you changed — a shared file like `db.js` needs the same bump repeated in all three.
+  - The lazy tab modules (`home.js`, `bible.js`, `plan.js`, `admin.js`, `profile.js`, `team-registration.js`) don't carry individual version strings — they're all versioned together by one shared `buildVersion` string built into `js/app.js`. Changing any one of them requires bumping that shared string, or every already-open client keeps serving its old cached copy of that specific module indefinitely.
+  - **`npm run bump -- <label>`** (`scripts/bump-version.mjs`) rewrites all of the above in one shot — prefer it over hand-editing individual `?v=` strings.
+  - This discipline is what actually matters in dev and for `index.html`'s own tags. In production, `app.js`/`exam-entry.js`/`grade-entry.js` get a real content hash from `scripts/bundle.mjs` on every deploy (e.g. `app.b294a7e2.js`), so those three specific files can never go stale from a forgotten bump — but everything else (lazy tab modules, CSS, the core-file `?v=` strings) still relies on this manual/`npm run bump` discipline even in production, because `bundle.mjs` copies them into `dist/` unhashed.
 - `sw.js` is a thin, module-based Service Worker. It delegates cache behavior to `js/pwa/CacheManager.js`; never put business logic directly in lifecycle handlers.
 - Cache only same-origin static assets and public Bible API responses. Authentication, Supabase/NLC, rankings, member data, and admin data must bypass Service Worker caching.
 - Authenticated reading-log writes may be queued in IndexedDB by `PwaCoordinator`; credentials are never persisted in the queue. Background Sync asks an open authenticated client to flush the queue.
@@ -88,6 +99,13 @@ Chapter text is fetched live from public Bible APIs (bible-api.com, bolls.life) 
 - `supabase/migrations_legacy/` — old test-period migrations, kept for reference only. Do not replay on a fresh project.
 - **Edge Functions** (`supabase/functions/`): `nlc-session` (verifies Logto token, upserts profile/identity with service role) and `nlc-data` (per-request Logto verification + server-side table/action allowlist, then service-role DB access). Both must have `verify_jwt = false` because the bearer is a Logto token, not a Supabase JWT. See `supabase/functions/README.md` for required secrets.
 - The `profiles`/`user_identities` split is intentional: it prevents data loss when a user switches login method (e.g. Google → NLC Logto). First admin is promoted manually via SQL (see `supabase/README_clean_setup.md`).
+- **New SQL functions default to PUBLIC-executable — revoke explicitly in the same migration, every time.** Postgres grants `EXECUTE` on every newly created function to the `PUBLIC` pseudo-role by default, and `anon` inherits it *transitively* through that — `REVOKE EXECUTE ... FROM anon` alone is a no-op against a `PUBLIC` grant. This exact gap let ~29 functions stay silently anon-callable through two cleanup attempts (`0173`, `0177`) before a third, broader sweep (`0182_revoke_public_function_execute_sweep3.sql`) finally caught them by checking `has_function_privilege('anon', ..., 'EXECUTE')` instead of trusting a role-specific grant list. Don't rely on the next periodic sweep to catch it again — every `CREATE FUNCTION`/`CREATE OR REPLACE FUNCTION` in a new migration must be followed immediately by an explicit grant:
+  ```sql
+  CREATE OR REPLACE FUNCTION public.some_new_fn(...) ... AS $$ ... $$;
+  REVOKE ALL ON FUNCTION public.some_new_fn(...) FROM PUBLIC;
+  GRANT EXECUTE ON FUNCTION public.some_new_fn(...) TO authenticated; -- omit entirely (service_role only) if it must never be called directly by a client
+  ```
+  If the function is `SECURITY DEFINER` and performs a privileged mutation (i.e. it bypasses RLS), do **not** grant `authenticated` unless the function is genuinely meant to be invoked directly by the client — granting `authenticated` on a `SECURITY DEFINER` function that expects to only ever be reached through `nlc-data`'s allowlist/`applyForcedScope` is exactly the "direct RPC bypass" vulnerability shape already fixed more than once (`d317a12`, `485679a`, `bc09eff`). Default to `service_role`-only for those.
 
 ## Design system
 
@@ -101,6 +119,7 @@ Detailed Skill Documentation is persisted at `.agents/skills/bible-study-dev-gui
 
 1. **Security & Forced Scope**:
    - Edge Functions (`nlc-data`) and RPC functions must enforce explicit `user_id` and `plan_id` filtering (`applyForcedScope`) on writes/deletes to prevent accidental cross-tenant data mutation.
+   - Every new SQL function must explicitly `REVOKE ALL ... FROM PUBLIC` in the same migration it's created in — see the "New SQL functions default to PUBLIC-executable" rule under [Backend](#backend-supabase). Don't wait for the next Security Advisor sweep to catch it.
 
 2. **Scroll State Preservation**:
    - When re-rendering container DOM (`innerHTML = ""`, e.g. `renderHorizontalDateStrip`), read `.scrollTop`/`.scrollLeft` beforehand and restore immediately after DOM update to prevent layout jumps.
