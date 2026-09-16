@@ -26,8 +26,12 @@ describe("plan card information architecture", () => {
     );
 
     expect(presetList).not.toContain("預覽詳情");
-    expect(presetList).toContain("自己加入");
-    expect(presetList).toContain("建立團隊");
+    // 探索計畫卡片只留一顆「加入計畫」——建立團隊是加入之後、在「我的計畫」
+    // 卡片上才會出現的功能（見 renderJoinedPlansList 的 team 參與區塊），不在
+    // 這裡重複提供，避免使用者在真正加入計畫前就先建立團隊（那樣只會建出
+    // 一支隊伍、卻沒有對應的 reading_plans 報名紀錄）。
+    expect(presetList).toContain("加入計畫");
+    expect(presetList).not.toContain("建立團隊");
     expect(presetList).toContain("event.stopPropagation()");
   });
 

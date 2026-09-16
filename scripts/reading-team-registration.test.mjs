@@ -180,22 +180,39 @@ describe("NLC and browser integration", () => {
     expect(plan).toContain("secondary-btn plan-card-action-btn");
   });
 
-  it("models plan cards around solo and team participation actions", () => {
+  it("models discover-plan cards around a single join action — team creation only happens after joining, from the joined-plan card's participation control", () => {
     expect(plan).toContain("async function openJoinedPlanProgress(plan)");
     expect(plan).toContain("async function openJoinedPlanTeam(plan)");
     expect(plan).toContain("async function joinPlanSoloFromCard(plan, key)");
-    expect(plan).toContain("async function createTeamFromPlanCard(plan, key)");
+    expect(plan).not.toContain("async function createTeamFromPlanCard");
     expect(plan).toContain('data-plan-card-action="solo-join"');
-    expect(plan).toContain('data-plan-card-action="team-create"');
+    expect(plan).not.toContain('data-plan-card-action="team-create"');
     // Participation copy now lives in the extracted pure model helper.
     expect(participation).toContain("個人讀經中");
     expect(participation).toContain("邀請組員加入");
     expect(participation).toContain("建立 / 加入團隊");
-    expect(plan).toContain("自己加入");
-    expect(plan).toContain("建立團隊");
+
+    const presetList = plan.slice(
+      plan.indexOf("function renderPresetPlansList"),
+      plan.indexOf("function isChapterReadForRound")
+    );
+    expect(presetList).toContain("加入計畫");
+    expect(presetList).not.toContain("建立團隊");
+
+    // Team creation (before joining, this would only create a reading_teams
+    // row with no matching reading_plans enrollment) is reached exclusively
+    // through the joined-plan card's participation control once the user has
+    // actually joined.
+    expect(plan).toContain("function bindPlanParticipationItemActions");
+    const bindActions = plan.slice(
+      plan.indexOf("function bindPlanParticipationItemActions"),
+      plan.indexOf("function bindPlanParticipationItemActions") + 1200
+    );
+    expect(bindActions).toContain("openJoinedPlanTeam(plan)");
+    expect(bindActions).toContain("window.openReadingTeamDialog(plan, { preferredDivision: division })");
   });
 
-  it("confirms solo joins while team registration stays cancel-safe", () => {
+  it("confirms solo joins before enrolling", () => {
     expect(plan).toContain("async function confirmPlanJoin");
     expect(plan).toContain('role="dialog"');
     expect(plan).toContain('aria-modal="true"');
@@ -206,19 +223,10 @@ describe("NLC and browser integration", () => {
 
     const soloHandler = plan.slice(
       plan.indexOf("card.querySelector('[data-plan-card-action=\"solo-join\"]')"),
-      plan.indexOf("card.querySelector('[data-plan-card-action=\"team-create\"]')")
+      plan.indexOf("container.appendChild(card)", plan.indexOf("card.querySelector('[data-plan-card-action=\"solo-join\"]')"))
     );
     expect(soloHandler).toContain("confirmPlanJoin");
     expect(soloHandler.indexOf("confirmPlanJoin")).toBeLessThan(soloHandler.indexOf("joinPlanSoloFromCard"));
-
-    const teamHandlerStart = plan.indexOf("card.querySelector('[data-plan-card-action=\"team-create\"]')");
-    const teamHandler = plan.slice(
-      teamHandlerStart,
-      plan.indexOf("container.appendChild(card)", teamHandlerStart)
-    );
-    expect(teamHandler).not.toContain("confirmPlanJoin");
-    expect(teamHandler).toContain("createTeamFromPlanCard(plan, key)");
-    expect(teamHandler).not.toContain("joinPlanSoloFromCard");
   });
 
   it("requires confirmation before joining from preset plan details", () => {
@@ -233,15 +241,20 @@ describe("NLC and browser integration", () => {
     expect(openDetailsFlow.indexOf("confirmPlanJoin")).toBeLessThan(openDetailsFlow.indexOf("joinPlanSoloFromCard(plan, key)"));
   });
 
-  it("opens team setup from preset cards without joining the plan first", () => {
-    const createTeamFlow = plan.slice(
-      plan.indexOf("async function createTeamFromPlanCard"),
-      plan.indexOf("function renderPresetPlans")
+  it("opens team setup from the joined-plan card's participation control, never before the user has actually joined", () => {
+    // Team creation used to be reachable straight from the discover ("探索
+    // 計畫") card, before the user had joined the plan at all — that only
+    // ever created a reading_teams row with no matching reading_plans
+    // enrollment. It's now only reachable via bindPlanParticipationItemActions
+    // on an already-joined plan's card.
+    expect(plan).not.toContain("async function createTeamFromPlanCard");
+    const bindActionsFlow = plan.slice(
+      plan.indexOf("function bindPlanParticipationItemActions"),
+      plan.indexOf("function userHasNoPlanAtAll")
     );
-    expect(createTeamFlow).not.toContain("joinPlanSoloFromCard");
-    expect(createTeamFlow).not.toContain("await db.joinPresetPlan");
-    expect(createTeamFlow).toContain("openReadingTeamDialog(plan");
-    expect(createTeamFlow).not.toContain("preferredDivision: 3");
+    expect(bindActionsFlow).not.toContain("joinPlanSoloFromCard");
+    expect(bindActionsFlow).not.toContain("await db.joinPresetPlan");
+    expect(bindActionsFlow).toContain("window.openReadingTeamDialog(plan, { preferredDivision: division })");
 
     const teamDialog = teamUi.slice(
       teamUi.indexOf("const renderEmpty = (joinedContexts"),
