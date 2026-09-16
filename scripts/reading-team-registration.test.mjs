@@ -150,6 +150,15 @@ describe("reading competition team schema", () => {
     expect(peerReminderMigration).not.toMatch(/UPDATE\s+public\.(profiles|small_groups|pastoral_zones)/i);
   });
 
+  it("openCareReminderDialog looks up today's already-sent reminder using the team-scoped plan_key ('reading-team:'+teamId) for team members, not the org-hierarchy presetKey — since send_reading_team_reminder stores rows under that key, checking the wrong key always misses and silently drops the daily-limit/edit-mode UX for team reminders", () => {
+    const idx = plan.indexOf("window.openCareReminderDialog = async function");
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const body = plan.slice(idx, idx + 1000);
+    expect(body).toMatch(/member\.readingTeamId\s*\n?\s*\?\s*`reading-team:\$\{member\.readingTeamId\}`/);
+    expect(body).not.toContain("if (!member.readingTeamId && typeof db !== \"undefined\"");
+    expect(body).toMatch(/if \(typeof db !== "undefined" && typeof db\.getTodayCareReminderFor === "function"\) \{/);
+  });
+
   it("returns the same roster metrics needed by organisation member status", () => {
     expect(rosterStatsMigration).toContain("'longestStreak'");
     expect(rosterStatsMigration).toContain("'readingLogs'");

@@ -4811,6 +4811,9 @@ const db = {
     if (!plan) {
       return { success: false, error: new Error("A plan is required.") };
     }
+    if (typeof window.isPlanExpired === "function" && window.isPlanExpired(plan)) {
+      return { success: false, error: new Error("此計畫已結束，無法再調整每週讀經安排。") };
+    }
     const isFixed = plan.isFixed !== false && plan.is_fixed !== false;
 
     const weeklySchedule = normalizePlanScheduleSettings(
@@ -4868,6 +4871,12 @@ const db = {
   },
 
   async leavePlan(planId, presetKey) {
+    const targetPlan = (state.activePlans || []).find(p => p.id === planId || p.presetKey === presetKey);
+    if (targetPlan && typeof window.isPlanExpired === "function" && window.isPlanExpired(targetPlan)) {
+      showToast("此計畫已結束，僅供查看紀錄與統計，無法再退出。");
+      return;
+    }
+
     loader.show("退出計畫中...");
 
     if (state.isSupabaseMode && state.supabase && !(state.currentUser && state.currentUser.is_demo)) {

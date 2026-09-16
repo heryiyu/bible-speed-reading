@@ -749,10 +749,15 @@ async function updatePlanTeamInviteShortcutVisibility() {
 function refreshPlanOptionsMenuForKind(plan) {
   const kind = (plan && (plan.planKind || plan.plan_kind)) || "";
   const isViewerOnlyPlan = kind === "devotional" || kind === "group_meeting";
+  // 計畫已結束（過了 endDate）→ 每週讀經安排／退出此計畫／重置此計畫進度都會
+  // 動到已經定案的歷史紀錄，一律藏起來，只留「計畫詳情」可查看。
+  const expired = typeof isPlanExpired === "function" && isPlanExpired(plan);
   const scheduleBtn = document.getElementById("edit-flexible-plan-schedule-btn");
+  const deleteBtn = document.getElementById("delete-plan-btn");
   const resetBtn = document.getElementById("reset-plan-progress-btn");
-  if (scheduleBtn) scheduleBtn.style.display = isViewerOnlyPlan ? "none" : "";
-  if (resetBtn) resetBtn.style.display = isViewerOnlyPlan ? "none" : "";
+  if (scheduleBtn) scheduleBtn.style.display = (isViewerOnlyPlan || expired) ? "none" : "";
+  if (deleteBtn) deleteBtn.style.display = expired ? "none" : "";
+  if (resetBtn) resetBtn.style.display = (isViewerOnlyPlan || expired) ? "none" : "";
 }
 
 function initPlanControls() {
@@ -911,6 +916,10 @@ function initPlanControls() {
       if (!plan) return;
       const dropdown = document.getElementById("plan-options-dropdown");
       if (dropdown) dropdown.classList.add("hidden");
+      if (isPlanExpired(plan)) {
+        showToast("此計畫已結束，無法再調整每週讀經安排。");
+        return;
+      }
       const scheduleSettings = await openFlexibleScheduleDialog(plan, { editing: true });
       if (!scheduleSettings) return;
       const result = await db.updateFlexiblePlanSchedule(plan, scheduleSettings);
@@ -930,6 +939,10 @@ function initPlanControls() {
     deleteBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
       if (!state.activePlan) return;
+      if (isPlanExpired(state.activePlan)) {
+        showToast("此計畫已結束，僅供查看紀錄與統計，無法再退出。");
+        return;
+      }
       const confirmed = await window.showConfirmDialog({
         title: "確定要放棄目前的讀經計畫嗎？",
         message: "您的已讀進度紀錄仍會保留，之後您可以隨時重新加入。",
@@ -950,6 +963,10 @@ function initPlanControls() {
       const menu = document.getElementById("plan-options-dropdown");
       if (menu) menu.classList.add("hidden");
       if (!state.activePlan) return;
+      if (isPlanExpired(state.activePlan)) {
+        showToast("此計畫已結束，僅供查看紀錄與統計，無法再重置進度。");
+        return;
+      }
       const planName = state.activePlan.name;
       const confirmed = await window.showConfirmDialog({
         title: `確定要重置「${planName}」的進度嗎？`,
@@ -1937,6 +1954,7 @@ function renderJoinedPlansList() {
             })
           ])
         });
+        if (typeof hydrateIcons === "function") hydrateIcons(card);
       } else {
         // Normal active plan: a big progress number carries the card instead of a "進度：" text row
         const totalChapters = plan.currentRoundTotalChapters || plan.totalChapters;
@@ -9018,10 +9036,16 @@ window.openCareReminderDialog = async function(member) {
 
   // 打開對話框時先看看今天是不是已經傳過一則給這個人——有的話直接把內容
   // 帶進來顯示 + 開放編輯，而不是讓人送出後就再也看不到自己寫了什麼，
-  // 也不會因為「今天已經傳過」而卡死。
-  const planKeyForCare = state.activePlan ? (state.activePlan.presetKey || state.activePlan.globalPlanId || "") : "";
+  // 也不會因為「今天已經傳過」而卡死。團隊入口送出的提醒存進 care_reminders
+  // 時，plan_key 是 'reading-team:' + team.id（見 send_reading_team_reminder
+  // RPC），跟一般組織階層提醒用的 presetKey/globalPlanId 不是同一組 key，
+  // 這裡要分開組，否則團隊入口永遠查不到「今天已經傳過」，使用者在同一天對
+  // 同一位隊友再按一次「傳送」時只會撞上後端的每日上限、看起來像是傳送失敗。
+  const planKeyForCare = member.readingTeamId
+    ? `reading-team:${member.readingTeamId}`
+    : (state.activePlan ? (state.activePlan.presetKey || state.activePlan.globalPlanId || "") : "");
   let existingReminder = null;
-  if (!member.readingTeamId && typeof db !== "undefined" && typeof db.getTodayCareReminderFor === "function") {
+  if (typeof db !== "undefined" && typeof db.getTodayCareReminderFor === "function") {
     try {
       const existingRes = await db.getTodayCareReminderFor(member.id, planKeyForCare);
       existingReminder = existingRes && existingRes.data ? existingRes.data : null;
