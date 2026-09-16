@@ -7211,13 +7211,6 @@ body.admin-quiz-editor-open {
   background: color-mix(in srgb, var(--color-danger) 14%, transparent);
 }
 
-.joined-plan-schedule-summary {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  line-height: 1.4;
-  min-width: 0;
-}
-
 
 /* ==========================================================================
    Reader Top Navbar (Screenshot Mockup Design)
@@ -13047,21 +13040,6 @@ body.profile-subpage-open .main-content {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.plan-card__meta--wrap {
-  align-items: flex-start;
-}
-
-.plan-card__meta--wrap .nlc-icon {
-  margin-top: 0.15rem;
-  flex-shrink: 0;
-}
-
-.plan-card__meta--wrap span:last-child {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: normal;
 }
 
 .plan-card__description {

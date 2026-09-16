@@ -38,8 +38,9 @@ export function getPlanParticipationModel(plan, contexts = []) {
   const memberCount = Number(team.memberCount || team.current_count || joinedContext.memberCount || 0);
   const capacity = Number(team.capacity || team.division || division);
   const isFull = capacity > 0 && memberCount >= capacity;
-  const teamName = String(team.name || "團隊").trim() || "團隊";
-  const description = `${division}人組・${teamName}・${memberCount}/${capacity}`;
+  // 隊名是使用者自訂的自由文字（長度、有沒有 emoji 都不可控），卡片只留
+  // 「幾人組＋目前人數」這種可預期長度的狀態摘要，隊名點進「我的團隊」再看。
+  const description = `${division}人組・${memberCount}/${capacity}`;
 
   if (availableDivision) {
     return {

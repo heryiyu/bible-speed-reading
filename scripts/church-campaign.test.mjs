@@ -207,7 +207,6 @@ describe("editable flexible weekly schedules", () => {
 
   it("shows saved rest weekdays in the list and edits only from the plan menu", () => {
     expect(plan).toContain("formatFlexibleScheduleSummary");
-    expect(plan).toContain("joined-plan-schedule-summary");
     expect(plan).not.toContain("edit-flexible-schedule-btn");
     expect(plan).toContain('document.getElementById("edit-flexible-plan-schedule-btn")');
     expect(plan).toContain("openFlexibleScheduleDialog(plan, { editing: true })");

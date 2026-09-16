@@ -1236,7 +1236,7 @@ function getPlanCoverHtml(plan) {
   return `<div class="plan-cover-thumbnail" style="background: ${bg};">${label}</div>`;
 }
 
-function renderPlanCardHeader({ eyebrow = "", title = "", meta = "", metaClass = "", description = "", titleTrailing = "" } = {}) {
+function renderPlanCardHeader({ eyebrow = "", title = "", meta = "", description = "", titleTrailing = "" } = {}) {
   return `
     <div class="plan-card__header">
       ${eyebrow ? `<div class="plan-card__eyebrow">${eyebrow}</div>` : ""}
@@ -1244,7 +1244,7 @@ function renderPlanCardHeader({ eyebrow = "", title = "", meta = "", metaClass =
         <h4 class="plan-card__title">${title}</h4>
         ${titleTrailing ? `<div class="plan-card__title-trailing">${titleTrailing}</div>` : ""}
       </div>
-      ${meta ? `<div class="plan-card__meta${metaClass ? ` ${escapeHTML(metaClass)}` : ""}">${meta}</div>` : ""}
+      ${meta ? `<div class="plan-card__meta">${meta}</div>` : ""}
       ${description ? `<p class="plan-card__description">${description}</p>` : ""}
     </div>
   `;
@@ -1894,10 +1894,9 @@ function renderJoinedPlansList() {
         campaignAwardValue = frf.ironAwardEarned
           ? `已獲得 ${escapeHTML(campaignAwardName)}`
           : frf.canSynthesize
-          ? `四卷完成 · 前往徽章牆合成${escapeHTML(campaignAwardName)}`
-          : `${escapeHTML(campaignAwardName)}：四卷全部完成才頒發 · 已完成 ${frf.collected}/${frf.total} 卷`;
+          ? `${escapeHTML(campaignAwardName)}・可前往合成`
+          : `${escapeHTML(campaignAwardName)}・已完成 ${frf.collected}/${frf.total} 卷`;
       }
-      const weeklyScheduleSummary = formatFlexibleScheduleSummary(plan);
       const isUpcomingFixed = isFixedPlanUpcoming(plan);
       const dateMeta = `
         <span class="nlc-icon nlc-icon--sm" data-icon="calendarThirty" aria-hidden="true"></span>
@@ -1946,19 +1945,12 @@ function renderJoinedPlansList() {
               <div class="plan-progress-bar" style="width: ${progress}%;"></div>
             </div>`;
 
-        // 日期範圍＋閱讀安排合併成一行，取代原本各自一整排的「安排：」文字列。
-        const scheduleMeta = `
-          <span class="nlc-icon nlc-icon--sm" data-icon="calendarThirty" aria-hidden="true"></span>
-          <span class="joined-plan-schedule-summary">${escapeHTML(plan.startDate)} ~ ${escapeHTML(plan.endDate)}・${escapeHTML(weeklyScheduleSummary)}</span>
-        `;
-
         card.innerHTML = renderPlanCardShell({
           plan,
           variant: isUpcomingFixed ? "upcoming" : "joined",
           header: renderPlanCardHeader({
             title: escapeHTML(plan.name),
-            meta: scheduleMeta,
-            metaClass: "plan-card__meta--wrap"
+            meta: dateMeta
           }),
           status: progressHero + renderPlanCardBadgeRow([
             isCampaignStage && renderPlanCardBadge({

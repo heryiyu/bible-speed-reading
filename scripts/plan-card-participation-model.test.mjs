@@ -49,7 +49,7 @@ describe("getPlanParticipationModel", () => {
     expect(m.icon).toBe("people");
     expect(m.tone).toBe("brand");
     expect(m.action).toEqual({ label: "我的團隊", division: 3, action: "open-team-dialog" });
-    expect(m.description).toBe("3人組・光鹽・2/3");
+    expect(m.description).toBe("3人組・2/3");
   });
 
   it("opens My Team for the joined 6-person division instead of nudging the other division", () => {
@@ -86,7 +86,7 @@ describe("getPlanParticipationModel", () => {
 
   it("falls back gracefully on missing team fields", () => {
     const m = getPlanParticipationModel(null, [{ team: { division: 3 } }]);
-    expect(m.description).toBe("3人組・團隊・0/3");
+    expect(m.description).toBe("3人組・0/3");
     expect(m.tone).toBe("brand"); // 0/3 is not full
   });
 
