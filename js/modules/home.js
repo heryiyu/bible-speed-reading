@@ -49,7 +49,6 @@ function scheduleDashboardSecondaryWork() {
     dashboardSecondaryWorkTimer = window.setTimeout(() => {
       dashboardSecondaryWorkTimer = null;
       calculateAndRenderPersonalRankings();
-      renderPastoralZoneRankingList();
       loadTodayDevotional();
       refreshPastoralSharingWallAvailability();
       renderPilgrimageTrail();
@@ -943,69 +942,13 @@ async function renderChurchAnnouncements() {
   if (typeof hydrateIcons === "function") hydrateIcons(container);
 }
 
-async function renderPastoralZoneRankingList() {
-  const rankingContainer = document.getElementById("dashboard-pastoral-ranking");
-  if (!rankingContainer) return;
-
-  const hasPlan = state.activePlans && state.activePlans.length > 0;
-  if (!hasPlan) {
-    rankingContainer.innerHTML = `<div class="empty-state">請先加入計畫以查看排名</div>`;
-    return;
-  }
-
-  if (firstPaint(rankingContainer)) {
-    rankingContainer.innerHTML = typeof ComponentSkeletonLoader !== "undefined"
-      ? ComponentSkeletonLoader.getHtml("ranking", { count: 5 })
-      : "";
-  }
-
-  let pastoralStats = [];
-  if (state.isSupabaseMode && state.supabase) {
-    try {
-      const { data } = await state.supabase.from("view_pastoral_zone_stats").select("pastoral_zone, total_chapters_read");
-      if (data) {
-        pastoralStats = data.map(item => ({
-          name: item.pastoral_zone,
-          total_chapters: item.total_chapters_read
-        })).sort((a, b) => b.total_chapters - a.total_chapters);
-      }
-    } catch (e) {
-      console.error("Failed to load pastoral zone stats:", e);
-    }
-  } else {
-    const mockUser = {
-      name: state.currentUser.name,
-      great_region: state.currentUser.great_region || "",
-      pastoral_zone: state.currentUser.pastoral_zone || "",
-      small_group: state.currentUser.small_group || "",
-      role_code: getUserRoleCode(state.currentUser) || "member",
-      chapters_read: state.currentUser.chapters_read,
-      plan_progress: state.currentUser.plan_progress,
-      last_read: state.currentUser.last_read
-    };
-    pastoralStats = MockStatsService.getPastoralZoneStats(mockUser);
-  }
-
-  rankingContainer.innerHTML = "";
-  if (pastoralStats.length === 0) {
-    rankingContainer.innerHTML = `<div class="empty-state">尚無速讀數據</div>`;
-    return;
-  }
-
-  pastoralStats.slice(0, 5).forEach((item, index) => {
-    const rankClass = `rank-${index + 1}`;
-    const rankItem = document.createElement("div");
-    rankItem.className = "ranking-item";
-    rankItem.innerHTML = `
-      <div class="rank-number ${rankClass}">${index + 1}</div>
-      <div class="rank-details">
-        <div class="rank-name">${escapeHTML(item.name || item.pastoral_zone)}</div>
-      </div>
-      <div class="rank-value">${item.total_chapters || 0} 章</div>
-    `;
-    rankingContainer.appendChild(rankItem);
-  });
-}
+// renderPastoralZoneRankingList removed 2026-09-16: its target container
+// #dashboard-pastoral-ranking doesn't exist anywhere in the current dashboard
+// template (a leftover call from a dashboard layout that was redesigned), so
+// this was a permanent no-op — and its query (view_pastoral_zone_stats) had
+// also been failing the whole time since that view never existed in the
+// active schema. See js/modules/plan.js's removed "Stats View Logic" comment
+// for the matching small-group-side story.
 
 async function loadTodayDevotional() {
   const textarea = document.getElementById("devotional-content");

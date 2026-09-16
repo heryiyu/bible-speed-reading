@@ -722,12 +722,6 @@ appRouter.switchTab = async function (tabId, options = {}) {
         }
       }
 
-    } else if (tabId === "stats-view") {
-      const mod = await loadModule('plan', './modules/plan.js?v=' + buildVersion);
-      if (typeof window.updateStatsView === 'function') {
-        await window.updateStatsView();
-      }
-
     } else if (tabId === "profile-view") {
       const mod = await loadModule('profile', './modules/profile.js?v=' + buildVersion);
       if (typeof window.syncActivePlanContext === 'function') {

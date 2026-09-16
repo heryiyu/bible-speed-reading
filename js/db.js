@@ -654,8 +654,6 @@ const db = {
               if (typeof window.renderPlanView === 'function') window.renderPlanView();
             } else if (appRouter.currentTab === "profile-view") {
               if (typeof renderProfileView === 'function') renderProfileView();
-            } else if (appRouter.currentTab === "stats-view") {
-              if (typeof window.updateStatsView === 'function') window.updateStatsView();
             }
           } catch (err) {
             console.error("Error in onAuthStateChange callback:", err);

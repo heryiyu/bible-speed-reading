@@ -36,7 +36,7 @@ describe("profile name handling (js/utils.js)", () => {
 
 describe("plan entry: eligibility judged at login only (js/app.js + js/db.js)", () => {
   it("plan-view switchTab branch renders the plan module directly, no eligibility re-check", () => {
-    const planBranch = app.match(/\} else if \(tabId === "plan-view"\) \{[\s\S]*?\n {4}\} else if \(tabId === "stats-view"\)/);
+    const planBranch = app.match(/\} else if \(tabId === "plan-view"\) \{[\s\S]*?\n {4}\} else if \(tabId === "profile-view"\)/);
     expect(planBranch, "plan-view switchTab branch").toBeTruthy();
     expect(planBranch[0]).not.toContain("getPlanEligibilityBlock");
     expect(planBranch[0]).not.toContain("renderPlanEligibilityGate");

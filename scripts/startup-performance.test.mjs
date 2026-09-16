@@ -123,7 +123,8 @@ describe("Chart.js is off the critical path (A2)", () => {
   it("warms the Chart.js fetch when a chart-bearing sub-view opens", () => {
     expect(planModule).toMatch(/async function renderPlanStatsView\(\)\s*\{\s*\n\s*ensureChartLib\(\)/);
     expect(planModule).toMatch(/async function renderPlanRankingView\(\)\s*\{\s*\n\s*ensureChartLib\(\)/);
-    expect(planModule).toMatch(/async function updateStatsView\([^)]*\)\s*\{\s*\n\s*ensureChartLib\(\)/);
+    // updateStatsView was removed 2026-09-16 (dead code — its "stats-view" tab
+    // no longer exists in the tab bar; see plan.js's removal comment).
   });
 });
 

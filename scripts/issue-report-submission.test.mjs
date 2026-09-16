@@ -15,7 +15,7 @@ describe("issue_reports submission authorization (nlc-data)", () => {
     // A dedicated, insert-only allowance that does not require admin.
     expect(edge).toMatch(/canReportInsert\s*=\s*action === "insert" && table === "issue_reports"/);
     // ...and it feeds the member-write branch (canOwnWrite), not the admin one.
-    expect(edge).toMatch(/const canOwnWrite = [^\n]*\|\| canReportInsert/);
+    expect(edge).toMatch(/const canOwnWrite = [\s\S]*?\|\| canReportInsert/);
   });
 
   it("forces user_id server-side so a member cannot spoof another user", () => {

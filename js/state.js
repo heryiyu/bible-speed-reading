@@ -351,7 +351,6 @@ const appRouter = {
       "dashboard-view": "首頁",
       "reader-view": "讀經",
       "plan-view": "計畫",
-      "stats-view": "統計",
       "profile-view": "個人",
       "admin-view": "管理"
     };

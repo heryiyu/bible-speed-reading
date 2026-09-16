@@ -21,10 +21,25 @@ const READ_TABLES = new Set([
   "devotional_likes",
   "devotional_comments",
   "verse_likes",
-  "profile_identity_overview",
-  "member_reading_summary",
-  "view_pastoral_zone_stats",
-  "view_small_group_stats",
+  // profile_identity_overview / member_reading_summary removed 2026-09-16:
+  // both exposed every member's row (profile_identity_overview includes
+  // email, Logto provider_user_id, last_seen_at) with zero forced scope in
+  // applyForcedScope — any authenticated member could SELECT the whole
+  // church directory. Neither view is referenced anywhere in js/ or any
+  // RPC; this was pure unused attack surface, so it's removed rather than
+  // scoped. If a real admin feature needs this data later, add a dedicated,
+  // role-checked action for it instead of reopening generic select access.
+  //
+  // view_pastoral_zone_stats / view_small_group_stats also removed
+  // 2026-09-16: the views themselves never existed in the active schema
+  // (only in supabase/migrations_legacy, never carried into
+  // 0001_clean_schema.sql), and the only two frontend call sites were
+  // already-dead code (js/modules/home.js's renderPastoralZoneRankingList,
+  // whose DOM container doesn't exist, and js/modules/plan.js's
+  // updateStatsView cluster, gated behind a "stats-view" tab the current tab
+  // bar has no button for) — both removed in the same change. The equivalent
+  // ranking data is already computed live via renderOrgStatsTree /
+  // computeOrgUnitStats in js/modules/plan.js.
   "care_reminders",
   "app_feature_settings",
   "role_definitions",
