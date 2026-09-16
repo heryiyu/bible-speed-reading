@@ -6315,6 +6315,13 @@ function renderPersonalTrendChart() {
   const currentPlanId = state.activePlan && state.activePlan.id;
   const currentPresetKey = state.activePlan && state.activePlan.presetKey;
 
+  // 已結束的計畫：把「今天」鎖定在計畫結束日，否則下面這三個區間（本週／
+  // 30 天／12 個月）都是跟著真實日期往前滑動的視窗，時間一久，已經讀過的
+  // 紀錄就會被擠出視窗範圍，圖表看起來變成全空白。
+  const referenceDate = (typeof isPlanExpired === "function" && isPlanExpired(state.activePlan) && state.activePlan.endDate)
+    ? new Date(`${state.activePlan.endDate}T00:00:00`)
+    : new Date();
+
   const range = state.personalTrendRange || "month";
 
   // Style buttons according to range selection
@@ -6335,7 +6342,7 @@ function renderPersonalTrendChart() {
   if (range === "week") {
     // 7 days starting from Sunday of the current week
     const dates = [];
-    const today = new Date();
+    const today = referenceDate;
     const dayOfWeek = today.getDay();
     const sunday = new Date(today);
     sunday.setDate(today.getDate() - dayOfWeek);
@@ -6361,7 +6368,7 @@ function renderPersonalTrendChart() {
   } else if (range === "year") {
     // 12 months
     const months = [];
-    const today = new Date();
+    const today = referenceDate;
     for (let i = 11; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const yStr = d.getFullYear();
@@ -6383,7 +6390,7 @@ function renderPersonalTrendChart() {
   } else {
     // 30 days (default)
     const dates = [];
-    const today = new Date();
+    const today = referenceDate;
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
