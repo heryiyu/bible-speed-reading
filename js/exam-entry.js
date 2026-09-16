@@ -16,7 +16,7 @@ import './design/icons.js';
 import './state.js?v=20260901_highlights_notes_review';
 import './auth.js?v=20260906_session_expired_event';
 import './auth-launch.mjs';
-import './db.js?v=20260911_exam_paper_linked_plan';
+import './db.js?v=20260916_reading_logs_pagination_fix';
 import './utils.js?v=20260905_r1final_badge_puzzle';
 import './gamification.js?v=20260826_quiz_remove_duplicate_scope_filter';
 import { mountExamRunner } from './modules/exam.js?v=20260911_exam_paper_linked_plan';
@@ -52,9 +52,11 @@ const setBoot = (msg) => { if (boot) boot.textContent = msg; };
     return;
   }
 
-  // 取得 state.currentUser（宣示畫面要顯示姓名）；失敗不致命。
+  // 取得 state.currentUser（宣示畫面要顯示姓名）跟 state.globalPlans（測驗綁定
+  // 計畫的名稱顯示）；失敗不致命。skipReadingLogs：這頁不顯示閱讀紀錄/進度，
+  // 不用連帶抓那份資料。
   try {
-    if (typeof window.db.loadUserData === 'function') await window.db.loadUserData(true);
+    if (typeof window.db.loadUserData === 'function') await window.db.loadUserData(true, { skipReadingLogs: true });
   } catch (err) {
     console.warn('[exam-entry] loadUserData failed', err);
   }

@@ -2340,11 +2340,13 @@ async function fetchPastoralVerseWall() {
     try {
       const user = await db.getCurrentDbUser();
       const pastoralZone = (state.currentUser && state.currentUser.pastoral_zone) || "";
-      let profilesQuery = state.supabase.from("profiles").select("id, name, small_group");
-      if (pastoralZone) {
-        profilesQuery = profilesQuery.eq("pastoral_zone", pastoralZone);
-      }
-      const { data: profiles, error: pError } = await profilesQuery;
+      // 沒有 pastoralZone 時（帳號還沒設牧區）不能只查一頁——那等於查全教會，
+      // 沒分頁的話超過 PostgREST 預設 1000 列上限就會悄悄漏掉後面的人。
+      const { data: profiles, error: pError } = await db.fetchAllRows(() => {
+        let q = state.supabase.from("profiles").select("id, name, small_group");
+        if (pastoralZone) q = q.eq("pastoral_zone", pastoralZone);
+        return q;
+      });
 
       if (pError) throw pError;
       if (!profiles || profiles.length === 0) {
@@ -2366,7 +2368,9 @@ async function fetchPastoralVerseWall() {
         }
         notesQuery = notesQuery.order("created_at", { ascending: false }).limit(50);
       } else {
-        notesQuery = notesQuery.eq("note_date", todayStr).in("user_id", userIds).order("created_at", { ascending: false });
+        // 跟上面歷史分頁同樣加 limit(50)：這是一面牆的展示用途，不是統計數字，
+        // 沒有必要（也不該）把全教會今天貼的心得全部抓下來。
+        notesQuery = notesQuery.eq("note_date", todayStr).in("user_id", userIds).order("created_at", { ascending: false }).limit(50);
       }
 
       const { data: notes, error: nError } = await notesQuery;
@@ -2383,16 +2387,18 @@ async function fetchPastoralVerseWall() {
       }
 
       const noteIds = activeNotes.map(n => n.id);
-      const { data: likes } = await state.supabase
+      // 這兩個沒有天然上限——熱門心得的讚/留言數不會被 noteIds 的數量限制住，
+      // 一樣要分頁抓，不然愛心數字會算錯、留言串底部（最新的留言）會憑空消失。
+      const { data: likes } = await db.fetchAllRows(() => state.supabase
         .from("devotional_likes")
         .select("note_id, user_id")
-        .in("note_id", noteIds);
+        .in("note_id", noteIds));
 
-      const { data: comments } = await state.supabase
+      const { data: comments } = await db.fetchAllRows(() => state.supabase
         .from("devotional_comments")
         .select("id, note_id, user_id, content, created_at")
         .in("note_id", noteIds)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true }));
 
       const profileMap = {};
       profiles.forEach(p => {

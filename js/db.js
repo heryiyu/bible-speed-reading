@@ -1299,7 +1299,14 @@ const db = {
     return state.readingLogs;
   },
 
-  async loadUserData(force = false) {
+  // skipReadingLogs: for standalone pages (exam.html/grade.html) that only
+  // call this to populate state.currentUser (and, for the exam page,
+  // state.globalPlans) — they never display reading logs or plan progress,
+  // so there's no reason to pay for that fetch, and no window.readingLogRepository
+  // exists there anyway (it's only created by app.js, which those pages
+  // deliberately don't load) to make it safe/paginated. See exam-entry.js /
+  // grade-entry.js's loadUserData call sites.
+  async loadUserData(force = false, { skipReadingLogs = false } = {}) {
     if (force) {
       this._userDataPromise = null;
     }
@@ -1342,14 +1349,23 @@ const db = {
             state.supabase.from("profiles").select("id, name, email, avatar_url, great_region, pastoral_zone, small_group, role_id, is_demo, is_active, managed_regions, managed_zones, managed_groups, member_context_synced_at, member_context_sync_attempted_at, member_context_sync_status, member_context_sync_error, member_context_leadership_display_label, member_context_leadership_primary_assignment_id, member_context_leadership_assignments, role_definition:role_definitions!profiles_role_definition_fkey(id, code, label, sort_order, is_assignable, can_manage_plans, can_manage_permissions, scope_type)").eq("id", user.id).maybeSingle(),
             state.supabase.from("reading_plans").select("id, user_id, global_plan_id, name, start_date, end_date, target_books, preset_key, current_round, upgrade_prompt_handled, current_round_started_at, is_fixed, reading_days_per_week, rest_weekdays, created_at").eq("user_id", user.id).order("created_at", { ascending: false })
           ]),
-          window.readingLogRepository
-            ? window.readingLogRepository.fetch({
-              cacheKey: `reading_logs:${user.id}`,
-              query: table => table.select("book, chapter, read_at, plan_id, round").eq("user_id", user.id),
-              onData: (rows, meta) => this.applyReadingLogsSnapshot(rows, { notify: true, source: meta.source })
-            })
-            : state.supabase.from("reading_logs").select("book, chapter, read_at, plan_id, round").eq("user_id", user.id),
-          this.fetchAllHighlights()
+          skipReadingLogs
+            ? Promise.resolve({ data: [], error: null })
+            : (window.readingLogRepository
+              ? window.readingLogRepository.fetch({
+                cacheKey: `reading_logs:${user.id}`,
+                query: table => table.select("book, chapter, read_at, plan_id, round").eq("user_id", user.id),
+                onData: (rows, meta) => this.applyReadingLogsSnapshot(rows, { notify: true, source: meta.source })
+              })
+              // window.readingLogRepository only exists when js/app.js has run (it's
+              // created at app.js:1025) — pages that reach here without it (there
+              // shouldn't be any now that exam/grade pass skipReadingLogs, but keep
+              // this safe as a fallback) must stay paginated: one finished round is
+              // 1,189 chapters, well past PostgREST's 1000-row default, and an
+              // unpaginated fetch here silently truncates chapters_read *and* gets
+              // written into the offline localStorage snapshot.
+              : fetchAllRows(() => state.supabase.from("reading_logs").select("book, chapter, read_at, plan_id, round").eq("user_id", user.id))),
+          skipReadingLogs ? Promise.resolve({ data: [], error: null }) : this.fetchAllHighlights()
         ]);
 
         // Only message/code — never the raw error object. A PostgrestError
@@ -1462,8 +1478,11 @@ const db = {
 
         // 2. Load Reading Logs
         // ⚠️ 查詢失敗時保留既有的 state.readingLogs，不要用空陣列洗掉打卡紀錄。
+        // skipReadingLogs：logsResult 是空 stub，不是「查了、剛好沒有」，所以
+        // 不要呼叫 applyReadingLogsSnapshot（會把 state.readingLogs/chapters_read
+        // 洗成空/0）——直接維持呼叫前的既有值，跟完全沒查過一樣。
         const rawLogs = logsResult.data || [];
-        if (!logsResult.error) {
+        if (!skipReadingLogs && !logsResult.error) {
           this.applyReadingLogsSnapshot(rawLogs);
         }
 
@@ -1560,7 +1579,10 @@ const db = {
         // unreachable — without writing them here, that fallback used to
         // always show empty plans for real NLC/Supabase-mode users, since
         // nothing in this success path ever touched them.
-        if (!plansResult.error && !logsResult.error) {
+        // skipReadingLogs loads never reach this point with real reading-log
+        // data (logsResult.data is the empty stub above), so never let a
+        // lite load overwrite a real cached snapshot with that emptiness.
+        if (!skipReadingLogs && !plansResult.error && !logsResult.error) {
           safeStorageSet("active_reading_plans", state.activePlans, 300);
           safeStorageSet("reading_logs", state.readingLogs, 300);
           localStorage.setItem("offline_snapshot_synced_at", new Date().toISOString());
@@ -6128,5 +6150,12 @@ const db = {
     }
   }
 };
+
+// Exposed so other modules (e.g. js/modules/home.js's pastoral verse wall)
+// can page through a whole-church query safely instead of hand-rolling
+// their own loop or, worse, leaving a query unpaginated. See fetchAllRows's
+// own comment above for why an unpaginated select silently truncates once
+// a result set passes PostgREST's default row cap.
+db.fetchAllRows = fetchAllRows;
 
 window.db = db;
