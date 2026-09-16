@@ -9036,10 +9036,16 @@ window.openCareReminderDialog = async function(member) {
 
   // 打開對話框時先看看今天是不是已經傳過一則給這個人——有的話直接把內容
   // 帶進來顯示 + 開放編輯，而不是讓人送出後就再也看不到自己寫了什麼，
-  // 也不會因為「今天已經傳過」而卡死。
-  const planKeyForCare = state.activePlan ? (state.activePlan.presetKey || state.activePlan.globalPlanId || "") : "";
+  // 也不會因為「今天已經傳過」而卡死。團隊入口送出的提醒存進 care_reminders
+  // 時，plan_key 是 'reading-team:' + team.id（見 send_reading_team_reminder
+  // RPC），跟一般組織階層提醒用的 presetKey/globalPlanId 不是同一組 key，
+  // 這裡要分開組，否則團隊入口永遠查不到「今天已經傳過」，使用者在同一天對
+  // 同一位隊友再按一次「傳送」時只會撞上後端的每日上限、看起來像是傳送失敗。
+  const planKeyForCare = member.readingTeamId
+    ? `reading-team:${member.readingTeamId}`
+    : (state.activePlan ? (state.activePlan.presetKey || state.activePlan.globalPlanId || "") : "");
   let existingReminder = null;
-  if (!member.readingTeamId && typeof db !== "undefined" && typeof db.getTodayCareReminderFor === "function") {
+  if (typeof db !== "undefined" && typeof db.getTodayCareReminderFor === "function") {
     try {
       const existingRes = await db.getTodayCareReminderFor(member.id, planKeyForCare);
       existingReminder = existingRes && existingRes.data ? existingRes.data : null;
