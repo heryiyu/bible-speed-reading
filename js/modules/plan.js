@@ -1948,7 +1948,6 @@ function renderJoinedPlansList() {
           ]),
           progress: progressHtml,
           actions: renderPlanCardActions([
-            { kind: upgradeAvailability.eligible ? "secondary" : "primary", icon: isUpcomingFixed ? "calendarThirty" : "bookOpen", label: isUpcomingFixed ? "查看計畫" : "繼續讀經", action: "continue" },
             upgradeAvailability.eligible && { kind: "primary", icon: "trophy", label: `開始${upgradeAvailability.nextRoundLabel}`, action: "upgrade" }
           ]),
           after: teamHtml
@@ -1956,11 +1955,6 @@ function renderJoinedPlansList() {
 
         if (typeof hydrateIcons === "function") hydrateIcons(card);
 
-        card.querySelector('[data-plan-card-action="continue"]')?.addEventListener("click", async event => {
-          event.preventDefault();
-          event.stopPropagation();
-          await openJoinedPlanProgress(plan);
-        });
         card.querySelector('[data-plan-card-action="upgrade"]')?.addEventListener("click", async event => {
           event.preventDefault();
           event.stopPropagation();
