@@ -1604,13 +1604,6 @@ async function joinPlanSoloFromCard(plan, key) {
   return joinedPlan;
 }
 
-async function createTeamFromPlanCard(plan, key) {
-  if (typeof window.openReadingTeamDialog === "function") {
-    await window.openReadingTeamDialog(plan);
-  }
-  return null;
-}
-
 function getJoinedPlanStartTime(plan) {
   if (!plan || !plan.startDate) return Number.MAX_SAFE_INTEGER;
   const date = new Date(`${plan.startDate}T00:00:00`);
@@ -2658,8 +2651,7 @@ function renderPresetPlansList() {
       actions: isJoinBlocked
         ? ""
         : renderPlanCardActions([
-            { kind: "primary", icon: "bookOpen", label: "自己加入", action: "solo-join" },
-            { kind: "secondary", icon: "people", label: "建立團隊", action: "team-create" }
+            { kind: "primary", icon: "bookOpen", label: "加入計畫", action: "solo-join" }
           ])
     });
 
@@ -2700,14 +2692,6 @@ function renderPresetPlansList() {
         }
       });
     });
-    card.querySelector('[data-plan-card-action="team-create"]')?.addEventListener("click", async event => {
-      event.preventDefault();
-      event.stopPropagation();
-      // Opening team registration is navigation only. Creating a team inside
-      // that dialog is the commit point; cancelling must never join a solo plan.
-      await createTeamFromPlanCard(plan, key);
-    });
-
     container.appendChild(card);
   });
 

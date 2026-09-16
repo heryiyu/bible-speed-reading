@@ -61,7 +61,7 @@ describe("plan primary navigation", () => {
 });
 
 describe("plan join navigation", () => {
-  it("previews an available plan and exposes solo and team participation actions", () => {
+  it("previews an available plan and exposes a single join action — team creation only shows up after joining", () => {
     const presetFlow = plan.slice(
       plan.indexOf("function renderPresetPlansList"),
       plan.indexOf("function isChapterReadForRound")
@@ -69,9 +69,11 @@ describe("plan join navigation", () => {
 
     expect(presetFlow).toContain("openPlanDetailsDialog(plan, { onJoin: async () => {");
     expect(presetFlow).toContain("joinPlanSoloFromCard(plan, key)");
-    expect(presetFlow).toContain("createTeamFromPlanCard(plan, key)");
+    expect(presetFlow).not.toContain("createTeamFromPlanCard");
+    expect(presetFlow).not.toContain('data-plan-card-action="team-create"');
     expect(presetFlow).not.toContain("openJoinModeDialog(plan)");
     expect(presetFlow.indexOf("openPlanDetailsDialog")).toBeLessThan(presetFlow.indexOf("joinPlanSoloFromCard(plan, key)"));
+    expect(plan).not.toContain("async function createTeamFromPlanCard");
   });
 
   it("opens the joined plan detail instead of returning to the home page", () => {
