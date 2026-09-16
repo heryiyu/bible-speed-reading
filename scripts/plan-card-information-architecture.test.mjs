@@ -114,9 +114,9 @@ describe("plan card information architecture", () => {
     // The pure model lives in its own importable helper (see the behavioral
     // suite in plan-card-participation-model.test.mjs); plan.js consumes it.
     expect(participation).toContain("export function getPlanParticipationModel");
-    expect(participation).toContain('variant: "team-with-other-division-available"');
-    expect(participation).toContain('"team-full"');
-    expect(participation).toContain('"team-open"');
+    expect(participation).toContain('variant: "team-full-other-available"');
+    expect(participation).toContain('variant: "team-full"');
+    expect(participation).toContain('variant: "team-open"');
     expect(participation).toContain('variant: "solo"');
     expect(participation).toContain('action: "open-team-dialog"');
     expect(plan).toContain('from "./plan-participation-helpers.mjs"');
@@ -159,7 +159,9 @@ describe("plan card information architecture", () => {
     expect(planCardCss).toContain(".plan-card-participation-item__media");
     expect(planCardCss).toContain(".plan-card-participation-item__content");
     expect(planCardCss).toContain(".plan-card-participation-item__actions");
-    expect(planCardCss).toContain(".plan-card-participation-item__button");
-    expect(planCardCss).not.toMatch(/plan-card-participation-item__button[\s\S]*border-radius:\s*999/);
+    // The whole row is the tap target now (bigger touch area than a trailing
+    // button), so there's no separate __button element to style anymore.
+    expect(planCardCss).toContain(".plan-card-participation-item--actionable");
+    expect(planCardCss).not.toContain(".plan-card-participation-item__button");
   });
 });

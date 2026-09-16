@@ -180,7 +180,7 @@ describe("NLC and browser integration", () => {
     expect(plan).toContain('data-plan-card-action="team-create"');
     // Participation copy now lives in the extracted pure model helper.
     expect(participation).toContain("個人讀經中");
-    expect(participation).toContain("團隊讀經中");
+    expect(participation).toContain("邀請組員加入");
     expect(participation).toContain("建立 / 加入團隊");
     expect(plan).toContain("自己加入");
     expect(plan).toContain("建立團隊");
@@ -340,9 +340,9 @@ describe("NLC and browser integration", () => {
     expect(participation).toContain("export function getPlanParticipationModel");
     expect(plan).toContain("function renderPlanParticipationItem");
     expect(plan).toContain("function bindPlanParticipationItemActions");
-    expect(participation).toContain("團隊讀經中");
+    expect(participation).toContain("邀請組員加入");
     expect(participation).toContain("個人讀經中");
-    expect(participation).toContain("我的團隊");
+    expect(participation).toContain("隊伍已滿");
     expect(participation).toContain("open-team-dialog");
   });
 

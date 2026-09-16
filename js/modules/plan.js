@@ -1617,28 +1617,38 @@ function sortJoinedPlansChronologically(plans) {
 
 function renderPlanParticipationItem(model) {
   if (!model) return "";
-  const actionHtml = model.action ? `
+  const classes = `plan-card-participation-item plan-card-participation-item--${escapeHTML(model.variant)} plan-card-participation-item--${escapeHTML(model.tone)}`;
+  const media = `
+    <span class="plan-card-participation-item__media" aria-hidden="true">
+      <span class="nlc-icon nlc-icon--sm" data-icon="${escapeHTML(model.icon)}"></span>
+    </span>
+  `;
+  const content = `
+    <span class="plan-card-participation-item__content">
+      <span class="plan-card-participation-item__title">${escapeHTML(model.title)}</span>
+      ${model.description ? `<span class="plan-card-participation-item__description">${escapeHTML(model.description)}</span>` : ""}
+    </span>
+  `;
+
+  // 沒有動作可做（例如兩隊都滿）：安靜顯示狀態就好，不做成按鈕。
+  if (!model.action) {
+    return `<div class="${classes}">${media}${content}</div>`;
+  }
+
+  // 整排都能點，取代原本只有右側一顆小按鈕——觸控範圍更大，尾端一個箭頭
+  // 提示可點，跟卡片本體那個箭頭是同一套視覺語言。
+  return `
     <button
       type="button"
-      class="plan-card-participation-item__button"
+      class="${classes} plan-card-participation-item--actionable"
       data-plan-participation-action="${escapeHTML(model.action.action)}"
       data-plan-participation-division="${escapeHTML(String(model.action.division || ""))}"
     >
-      ${escapeHTML(model.action.label)}
+      ${media}${content}
+      <span class="plan-card-participation-item__actions" aria-hidden="true">
+        <span class="nlc-icon nlc-icon--sm" data-icon="chevronRight"></span>
+      </span>
     </button>
-  ` : "";
-
-  return `
-    <div class="plan-card-participation-item plan-card-participation-item--${escapeHTML(model.variant)} plan-card-participation-item--${escapeHTML(model.tone)}">
-      <div class="plan-card-participation-item__media" aria-hidden="true">
-        <span class="nlc-icon nlc-icon--sm" data-icon="${escapeHTML(model.icon)}"></span>
-      </div>
-      <div class="plan-card-participation-item__content">
-        <div class="plan-card-participation-item__title">${escapeHTML(model.title)}</div>
-        <div class="plan-card-participation-item__description">${escapeHTML(model.description)}</div>
-      </div>
-      ${actionHtml ? `<div class="plan-card-participation-item__actions">${actionHtml}</div>` : ""}
-    </div>
   `;
 }
 

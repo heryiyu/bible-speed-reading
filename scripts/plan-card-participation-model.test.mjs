@@ -43,59 +43,80 @@ describe("getPlanParticipationModel", () => {
     expect(getPlanParticipationModel(null, [null, undefined, {}]).variant).toBe("solo");
   });
 
-  it("offers a single My Team entry when joined to exactly one team", () => {
+  it("invites members for the one joined, not-yet-full team", () => {
     const m = getPlanParticipationModel(null, [ctx(3, { memberCount: 2, capacity: 3 })]);
-    expect(m.variant).toBe("team-with-other-division-available");
-    expect(m.icon).toBe("people");
+    expect(m.variant).toBe("team-open");
+    expect(m.icon).toBe("share");
     expect(m.tone).toBe("brand");
-    expect(m.action).toEqual({ label: "我的團隊", division: 3, action: "open-team-dialog" });
-    expect(m.description).toBe("3人組・2/3");
+    expect(m.title).toBe("邀請組員加入");
+    expect(m.action).toEqual({ label: "邀請組員", division: 3, action: "open-team-dialog" });
+    expect(m.description).toBe("3人組・還缺 1 人");
   });
 
-  it("opens My Team for the joined 6-person division instead of nudging the other division", () => {
+  it("invites for the joined 6-person division instead of nudging the other division", () => {
     const m = getPlanParticipationModel(null, [ctx(6, { memberCount: 4, capacity: 6 })]);
-    expect(m.variant).toBe("team-with-other-division-available");
-    expect(m.action).toEqual({ label: "我的團隊", division: 6, action: "open-team-dialog" });
+    expect(m.variant).toBe("team-open");
+    expect(m.action).toEqual({ label: "邀請組員", division: 6, action: "open-team-dialog" });
   });
 
-  it("uses the success tone once the joined team is full", () => {
+  it("nudges toward the other division once the one joined team is full, instead of a division-specific 'full' label", () => {
     const m = getPlanParticipationModel(null, [ctx(3, { memberCount: 3, capacity: 3 })]);
-    expect(m.tone).toBe("success");
-    expect(m.action).toEqual({ label: "我的團隊", division: 3, action: "open-team-dialog" });
+    expect(m.variant).toBe("team-full-other-available");
+    expect(m.tone).toBe("brand");
+    expect(m.icon).toBe("people");
+    expect(m.title).toBe("還可以組一隊 6 人隊");
+    expect(m.description).toBe("3人隊已滿員");
+    expect(m.action).toEqual({ label: "組 6 人隊", division: 6, action: "open-team-dialog" });
   });
 
-  it("keeps the same My Team entry when joined to BOTH sizes", () => {
+  it("keeps inviting for whichever joined division still has room when both sizes are joined", () => {
     const m = getPlanParticipationModel(null, [
       ctx(3, { memberCount: 2, capacity: 3 }),
       ctx(6, { memberCount: 5, capacity: 6 })
     ]);
     expect(m.variant).toBe("team-open");
-    expect(m.action).toEqual({ label: "我的團隊", division: 3, action: "open-team-dialog" });
+    expect(m.action).toEqual({ label: "邀請組員", division: 3, action: "open-team-dialog" });
     expect(m.action.action).not.toBe("join-team-division");
   });
 
-  it("reports team-full when the primary joined team of a dual membership is full", () => {
+  it("invites for the still-open division even when the first-joined division is full", () => {
     const m = getPlanParticipationModel(null, [
       ctx(3, { memberCount: 3, capacity: 3 }),
       ctx(6, { memberCount: 1, capacity: 6 })
     ]);
+    expect(m.variant).toBe("team-open");
+    expect(m.tone).toBe("brand");
+    expect(m.action).toEqual({ label: "邀請組員", division: 6, action: "open-team-dialog" });
+    expect(m.description).toBe("6人組・還缺 5 人");
+  });
+
+  it("reports team-full with no action only once every joined division is full", () => {
+    const m = getPlanParticipationModel(null, [
+      ctx(3, { memberCount: 3, capacity: 3 }),
+      ctx(6, { memberCount: 6, capacity: 6 })
+    ]);
     expect(m.variant).toBe("team-full");
     expect(m.tone).toBe("success");
-    expect(m.action).toEqual({ label: "我的團隊", division: 3, action: "open-team-dialog" });
+    expect(m.title).toBe("隊伍已滿");
+    expect(m.action).toBeNull();
   });
 
   it("falls back gracefully on missing team fields", () => {
     const m = getPlanParticipationModel(null, [{ team: { division: 3 } }]);
-    expect(m.description).toBe("3人組・0/3");
+    expect(m.description).toBe("3人組・還缺 3 人");
     expect(m.tone).toBe("brand"); // 0/3 is not full
   });
 
   it("only ever emits registered Lucide icon keys", () => {
     const icons = [
       getPlanParticipationModel(null, []),
-      getPlanParticipationModel(null, [ctx(3)]),
-      getPlanParticipationModel(null, [ctx(3), ctx(6)])
+      getPlanParticipationModel(null, [ctx(3, { memberCount: 1, capacity: 3 })]),
+      getPlanParticipationModel(null, [ctx(3, { memberCount: 3, capacity: 3 })]),
+      getPlanParticipationModel(null, [
+        ctx(3, { memberCount: 3, capacity: 3 }),
+        ctx(6, { memberCount: 6, capacity: 6 })
+      ])
     ].map(m => m.icon);
-    expect(new Set(icons)).toEqual(new Set(["user", "people"]));
+    expect(new Set(icons)).toEqual(new Set(["user", "share", "people", "checkCircle"]));
   });
 });
