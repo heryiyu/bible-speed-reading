@@ -115,13 +115,15 @@ describe("home dashboard: independent daily-devotion card", () => {
 // 只在點開「...」選單當下依這份計畫的種類決定要不要藏起來，不能只在
 // initPlanControls 跑一次就定案（那樣切換到別份一般計畫時按鈕不會再顯示回來）。
 describe("shared plan-options dropdown hides viewer-only actions per plan kind", () => {
-  it("refreshPlanOptionsMenuForKind hides the weekly-schedule and reset-progress buttons only for devotional/group_meeting plans", () => {
+  it("refreshPlanOptionsMenuForKind hides the weekly-schedule and reset-progress buttons for devotional/group_meeting plans, and hides all three (plus 退出此計畫) once a plan has ended", () => {
     const idx = plan.indexOf("function refreshPlanOptionsMenuForKind(plan)");
     expect(idx).toBeGreaterThan(-1);
-    const body = plan.slice(idx, idx + 700);
+    const body = plan.slice(idx, idx + 900);
     expect(body).toContain('kind === "devotional" || kind === "group_meeting"');
-    expect(body).toContain('scheduleBtn.style.display = isViewerOnlyPlan ? "none" : ""');
-    expect(body).toContain('resetBtn.style.display = isViewerOnlyPlan ? "none" : ""');
+    expect(body).toContain("isPlanExpired(plan)");
+    expect(body).toContain('scheduleBtn.style.display = (isViewerOnlyPlan || expired) ? "none" : ""');
+    expect(body).toContain('deleteBtn.style.display = expired ? "none" : ""');
+    expect(body).toContain('resetBtn.style.display = (isViewerOnlyPlan || expired) ? "none" : ""');
   });
 
   it("is re-evaluated every time the dropdown is opened, not once at plan-detail entry", () => {

@@ -749,10 +749,15 @@ async function updatePlanTeamInviteShortcutVisibility() {
 function refreshPlanOptionsMenuForKind(plan) {
   const kind = (plan && (plan.planKind || plan.plan_kind)) || "";
   const isViewerOnlyPlan = kind === "devotional" || kind === "group_meeting";
+  // 計畫已結束（過了 endDate）→ 每週讀經安排／退出此計畫／重置此計畫進度都會
+  // 動到已經定案的歷史紀錄，一律藏起來，只留「計畫詳情」可查看。
+  const expired = typeof isPlanExpired === "function" && isPlanExpired(plan);
   const scheduleBtn = document.getElementById("edit-flexible-plan-schedule-btn");
+  const deleteBtn = document.getElementById("delete-plan-btn");
   const resetBtn = document.getElementById("reset-plan-progress-btn");
-  if (scheduleBtn) scheduleBtn.style.display = isViewerOnlyPlan ? "none" : "";
-  if (resetBtn) resetBtn.style.display = isViewerOnlyPlan ? "none" : "";
+  if (scheduleBtn) scheduleBtn.style.display = (isViewerOnlyPlan || expired) ? "none" : "";
+  if (deleteBtn) deleteBtn.style.display = expired ? "none" : "";
+  if (resetBtn) resetBtn.style.display = (isViewerOnlyPlan || expired) ? "none" : "";
 }
 
 function initPlanControls() {
@@ -911,6 +916,10 @@ function initPlanControls() {
       if (!plan) return;
       const dropdown = document.getElementById("plan-options-dropdown");
       if (dropdown) dropdown.classList.add("hidden");
+      if (isPlanExpired(plan)) {
+        showToast("此計畫已結束，無法再調整每週讀經安排。");
+        return;
+      }
       const scheduleSettings = await openFlexibleScheduleDialog(plan, { editing: true });
       if (!scheduleSettings) return;
       const result = await db.updateFlexiblePlanSchedule(plan, scheduleSettings);
@@ -930,6 +939,10 @@ function initPlanControls() {
     deleteBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
       if (!state.activePlan) return;
+      if (isPlanExpired(state.activePlan)) {
+        showToast("此計畫已結束，僅供查看紀錄與統計，無法再退出。");
+        return;
+      }
       const confirmed = await window.showConfirmDialog({
         title: "確定要放棄目前的讀經計畫嗎？",
         message: "您的已讀進度紀錄仍會保留，之後您可以隨時重新加入。",
@@ -950,6 +963,10 @@ function initPlanControls() {
       const menu = document.getElementById("plan-options-dropdown");
       if (menu) menu.classList.add("hidden");
       if (!state.activePlan) return;
+      if (isPlanExpired(state.activePlan)) {
+        showToast("此計畫已結束，僅供查看紀錄與統計，無法再重置進度。");
+        return;
+      }
       const planName = state.activePlan.name;
       const confirmed = await window.showConfirmDialog({
         title: `確定要重置「${planName}」的進度嗎？`,
@@ -1937,6 +1954,7 @@ function renderJoinedPlansList() {
             })
           ])
         });
+        if (typeof hydrateIcons === "function") hydrateIcons(card);
       } else {
         // Normal active plan: a big progress number carries the card instead of a "進度：" text row
         const totalChapters = plan.currentRoundTotalChapters || plan.totalChapters;

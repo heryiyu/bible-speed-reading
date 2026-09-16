@@ -255,8 +255,8 @@ describe("joined plan options menu", () => {
     // 按鈕只在點開「...」選單當下依這份計畫的種類決定要不要藏起來——不是在
     // initPlanControls 跑一次就定案，見 refreshPlanOptionsMenuForKind()。
     expect(planSource).toContain("function refreshPlanOptionsMenuForKind(plan)");
-    expect(planSource).toContain('scheduleBtn.style.display = isViewerOnlyPlan ? "none" : ""');
-    expect(planSource).toContain('resetBtn.style.display = isViewerOnlyPlan ? "none" : ""');
+    expect(planSource).toContain('scheduleBtn.style.display = (isViewerOnlyPlan || expired) ? "none" : ""');
+    expect(planSource).toContain('resetBtn.style.display = (isViewerOnlyPlan || expired) ? "none" : ""');
     expect(planSource).toContain("refreshPlanOptionsMenuForKind(state.activePlan)");
   });
 
