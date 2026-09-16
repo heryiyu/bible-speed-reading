@@ -1902,9 +1902,6 @@ function renderJoinedPlansList() {
               value: escapeHTML(statusText),
               tone: isCompleted ? "success" : "danger"
             }
-          ]),
-          actions: renderPlanCardActions([
-            { kind: "secondary", icon: "calendarThirty", label: "查看紀錄", action: "open-detail" }
           ])
         });
       } else {
