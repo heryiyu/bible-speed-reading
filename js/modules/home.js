@@ -505,6 +505,14 @@ async function renderPilgrimageTrail(customMembers = null, customPlan = null) {
 
   const ctx = canvas.getContext("2d");
   const currentRound = (targetPlan && targetPlan.currentRound) || 1;
+  // Canvas 2D silently ignores an invalid fillStyle/strokeStyle assignment
+  // (keeping whatever color was last set) rather than throwing — assigning
+  // a raw "var(--x)" string here was a no-op the whole time, so unread
+  // tiles were actually drawn in whatever color the previous tile/path left
+  // behind. Resolve the actual computed colors once instead.
+  const rootStyles = getComputedStyle(document.body);
+  const unreadTileStroke = rootStyles.getPropertyValue("--border-card").trim() || "gray";
+  const unreadTileText = rootStyles.getPropertyValue("--text-secondary").trim() || "gray";
 
   const planChapters = [];
   let lastBook = null;
@@ -626,8 +634,8 @@ async function renderPilgrimageTrail(customMembers = null, customPlan = null) {
     const r = isBookStart ? 22 : 13;
 
     let fillStyle = "#ffffff";
-    let strokeStyle = "var(--border-card)";
-    let textColor = "var(--text-secondary, #475569)";
+    let strokeStyle = unreadTileStroke;
+    let textColor = unreadTileText;
     let isBold = false;
     let strokeW = isBookStart ? 2.5 : 1.5;
 
@@ -706,7 +714,7 @@ async function renderPilgrimageTrail(customMembers = null, customPlan = null) {
   const legendEl = document.getElementById("team-pilgrimage-legend") || document.getElementById("pilgrimage-legend");
   if (legendEl) {
     legendEl.innerHTML = `
-      <span class="px-2 py-0.5 rounded-full bg-slate-100/80 dark:bg-zinc-900/50 flex items-center gap-1" style="display:inline-flex;align-items:center;white-space:nowrap;"><span style="display:inline-block;width:6px;height:6px;background:${pal.myStroke};border-radius:50%;"></span>隊友軌跡</span>`;
+      <span class="px-2 py-0.5 rounded-full flex items-center gap-1" style="display:inline-flex;align-items:center;white-space:nowrap;background: color-mix(in srgb, var(--text-primary) 5%, var(--bg-card));"><span style="display:inline-block;width:6px;height:6px;background:${pal.myStroke};border-radius:50%;"></span>隊友軌跡</span>`;
   }
 }
 
@@ -2176,7 +2184,7 @@ async function fetchPastoralVerseWall() {
 
       if (pError) throw pError;
       if (!profiles || profiles.length === 0) {
-        container.innerHTML = `<div class="text-xs text-slate-400 dark:text-zinc-500 text-center py-6">尚無同工在該牧區</div>`;
+        container.innerHTML = `<div class="text-xs text-center py-6" style="color: var(--text-muted);">尚無同工在該牧區</div>`;
         return;
       }
 
@@ -2208,7 +2216,7 @@ async function fetchPastoralVerseWall() {
         const noNotesMsg = isHistory
           ? (historyFilter === "mine" ? "您目前尚無過去分享的心得喔！" : "此小組/牧區尚無歷史分享心得喔！")
           : "今天還沒有人分享金句喔，快來分享吧！";
-        container.innerHTML = `<div class="text-xs text-slate-400 dark:text-zinc-500 text-center py-6">${noNotesMsg}</div>`;
+        container.innerHTML = `<div class="text-xs text-center py-6" style="color: var(--text-muted);">${noNotesMsg}</div>`;
         return;
       }
 
@@ -2234,7 +2242,7 @@ async function fetchPastoralVerseWall() {
       renderVerseWallCards(activeNotes, profileMap, likes || [], comments || [], isHistory);
     } catch (err) {
       console.error("Failed to load pastoral sharing wall:", err);
-      container.innerHTML = `<div class="text-xs text-red-500 text-center py-6">載入分享牆失敗</div>`;
+      container.innerHTML = `<div class="text-xs text-danger text-center py-6">載入分享牆失敗</div>`;
     }
   } else {
     const defaultMock = [
@@ -2278,7 +2286,7 @@ async function fetchPastoralVerseWall() {
 
     if (filteredNotes.length === 0) {
       const noNotesMsg = isHistory ? "無符合歷史心得" : "今天還沒有人分享金句喔，快來分享吧！";
-      container.innerHTML = `<div class="text-xs text-slate-400 dark:text-zinc-500 text-center py-6">${noNotesMsg}</div>`;
+      container.innerHTML = `<div class="text-xs text-center py-6" style="color: var(--text-muted);">${noNotesMsg}</div>`;
       return;
     }
 
@@ -2310,9 +2318,10 @@ function renderCommentsTree(commentNodes, noteOwnerId, profileMap, depth = 0) {
     const isOp = c.user_id === noteOwnerId;
     
     // 巢狀縮排線與樣式
-    const paddingLeftClass = depth > 0 
-      ? "pl-4 border-l-2 border-slate-200/40 dark:border-zinc-800 ml-2" 
+    const paddingLeftClass = depth > 0
+      ? "pl-4 border-l-2 ml-2"
       : "";
+    const nestingBorderStyle = depth > 0 ? "border-color: var(--border-card);" : "";
       
     // 遞迴渲染子留言
     const repliesHtml = c.replies && c.replies.length > 0 
@@ -2323,7 +2332,7 @@ function renderCommentsTree(commentNodes, noteOwnerId, profileMap, depth = 0) {
     const commAvatarUrl = `https://api.dicebear.com/8.x/lorelei/svg?seed=${encodeURIComponent(commName)}`;
       
     html += `
-      <div class="comment-node mb-3.5 ${paddingLeftClass}">
+      <div class="comment-node mb-3.5 ${paddingLeftClass}" style="${nestingBorderStyle}">
         <div class="p-3 rounded-lg border transition-all duration-200 hover:bg-white/[0.01]" style="background: color-mix(in srgb, var(--text-primary) 1%, var(--bg-card)); border-color: var(--border-card);">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center space-x-2">
@@ -2340,14 +2349,14 @@ function renderCommentsTree(commentNodes, noteOwnerId, profileMap, depth = 0) {
           <p style="margin: 0 0 0.5rem 0; color: var(--text-secondary); font-size: 0.875rem; line-height: 1.4; white-space: pre-wrap; padding-left: 2px;">${escapeHTML(c.content)}</p>
           
           <div class="flex items-center space-x-3 text-[10px]" style="padding-left: 2px;">
-            <button type="button" class="flex items-center space-x-1 hover:text-brand transition-colors bg-transparent border-0 cursor-pointer p-0 text-slate-400 dark:text-zinc-500" style="font-size: 0.875rem; font-weight: 500;" onclick="window.showReplyInputBox('${c.id}')">
+            <button type="button" class="flex items-center space-x-1 hover:text-brand transition-colors bg-transparent border-0 cursor-pointer p-0" style="font-size: 0.875rem; font-weight: 500; color: var(--text-muted);" onclick="window.showReplyInputBox('${c.id}')">
               <span class="nlc-icon nlc-icon--inline" data-icon="inbox" style="opacity: 0.8; margin-right: 2px;"></span>
               <span>回覆</span>
             </button>
           </div>
           
           <!-- 巢狀回覆輸入框 -->
-          <div id="reply-input-box-${c.id}" class="hidden mt-3 pt-3 border-t border-dashed border-slate-200/10">
+          <div id="reply-input-box-${c.id}" class="hidden mt-3 pt-3 border-t border-dashed" style="border-color: var(--border-card);">
             <div class="flex items-center space-x-2">
               <input type="text" id="reply-input-${c.id}" placeholder="回覆 ${escapeHTML(commName)}..." class="form-control" style="padding: 0.35rem 1rem; border-radius: 9999px; flex: 1;">
               <button type="button" class="primary-btn" style="padding: 0.35rem 0.85rem; font-size: 0.875rem; border-radius: 9999px !important; white-space: nowrap; font-weight: 600;" onclick="window.submitDevotionalReply('${c.note_id}', '${c.id}')">發送</button>
@@ -2375,15 +2384,20 @@ function renderVerseWallCards(notes, profileMap, likes, comments, isHistory = fa
     const profile = profileMap[note.user_id] || { name: "", small_group: "" };
     const initial = profile.name ? profile.name.charAt(0) : "·";
 
-    const colors = [
-      "from-pink-500/20 to-rose-500/20 text-rose-500 dark:text-rose-300",
-      "from-purple-500/20 to-indigo-500/20 text-indigo-500 dark:text-indigo-300",
-      "from-blue-500/20 to-cyan-500/20 text-cyan-500 dark:text-cyan-300",
-      "from-emerald-500/20 to-teal-500/20 text-teal-500 dark:text-teal-300",
-      "from-amber-500/20 to-orange-500/20 text-orange-500 dark:text-orange-300"
-    ];
+    // Flat per-name accent tints (avatar background/text) — rewritten
+    // 2026-09-16: was a `bg-gradient-to-br` of two raw Tailwind palette
+    // shades (a "no gradient fills on UI chrome" violation on its own) whose
+    // dark: variant only worked once Tailwind's darkMode was wired to the
+    // app's own theme class, and had no warm-theme handling at all. Colors
+    // now come from the --avatar-accent-* tokens in index.css (not raw hex
+    // here — see color-audit.test.mjs) mixed against the current theme's
+    // card surface so the background still adapts across themes.
+    const colors = [1, 2, 3, 4, 5].map(n => ({
+      bg: `color-mix(in srgb, var(--avatar-accent-${n}) 16%, var(--bg-card))`,
+      fg: `var(--avatar-accent-${n}-fg)`
+    }));
     const charCode = profile.name ? profile.name.charCodeAt(0) : 0;
-    const avatarColorClass = colors[charCode % colors.length];
+    const avatarColor = colors[charCode % colors.length];
 
     let timeStr = "剛剛";
     if (note.created_at) {
@@ -2473,7 +2487,7 @@ function renderVerseWallCards(notes, profileMap, likes, comments, isHistory = fa
     card.innerHTML = `
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center space-x-3">
-          <div class="w-8 h-8 rounded-full bg-gradient-to-br ${avatarColorClass} flex items-center justify-center font-bold text-xs shadow-inner">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-inner" style="background: ${avatarColor.bg}; color: ${avatarColor.fg};">
             ${escapeHTML(initial)}
           </div>
           <div class="flex flex-col">

@@ -57,7 +57,7 @@
       window.location.replace("/repair?version=" + Date.now());
     };
   </script>
-  <link rel="stylesheet" href="index.css?v=20260915_grading_roster_search" onerror="window.showAppStyleRecovery(this)">
+  <link rel="stylesheet" href="index.css?v=20260916_design_token_fixes" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/admin-registration-statistics.css?v=20260812_clean-user-directory-ui" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/team-registration.css?v=20260906_plan_gate_login_only" onerror="window.showAppStyleRecovery(this)">
 
@@ -80,6 +80,15 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
+      // Without this, Tailwind v3's CDN build defaults to darkMode: 'media'
+      // (prefers-color-scheme), so every dark: utility class in the app
+      // ignores the in-app theme picker and follows the OS setting instead —
+      // pick "dark" in-app on a light-OS device and every dark: style is
+      // silently dropped (and vice versa; warm-sepia has no dark: story at
+      // all, so it always fell to the light-mode value). js/state.js's
+      // setBodyThemeClass() already adds a plain "dark" class to <body>
+      // specifically for this — it just wasn't wired up until now.
+      darkMode: ["class", ".dark"],
       corePlugins: {
         preflight: false,
       },
@@ -465,7 +474,7 @@
                 <span class="dashboard-panel-card__title-text">牧區靈修分享牆</span>
               </h3>
               <button type="button" id="btn-toggle-devotional-box" class="premium-action-btn"
-                style="display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; font-size: 0.875rem; border-radius: 8px; font-weight: 600; padding: 0.35rem 0.75rem; height: 30px; background-color: var(--primary-color); border: 0; color: white; cursor: pointer; transition: all 0.2s;">
+                style="gap: 0.25rem; font-size: 0.875rem; border-radius: 8px; font-weight: 600; padding: 0.35rem 0.75rem; height: 30px;">
                 <span class="nlc-icon nlc-icon--sm" data-icon="edit" style="width:11px; height:11px;"></span>
                 <span>分享心得</span>
               </button>
@@ -522,7 +531,7 @@
               <!-- 金句卡片瀑布流動態渲染主容器 -->
               <div id="home-verse-wall" class="space-y-4 pb-4">
                 <!-- 骨架屏加載狀態（預設） -->
-                <div class="animate-pulse p-4 rounded-2xl bg-zinc-900/20 h-24 w-full border border-zinc-800/30"></div>
+                <div class="animate-pulse p-4 rounded-2xl h-24 w-full border" style="background: color-mix(in srgb, var(--text-primary) 6%, var(--bg-card)); border-color: var(--border-card);"></div>
               </div>
             </div>
           </div>

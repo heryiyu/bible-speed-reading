@@ -4068,7 +4068,7 @@ export async function renderAdminTeamRegistrationStatus(forceRefresh = false, di
         <div class="admin-team-table-scroll" style="overflow: auto; max-height: min(60vh, 32rem); background: var(--bg-input); border-radius: 8px; border: 1px solid var(--border-card);">
           <table class="w-full" style="border-collapse: collapse; text-align: left; font-size: 0.875rem; min-width: 600px;">
             <thead style="position: sticky; top: 0; z-index: 2; background: var(--bg-input);">
-              <tr style="border-bottom: 1px solid var(--border-card); background: rgba(255,255,255,0.02);">
+              <tr style="border-bottom: 1px solid var(--border-card); background: color-mix(in srgb, var(--text-primary) 2%, var(--bg-card));">
                 ${Number(division) === 3 ? `
                   <th style="padding: 0.6rem 0.8rem; font-weight: 600; color: var(--text-secondary);">隊長所屬牧區</th>
                   <th style="padding: 0.6rem 0.8rem; font-weight: 600; color: var(--text-secondary);">隊名</th>

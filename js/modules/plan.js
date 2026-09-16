@@ -7412,7 +7412,7 @@ window.displayParticipantsList = function (limit = 100) {
     }
 
     // 名次徽章樣式：Top 3 上色，其餘灰色
-    const rankColor = rankNum === 1 ? '#f59e0b' : rankNum === 2 ? 'var(--text-secondary)' : rankNum === 3 ? '#cd7f32' : 'var(--text-muted)';
+    const rankColor = rankNum === 1 ? 'var(--rank-gold)' : rankNum === 2 ? 'var(--text-secondary)' : rankNum === 3 ? 'var(--rank-bronze)' : 'var(--text-muted)';
     itemRow.innerHTML = `
       <div style="font-size: 0.875rem; font-weight: 700; color: ${rankColor}; text-align: center; display: flex; align-items: center; justify-content: center; gap: 2px;">
         #${rankNum}${trendHtml}
@@ -7872,8 +7872,8 @@ window.showPlanStatsModal = function () {
     iconLabel("shieldCheck", "進度救援"),
     `${catchUpDays} 天`,
     `過去落後但已成功補讀完畢的天數。`,
-    `#ea580c`,
-    `background: rgba(254, 118, 21, 0.06);`
+    `var(--color-warning-text, rgb(217,119,6))`,
+    `background: var(--color-warning-muted,rgba(251,191,36,0.15));`
   );
 
   // Card B: 累計閱讀

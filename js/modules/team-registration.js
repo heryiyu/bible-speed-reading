@@ -847,7 +847,7 @@ import {
           <h3 class="card-title" style="margin-bottom: 0; font-size: 0.95rem; font-weight: 500; display: flex; align-items: center; gap: 0.25rem; color: var(--text-primary);">
             團隊賽道地圖 (${Number(team.division)}人組)
           </h3>
-          <div id="team-pilgrimage-legend" class="text-[10px] space-x-2 text-slate-400 dark:text-zinc-500" style="display: flex; align-items: center; gap: 8px; font-size: 0.875rem;"></div>
+          <div id="team-pilgrimage-legend" class="text-[10px] space-x-2" style="display: flex; align-items: center; gap: 8px; font-size: 0.875rem; color: var(--text-muted);"></div>
         </div>
         <div class="trail-scroll-wrapper" style="overflow: auto; max-height: 380px; background: var(--bg-input); border-radius: 12px; border: 1px solid var(--border-card); padding: 0.5rem; position: relative;">
           <div id="team-pilgrimage-trail-board" style="position: relative; transform-origin: top left; transition: transform 0.2s ease; display: inline-block;">
@@ -866,7 +866,7 @@ import {
     if (isCurrentUserCaptain) {
       // 容器一定要在（carry 按鈕靠它 insertBefore）；解散按鈕只在階段還沒結束時放。
       container.innerHTML += `
-        <div class="reading-team-inline-actions" style="margin-top: 1.2rem; display: flex; justify-content: flex-end; border-top: 1px dashed rgba(255,255,255,0.06); padding-top: 0.8rem;">
+        <div class="reading-team-inline-actions" style="margin-top: 1.2rem; display: flex; justify-content: flex-end; border-top: 1px dashed var(--border-card); padding-top: 0.8rem;">
           ${canManageRosterInline ? '<button type="button" class="text-xs text-danger" data-disband-team-inline style="background:none; border:none; padding:0.5rem; cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem; font-size:0.875rem; font-weight:500; opacity:0.7;"><span class="nlc-icon nlc-icon--sm" data-icon="trash"></span><span>解散團隊</span></button>' : ''}
         </div>`;
     }

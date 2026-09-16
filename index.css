@@ -67,6 +67,32 @@
   --color-danger-muted: color-mix(in srgb, var(--color-danger) 62%, var(--text-secondary));
   --color-info: #4A4A4A;
 
+  /* Decorative per-name accent palette (e.g. the devotional sharing wall's
+     avatar initials) — a fixed hue rotation used only to visually tell
+     different people apart, not a semantic status color, so it's
+     intentionally theme-invariant like --color-brand. Background is meant
+     to be used via color-mix() against --bg-card so the tint still adapts
+     to the current theme's surface; the *-fg values are fixed mid-tones
+     chosen for reasonable contrast against light, dark, and warm-sepia
+     surfaces alike. */
+  --avatar-accent-1: #f43f5e;
+  --avatar-accent-1-fg: #e11d48;
+  --avatar-accent-2: #8b5cf6;
+  --avatar-accent-2-fg: #7c3aed;
+  --avatar-accent-3: #06b6d4;
+  --avatar-accent-3-fg: #0891b2;
+  --avatar-accent-4: #0d9488;
+  --avatar-accent-4-fg: #0f766e;
+  --avatar-accent-5: #f59e0b;
+  --avatar-accent-5-fg: #d97706;
+
+  /* Leaderboard rank #1/#3 medal colors (rank #2 already uses
+     --text-secondary). Named so they're not a bare hex literal at the call
+     site; --rank-bronze gets a lighter dark-theme override below since
+     #cd7f32 measures too low contrast on a dark card. */
+  --rank-gold: #f59e0b;
+  --rank-bronze: #cd7f32;
+
   --bg-app: #FAFAFA;
   --bg-header: rgba(255, 255, 255, 0.92);
   --bg-card: #FFFFFF;
@@ -200,6 +226,8 @@ body.dark-theme {
   --color-brand-subtle: color-mix(in srgb, #04A9D2 18%, transparent);
   --color-brand-muted: color-mix(in srgb, #04A9D2 10%, transparent);
   --color-brand-border: color-mix(in srgb, #04A9D2 30%, transparent);
+  /* #cd7f32 (light/warm) measures too low contrast on a dark card. */
+  --rank-bronze: #E0A872;
   --color-brand-ring: color-mix(in srgb, #04A9D2 20%, transparent);
 
   --primary-color: var(--color-brand);
@@ -2137,14 +2165,14 @@ body:not(.dark-theme) .secondary-btn:hover {
   font-weight: 600;
   font-size: 0.88rem;
   letter-spacing: 0.02em;
-  box-shadow: 0 4px 14px rgba(4, 169, 210, 0.35);
+  box-shadow: var(--shadow-md);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .shadcn-speech-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(4, 169, 210, 0.45);
+  box-shadow: var(--shadow-lg);
 }
 
 .shadcn-speech-btn--playing {
@@ -5299,9 +5327,15 @@ button.logout-btn:hover {
 .calendar-day.out-of-range {
   opacity: 0.32;
 }
-.calendar-day[data-level="1"] { background: rgba(20, 184, 166, 0.22); color: #0f766e; border-color: rgba(20, 184, 166, 0.22); }
-.calendar-day[data-level="2"] { background: rgba(34, 197, 94, 0.32); color: #166534; border-color: rgba(34, 197, 94, 0.28); }
-.calendar-day[data-level="3"] { background: rgba(245, 158, 11, 0.42); color: #92400e; border-color: rgba(245, 158, 11, 0.32); }
+/* Levels 1-3: background is a translucent hue wash over whatever --bg-card
+   is underneath, so its effective visible shade shifts with theme (pale
+   mint in light, muted dark teal in dark) — but the text color used to stay
+   a single fixed dark shade, which read fine against the light-theme wash
+   and went dark-on-dark against the dark-theme one. Blending in
+   var(--text-primary) nudges the hue toward whichever theme is active. */
+.calendar-day[data-level="1"] { background: rgba(20, 184, 166, 0.22); color: color-mix(in srgb, #0f766e 70%, var(--text-primary)); border-color: rgba(20, 184, 166, 0.22); }
+.calendar-day[data-level="2"] { background: rgba(34, 197, 94, 0.32); color: color-mix(in srgb, #166534 70%, var(--text-primary)); border-color: rgba(34, 197, 94, 0.28); }
+.calendar-day[data-level="3"] { background: rgba(245, 158, 11, 0.42); color: color-mix(in srgb, #92400e 70%, var(--text-primary)); border-color: rgba(245, 158, 11, 0.32); }
 .calendar-day[data-level="4"] { background: color-mix(in srgb, var(--color-danger) 72%, transparent); color: #fff; border-color: color-mix(in srgb, var(--color-danger) 42%, transparent); }
 .calendar-day:hover {
   transform: translateY(-1px) scale(1.05);
@@ -9137,7 +9171,9 @@ body.reader-page .reader-ref-chip {
 }
 
 .full-page-overlay {
-  background: radial-gradient(circle at 50% -10%, var(--color-brand-subtle), transparent 30%), var(--bg-app) !important;
+  /* Was a radial-gradient brand-tinted wash — "no gradient fills on UI
+     chrome" violation; flat surface instead. */
+  background: var(--bg-app) !important;
   color: var(--text-primary) !important;
 }
 
@@ -9186,7 +9222,10 @@ body.reader-page .reader-ref-chip {
 }
 
 .bible-nav-section-title {
-  background: rgba(255, 255, 255, 0.04) !important;
+  /* Was a fixed 4% white tint — invisible on light/warm-sepia surfaces
+     (color-mix against the theme's own card color instead, matching
+     .search-input-field's idiom a few rules below). */
+  background: color-mix(in srgb, var(--text-primary) 4%, var(--bg-card)) !important;
   color: var(--text-muted) !important;
   border-top: 1px solid var(--border-card);
   border-bottom: 1px solid var(--border-card);
@@ -9196,7 +9235,7 @@ body.reader-page .reader-ref-chip {
 .grid-item-number,
 .list-item-book,
 .search-result-item {
-  background: rgba(255, 255, 255, 0.045) !important;
+  background: color-mix(in srgb, var(--text-primary) 4.5%, var(--bg-card)) !important;
   border-color: var(--border-card) !important;
   color: var(--text-primary) !important;
 }
@@ -9236,7 +9275,7 @@ body.reader-page .reader-ref-chip {
 }
 
 .search-results-info {
-  background: rgba(255, 255, 255, 0.025) !important;
+  background: color-mix(in srgb, var(--text-primary) 2.5%, var(--bg-card)) !important;
   border-bottom: 1px solid var(--border-card);
 }
 
@@ -9615,18 +9654,21 @@ body.light-theme .segmented-control.bible-native-tabs .segmented-tab.active {
   align-items: center;
   gap: 1rem;
   padding: 0.8rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  /* Was a dark-first rgba(255,255,255,..) with only a body.light-theme
+     override — warm-sepia fell through to the dark-mode value and was
+     effectively invisible. var(--border-card) already adapts across all
+     three themes, so one declaration replaces the pair. */
+  border-bottom: 1px solid var(--border-card);
   background: transparent;
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-body.light-theme .book-list-item-asym {
-  border-bottom-color: rgba(0, 0, 0, 0.04);
-}
 .book-list-item-asym:active {
-  background: rgba(255, 255, 255, 0.02);
+  /* Was rgba(255,255,255,0.02) with no light/warm override at all —
+     invisible in both, not just warm. */
+  background: color-mix(in srgb, var(--text-primary) 2%, var(--bg-card));
 }
 .book-list-item-asym.active {
   background: var(--color-brand-muted);
@@ -9637,18 +9679,15 @@ body.light-theme .book-list-item-asym {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  /* Same dark-first-with-only-a-light-override pattern as above. */
+  background: color-mix(in srgb, var(--text-primary) 3%, var(--bg-card));
+  border: 1px solid var(--border-card);
   border-radius: 8px;
   color: var(--text-primary);
   font-size: 1.02rem;
   font-weight: var(--type-weight-strong);
   flex-shrink: 0;
   transition: all 0.2s ease;
-}
-body.light-theme .book-brand-box {
-  background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.05);
 }
 .book-list-item-asym.active .book-brand-box {
   background: var(--color-brand);
@@ -10067,17 +10106,17 @@ body.dark-theme .reader-bottom-action-bar.scenario-a .capsule-action-btn {
 
 /* Selected day */
 .plan-calendar .plan-day-cell.active {
-  background: color-mix(in srgb, #dc2626 14%, var(--surface-card));
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--surface-card));
+  color: var(--color-danger-foreground);
   box-shadow:
-    0 0 0 2px #dc2626,
-    0 0 0 5px color-mix(in srgb, #dc2626 18%, transparent),
+    0 0 0 2px var(--color-danger),
+    0 0 0 5px color-mix(in srgb, var(--color-danger) 18%, transparent),
     var(--shadow-sm);
   z-index: 2;
 }
 
 .plan-calendar .plan-day-cell.active .day-number {
-  color: #b91c1c;
+  color: var(--color-danger-foreground);
 }
 
 /* Today — NLC brand ring */
@@ -10092,19 +10131,19 @@ body.dark-theme .reader-bottom-action-bar.scenario-a .capsule-action-btn {
 
 /* Today + selected */
 .plan-calendar .plan-day-cell.today.active {
-  background: color-mix(in srgb, #dc2626 16%, var(--surface-card));
+  background: color-mix(in srgb, var(--color-danger) 16%, var(--surface-card));
   box-shadow:
-    0 0 0 2px #dc2626,
-    0 0 0 5px color-mix(in srgb, #dc2626 20%, transparent),
+    0 0 0 2px var(--color-danger),
+    0 0 0 5px color-mix(in srgb, var(--color-danger) 20%, transparent),
     var(--shadow-sm);
 }
 
 body.dark-theme .plan-calendar .plan-day-cell.active {
-  background: color-mix(in srgb, #ef4444 22%, var(--surface-card));
+  background: color-mix(in srgb, var(--color-danger) 22%, var(--surface-card));
   color: #fecaca;
   box-shadow:
     0 0 0 2px #f87171,
-    0 0 0 5px color-mix(in srgb, #ef4444 24%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--color-danger) 24%, transparent),
     var(--shadow-sm);
 }
 
@@ -10960,9 +10999,9 @@ body.dark-theme .plan-calendar .plan-day-cell .day-status-dot.dot-grey {
 .plan-view-window { width: 100%; overflow: hidden; }
 #plan-view-wrapper { display: flex; width: 100%; transform: translateX(0%); transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1); will-change: transform; }
 .plan-page-panel { width: 100%; min-width: 100%; flex: 0 0 100%; padding: 0 0.05rem 1.25rem; }
-.plan-calendar .plan-day-cell.active, .plan-calendar .plan-day-cell.today.active { background: color-mix(in srgb, #ef4444 24%, var(--surface-card)); color: #991b1b; border-color: #ef4444; box-shadow: 0 0 0 2px #ef4444, 0 0 0 6px color-mix(in srgb, #ef4444 22%, transparent), var(--shadow-sm); }
-.plan-calendar .plan-day-cell.active .day-number, .plan-calendar .plan-day-cell.today.active .day-number { color: #991b1b; font-weight: var(--type-weight-strong); }
-body.dark-theme .plan-calendar .plan-day-cell.active, body.dark-theme .plan-calendar .plan-day-cell.today.active { background: color-mix(in srgb, #ef4444 34%, var(--surface-card)); color: #fee2e2; border-color: #f87171; }
+.plan-calendar .plan-day-cell.active, .plan-calendar .plan-day-cell.today.active { background: color-mix(in srgb, var(--color-danger) 24%, var(--surface-card)); color: var(--color-danger-foreground); border-color: var(--color-danger); box-shadow: 0 0 0 2px var(--color-danger), 0 0 0 6px color-mix(in srgb, var(--color-danger) 22%, transparent), var(--shadow-sm); }
+.plan-calendar .plan-day-cell.active .day-number, .plan-calendar .plan-day-cell.today.active .day-number { color: var(--color-danger-foreground); font-weight: var(--type-weight-strong); }
+body.dark-theme .plan-calendar .plan-day-cell.active, body.dark-theme .plan-calendar .plan-day-cell.today.active { background: color-mix(in srgb, var(--color-danger) 34%, var(--surface-card)); color: #fee2e2; border-color: #f87171; }
 body.dark-theme .plan-calendar .plan-day-cell.active .day-number, body.dark-theme .plan-calendar .plan-day-cell.today.active .day-number { color: #fee2e2; }
 
 
@@ -11246,13 +11285,13 @@ body.dark-theme .plan-calendar .plan-day-cell.active .day-number, body.dark-them
   background: linear-gradient(135deg, var(--color-brand) 0%, var(--color-success) 100%) !important;
   color: #ffffff !important;
   border: none !important;
-  box-shadow: 0 4px 12px rgba(4, 169, 210, 0.2) !important;
+  box-shadow: var(--shadow-md) !important;
   transition: all 0.3s ease !important;
 }
 
 .brand-gradient-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(4, 169, 210, 0.35) !important;
+  box-shadow: var(--shadow-lg) !important;
   filter: brightness(1.08);
 }
 
@@ -11261,35 +11300,39 @@ body.dark-theme .plan-calendar .plan-day-cell.active .day-number, body.dark-them
   filter: brightness(0.95);
 }
 
-/* 21st.dev / Shadcn inspired premium action button */
+/* Flat brand-color action button. Rewritten 2026-09-16: this used to be a
+   hardcoded zinc-900/zinc-100 button with a gradient fill and a brand-tinted
+   hover glow — three separate violations of the design system's "no
+   gradient fills, flat colors only" / "neutral shadows only, no brand-tinted
+   glows" rules, and its !important background-color also silently defeated
+   the inline `background-color: var(--primary-color)` one call site
+   (index.html) was actually trying to set. Now it just owns the brand
+   treatment itself so both call sites (with or without their own inline
+   background/color) render the same, correctly-themed button. */
 .premium-action-btn {
   position: relative;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)) !important;
-  background-color: rgb(24, 24, 27) !important; /* zinc-900 */
-  color: #f4f4f5 !important; /* zinc-100 */
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-top-color: rgba(255, 255, 255, 0.22) !important; /* subtle top border lip highlight */
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.12) !important;
+  background: var(--color-brand) !important;
+  color: var(--color-solid-fill-foreground) !important;
+  border: 0 !important;
+  box-shadow: var(--shadow-sm) !important;
   transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
   cursor: pointer !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2) !important;
   outline: none !important;
 }
 
 .premium-action-btn:hover {
-  background-color: rgb(39, 39, 42) !important; /* zinc-800 */
-  border-color: rgba(4, 169, 210, 0.5) !important; /* subtle brand color glow on border */
-  box-shadow: 0 0 12px 1px rgba(4, 169, 210, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
+  filter: brightness(1.06);
+  box-shadow: var(--shadow-md) !important;
   transform: translateY(-0.5px) !important;
 }
 
 .premium-action-btn:active {
-  background-color: rgb(24, 24, 27) !important;
+  filter: brightness(0.95);
   transform: translateY(0.5px) !important;
-  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
+  box-shadow: var(--shadow-sm) !important;
 }
 
 /* Each campaign award keeps a dedicated SVG frame; stars only track completed rounds. */
@@ -15327,7 +15370,7 @@ body.dark .glass-card-upgrade {
 
 .speech-preview-btn:hover {
   background: color-mix(in srgb, var(--color-brand, #04A9D2) 18%, transparent);
-  box-shadow: 0 2px 8px rgba(4, 169, 210, 0.2);
+  box-shadow: var(--shadow-sm);
 }
 
 .speech-preview-btn:active {
@@ -15338,7 +15381,7 @@ body.dark .glass-card-upgrade {
   background: var(--color-brand, #04A9D2) !important;
   color: #ffffff !important;
   border-color: var(--color-brand, #04A9D2) !important;
-  box-shadow: 0 3px 10px rgba(4, 169, 210, 0.35) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 
 /* ─── Issue Report & Input Form Textarea High-Contrast Typing Safeguard ─── */
