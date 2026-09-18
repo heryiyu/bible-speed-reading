@@ -25,6 +25,16 @@ import {
 } from "./plan-progress-reset.mjs";
 import { computePlanScopedStreak } from "./team-progress-metrics.mjs";
 import { formatTaiwanDate, prependTaiwanExportTime } from "./export-time.mjs";
+import {
+  normalizeQuestion,
+  isResponseComplete,
+  isAnswerCorrect,
+  renderQuestionFieldsetHtml,
+  readResponseFromFieldset,
+  bindQuestionFieldset,
+  formatResponseForDisplay
+} from "./quiz-question-types.mjs";
+import { parseQuizImportText } from "./quiz-import.mjs";
 
 // Reading plans tab view controller
 
@@ -3525,47 +3535,114 @@ function renderDailyQuizEntry(content, context, plan, quizDate) {
   });
 }
 
+// 舊格式（submit_daily_quiz 一次送出）的 attempt.answers 是「陣列位置對齊
+// questions 順序、元素是選到的選項索引」；新格式（daily_quiz_submit_answer
+// 逐題送出）是 [{questionId, response, correct, timeSpentSeconds}, ...]。
+// 兩種攤平成同一種 { [questionId]: {response, correct, timeSpentSeconds} } 的形狀，
+// 讓檢討畫面不用分兩套邏輯處理新舊資料。
+function normalizeAttemptAnswers(attempt, questions) {
+  const raw = Array.isArray(attempt?.answers) ? attempt.answers : [];
+  const byQuestionId = {};
+  const isNewFormat = raw.length > 0 && raw[0] && typeof raw[0] === "object" && !Array.isArray(raw[0]) && "questionId" in raw[0];
+  if (isNewFormat) {
+    raw.forEach(entry => { byQuestionId[entry.questionId] = entry; });
+  } else {
+    questions.forEach((question, index) => {
+      const response = raw[index] === null || raw[index] === undefined ? null : Number(raw[index]);
+      byQuestionId[question.id] = {
+        response,
+        correct: response != null ? isAnswerCorrect(question.type, question.answerKey, response) : false,
+        timeSpentSeconds: null
+      };
+    });
+  }
+  return byQuestionId;
+}
+
 function renderCompletedDailyQuiz(content, quiz) {
   const attempt = quiz.attempt;
+  const questions = (quiz.questions || []).map(normalizeQuestion);
+  const answersByQuestionId = normalizeAttemptAnswers(attempt, questions);
   content.innerHTML = `
     <div class="daily-quiz-heading">
       <div><p class="daily-quiz-eyebrow">今日小測驗</p><h3 id="daily-quiz-title">完成作答</h3></div>
-      <span class="daily-quiz-score">${Number(attempt.score || 0)}／${Number(attempt.total || 5)}</span>
+      <span class="daily-quiz-score">${Number(attempt.score ?? 0)}／${Number(attempt.total ?? questions.length)}</span>
     </div>
     <div class="daily-quiz-review-list">
-      ${(quiz.questions || []).map((question, index) => {
-        const chosen = Number((attempt.answers || [])[index]);
-        const correct = Number(question.correctIndex);
+      ${questions.map((question, index) => {
+        const answer = answersByQuestionId[question.id] || {};
+        const correct = answer.correct === true;
         return `<article class="daily-quiz-review-item">
-          <p><strong>${index + 1}. ${quizEscape(question.question)}</strong></p>
-          <p class="${chosen === correct ? "daily-quiz-answer-correct" : "daily-quiz-answer-wrong"}">
-            你的答案：${quizEscape((question.options || [])[chosen] || "未作答")}
+          <p><strong>${index + 1}. ${quizEscape(question.payload.stem)}</strong></p>
+          <p class="${correct ? "daily-quiz-answer-correct" : "daily-quiz-answer-wrong"}">
+            你的答案：${quizEscape(formatResponseForDisplay(question.type, question.payload, answer.response ?? null))}
           </p>
-          ${chosen === correct ? "" : `<p class="daily-quiz-answer-correct">正確答案：${quizEscape((question.options || [])[correct] || "")}</p>`}
-          <p class="daily-quiz-explanation">${quizEscape(question.explanation)} · ${quizEscape(question.verseRef)}</p>
+          ${correct ? "" : `<p class="daily-quiz-answer-correct">正確答案：${quizEscape(formatResponseForDisplay(question.type, question.payload, question.answerKey))}</p>`}
+          ${question.explanation || question.verseRef ? `<p class="daily-quiz-explanation">${quizEscape(question.explanation)} · ${quizEscape(question.verseRef)}</p>` : ""}
         </article>`;
       }).join("")}
     </div>`;
 }
 
-function bindDailyQuizSubmission(content, quiz, plan, quizDate) {
+// 逐題送出＋最後結算，取代整份一次送出：每題一填完就各自小寫入一次
+// （daily_quiz_submit_answer 設計成同一題重送會覆蓋、可安全重複執行），
+// 「送出答案」按下去時再把每題目前的作答值保險地全部重送一次
+// （排除競態/漏送風險），確認每題都成功後才呼叫 finalize 結算分數——
+// 全程沒有「整份題目一次送出」這個動作，結構上排除大 payload 被截斷的風險。
+function bindDailyQuizAnswering(content, quiz, questions, plan, quizDate) {
   const form = content.querySelector("#daily-quiz-form");
   if (!form) return;
+
+  const fieldsetsByQuestionId = new Map(
+    Array.from(form.querySelectorAll("[data-question-id]")).map(el => [el.getAttribute("data-question-id"), el])
+  );
+  const responses = new Map();
+  const timings = new Map();
+  let lastAnsweredAt = Date.now();
+
+  questions.forEach(question => {
+    const fieldset = fieldsetsByQuestionId.get(question.id);
+    if (!fieldset) return;
+    bindQuestionFieldset(fieldset, question.type, response => {
+      responses.set(question.id, response);
+      if (!isResponseComplete(question.type, response, question.payload)) return;
+      if (!timings.has(question.id)) {
+        const now = Date.now();
+        timings.set(question.id, Math.max(0, Math.round((now - lastAnsweredAt) / 1000)));
+        lastAnsweredAt = now;
+      }
+      void db.submitDailyQuizAnswer(quiz.publicationId, question.id, response, timings.get(question.id));
+    });
+  });
+
   form.addEventListener("submit", async event => {
     event.preventDefault();
-    const answers = (quiz.questions || []).map((_question, index) => {
-      const selected = form.querySelector(`input[name="daily-quiz-${index}"]:checked`);
-      return selected ? Number(selected.value) : null;
+    const incomplete = questions.some(question => {
+      const response = readResponseFromFieldset(fieldsetsByQuestionId.get(question.id), question.type);
+      responses.set(question.id, response);
+      return !isResponseComplete(question.type, response, question.payload);
     });
-    if (answers.some(answer => answer === null)) {
-      if (typeof showToast === "function") showToast(`請完成全部 ${answers.length} 題後再送出`);
+    if (incomplete) {
+      if (typeof showToast === "function") showToast(`請完成全部 ${questions.length} 題後再送出`);
       return;
     }
     const button = form.querySelector("button[type='submit']");
-    if (button) button.disabled = true;
-    const result = await db.submitDailyQuiz(quiz.publicationId, answers);
+    const originalLabel = button?.textContent;
+    if (button) { button.disabled = true; button.textContent = "送出中…"; }
+
+    const submissions = await Promise.all(questions.map(question =>
+      db.submitDailyQuizAnswer(quiz.publicationId, question.id, responses.get(question.id), timings.get(question.id) ?? null)
+    ));
+    const failed = submissions.find(result => !result.success);
+    if (failed) {
+      if (button) { button.disabled = false; button.textContent = originalLabel; }
+      if (typeof showToast === "function") showToast(failed.message || "小測驗送出失敗");
+      return;
+    }
+
+    const result = await db.finalizeDailyQuizAttempt(quiz.publicationId);
     if (!result.success) {
-      if (button) button.disabled = false;
+      if (button) { button.disabled = false; button.textContent = originalLabel; }
       if (typeof showToast === "function") showToast(result.message || "小測驗送出失敗");
       return;
     }
@@ -3579,26 +3656,17 @@ function renderAssignedDailyQuiz(content, quiz, plan, quizDate) {
     renderCompletedDailyQuiz(content, quiz);
     return;
   }
+  const questions = (quiz.questions || []).map(normalizeQuestion);
   content.innerHTML = `
     <div class="daily-quiz-heading">
-      <div><p class="daily-quiz-eyebrow">今日小測驗</p><h3 id="daily-quiz-title">${(quiz.questions || []).length} 題選擇題</h3></div>
+      <div><p class="daily-quiz-eyebrow">今日小測驗</p><h3 id="daily-quiz-title">${questions.length} 題</h3></div>
       <span class="daily-quiz-status">已由${quizPublisherLabel(quiz.publisherRole)}發佈</span>
     </div>
     <form id="daily-quiz-form" class="daily-quiz-form">
-      ${(quiz.questions || []).map((question, questionIndex) => `
-        <fieldset class="daily-quiz-question">
-          <legend>${questionIndex + 1}. ${quizEscape(question.question)}</legend>
-          <span class="daily-quiz-verse-ref">${quizEscape(question.verseRef)}</span>
-          <div class="daily-quiz-options">
-            ${(question.options || []).map((option, optionIndex) => `
-              <label><input type="radio" name="daily-quiz-${questionIndex}" value="${optionIndex}"><span>${quizEscape(option)}</span></label>
-            `).join("")}
-          </div>
-        </fieldset>
-      `).join("")}
+      ${questions.map((question, index) => renderQuestionFieldsetHtml(question, index)).join("")}
       <button type="submit" class="primary-btn daily-quiz-submit">送出答案</button>
     </form>`;
-  bindDailyQuizSubmission(content, quiz, plan, quizDate);
+  bindDailyQuizAnswering(content, quiz, questions, plan, quizDate);
 }
 
 function renderQuizScopeSelectorHtml(prefix) {
@@ -3624,25 +3692,202 @@ function getQuizScope(prefix) {
   return { scopeType: "all", scopeName: null };
 }
 
+// 自訂題目（"Version C"）編輯器：題型一~五，跟 quiz-import.mjs 解析出來的
+// {id, type, payload, answerKey, explanation, verseRef} 是同一種形狀，所以
+// 匯入面板可以直接把解析結果塞進這裡的區塊，不用另外轉換。
+
+const QUIZ_CUSTOM_TYPE_LABELS = { truefalse: "是非", single: "單選", multiple: "多選", matching: "配對", ordering: "排序" };
+
+function quizCustomDefaultQuestion(type) {
+  switch (type) {
+    case "truefalse": return { type, payload: { stem: "" }, answerKey: true, explanation: "", verseRef: "" };
+    case "multiple": return { type, payload: { stem: "", options: ["", ""] }, answerKey: [], explanation: "", verseRef: "" };
+    case "matching": return { type, payload: { stem: "", left: [{ text: "" }, { text: "" }], right: [{ text: "" }, { text: "" }] }, answerKey: {}, explanation: "", verseRef: "" };
+    case "ordering": return { type, payload: { stem: "", items: [{ text: "" }, { text: "" }] }, answerKey: [], explanation: "", verseRef: "" };
+    default: return { type: "single", payload: { stem: "", options: ["", "", "", ""] }, answerKey: 0, explanation: "", verseRef: "" };
+  }
+}
+
+function renderQuizCustomOptionRowHtml(text = "", checked = false) {
+  return `<div class="admin-quiz-custom-option-row" data-option-row>
+    <input type="checkbox" data-option-correct ${checked ? "checked" : ""}>
+    <input class="form-control" data-option-text value="${quizEscape(text)}" placeholder="選項文字">
+    <button type="button" class="icon-button icon-button--subtle" data-option-remove aria-label="移除選項"><span class="nlc-icon" data-icon="close" aria-hidden="true"></span></button>
+  </div>`;
+}
+
+function renderQuizCustomPairRowHtml(leftText = "", rightText = "") {
+  return `<div class="admin-quiz-custom-pair-row" data-pair-row>
+    <input class="form-control" data-pair-left value="${quizEscape(leftText)}" placeholder="左邊">
+    <span class="admin-quiz-custom-pair-arrow" aria-hidden="true">${"↔"}</span>
+    <input class="form-control" data-pair-right value="${quizEscape(rightText)}" placeholder="右邊（正確配對）">
+    <button type="button" class="icon-button icon-button--subtle" data-pair-remove aria-label="移除這組配對"><span class="nlc-icon" data-icon="close" aria-hidden="true"></span></button>
+  </div>`;
+}
+
+function renderQuizCustomItemRowHtml(text = "") {
+  return `<div class="admin-quiz-custom-item-row" data-item-row>
+    <input class="form-control" data-item-text value="${quizEscape(text)}" placeholder="項目文字">
+    <button type="button" class="icon-button icon-button--subtle" data-item-remove aria-label="移除這個項目"><span class="nlc-icon" data-icon="close" aria-hidden="true"></span></button>
+  </div>`;
+}
+
+function renderQuizCustomQuestionBodyHtml(question) {
+  const { type, payload = {}, answerKey } = question;
+  if (type === "truefalse") {
+    return `<label>正確答案<select class="form-control" data-field="answerKey">
+      <option value="true" ${answerKey === true ? "selected" : ""}>對</option>
+      <option value="false" ${answerKey === false ? "selected" : ""}>錯</option>
+    </select></label>`;
+  }
+  if (type === "single" || type === "multiple") {
+    const correctSet = type === "single"
+      ? new Set(Number.isInteger(answerKey) ? [answerKey] : [])
+      : new Set(Array.isArray(answerKey) ? answerKey : []);
+    const options = payload.options && payload.options.length ? payload.options : ["", ""];
+    return `<div class="admin-quiz-custom-options" data-options>
+      ${options.map((text, i) => renderQuizCustomOptionRowHtml(text, correctSet.has(i))).join("")}
+    </div>
+    <button type="button" class="secondary-btn" data-option-add>新增選項</button>
+    <p class="admin-daily-quiz-note">勾選核取方塊標記正確答案${type === "single" ? "（只能選一個）" : "（可複選）"}。</p>`;
+  }
+  if (type === "matching") {
+    const left = payload.left && payload.left.length ? payload.left : [{ text: "" }, { text: "" }];
+    const right = payload.right && payload.right.length ? payload.right : [{ text: "" }, { text: "" }];
+    const rowCount = Math.max(left.length, right.length, 2);
+    return `<div class="admin-quiz-custom-pairs" data-pairs>
+      ${Array.from({ length: rowCount }).map((_, i) => renderQuizCustomPairRowHtml(left[i]?.text || "", right[i]?.text || "")).join("")}
+    </div>
+    <button type="button" class="secondary-btn" data-pair-add>新增配對</button>
+    <p class="admin-daily-quiz-note">同一列的左右兩邊即為正確配對，作答時會友看到的左右順序會被打亂。</p>`;
+  }
+  if (type === "ordering") {
+    const items = payload.items && payload.items.length ? payload.items : [{ text: "" }, { text: "" }];
+    return `<div class="admin-quiz-custom-items" data-items>
+      ${items.map(item => renderQuizCustomItemRowHtml(item.text || "")).join("")}
+    </div>
+    <button type="button" class="secondary-btn" data-item-add>新增項目</button>
+    <p class="admin-daily-quiz-note">由上到下即為正確順序，作答時會友看到的順序會被打亂。</p>`;
+  }
+  return "";
+}
+
 function renderQuizCustomQuestionBlock(index, question = {}) {
-  return `<fieldset class="admin-daily-quiz-question admin-quiz-custom-question" data-question-index="${index}">
+  const normalized = question.type ? question : quizCustomDefaultQuestion("single");
+  const type = normalized.type || "single";
+  return `<fieldset class="admin-daily-quiz-question admin-quiz-custom-question" data-question-index="${index}" data-question-type="${type}">
     <legend>第 ${index + 1} 題 <button type="button" class="icon-button icon-button--subtle" data-quiz-custom-remove aria-label="刪除第 ${index + 1} 題"><span class="nlc-icon" data-icon="close" aria-hidden="true"></span></button></legend>
-    <label>題目<textarea class="form-control" data-field="question" rows="2">${quizEscape(question.question || "")}</textarea></label>
-    <div class="admin-daily-quiz-options">
-      ${[0, 1, 2, 3].map(optionIndex => `<label>選項 ${optionIndex + 1}<input class="form-control" data-option-index="${optionIndex}" value="${quizEscape((question.options || [])[optionIndex] || "")}"></label>`).join("")}
-    </div>
+    <label>題型<select class="form-control" data-field="type">
+      ${Object.entries(QUIZ_CUSTOM_TYPE_LABELS).map(([value, label]) => `<option value="${value}" ${type === value ? "selected" : ""}>${label}</option>`).join("")}
+    </select></label>
+    <label>題目<textarea class="form-control" data-field="stem" rows="2">${quizEscape(normalized.payload?.stem || "")}</textarea></label>
+    <div data-question-body>${renderQuizCustomQuestionBodyHtml(normalized)}</div>
     <div class="admin-daily-quiz-answer-row">
-      <label>正確答案<select class="form-control" data-field="correctIndex">
-        ${[0, 1, 2, 3].map(optionIndex => `<option value="${optionIndex}" ${Number(question.correctIndex) === optionIndex ? "selected" : ""}>選項 ${optionIndex + 1}</option>`).join("")}
-      </select></label>
-      <label>經文出處<input class="form-control" data-field="verseRef" value="${quizEscape(question.verseRef || "")}"></label>
+      <label>經文出處（選填）<input class="form-control" data-field="verseRef" value="${quizEscape(normalized.verseRef || "")}"></label>
     </div>
-    <label>解說<textarea class="form-control" data-field="explanation" rows="2">${quizEscape(question.explanation || "")}</textarea></label>
+    <label>解說（選填）<textarea class="form-control" data-field="explanation" rows="2">${quizEscape(normalized.explanation || "")}</textarea></label>
   </fieldset>`;
+}
+
+// 題型切換／新增選項｜配對｜項目 都會改動 DOM 結構，input 事件不會自動涵蓋到
+// 這些「按按鈕才變動」的操作，要各自明確呼叫 onChange 通知外層重新檢查是否
+// 可以送出。勾選「正確答案」核取方塊會自然觸發 input 事件（外層的委派監聽
+// 已經接住），這裡只需要額外處理「單選只能勾一個」的互斥邏輯。
+function bindQuizCustomQuestionBlock(fieldset, onChange) {
+  const typeSelect = fieldset.querySelector('[data-field="type"]');
+  const body = fieldset.querySelector("[data-question-body]");
+  if (!typeSelect || !body) return;
+
+  typeSelect.addEventListener("change", () => {
+    const nextType = typeSelect.value;
+    fieldset.dataset.questionType = nextType;
+    body.innerHTML = renderQuizCustomQuestionBodyHtml(quizCustomDefaultQuestion(nextType));
+    if (typeof hydrateIcons === "function") hydrateIcons(body);
+    if (typeof onChange === "function") onChange();
+  });
+
+  fieldset.addEventListener("click", event => {
+    if (event.target.closest("[data-option-add]")) {
+      body.querySelector("[data-options]")?.insertAdjacentHTML("beforeend", renderQuizCustomOptionRowHtml());
+      if (typeof hydrateIcons === "function") hydrateIcons(body);
+      if (typeof onChange === "function") onChange();
+    } else if (event.target.closest("[data-option-remove]")) {
+      const rows = body.querySelectorAll("[data-option-row]");
+      if (rows.length > 2) event.target.closest("[data-option-row]").remove();
+      if (typeof onChange === "function") onChange();
+    } else if (event.target.closest("[data-option-correct]") && fieldset.dataset.questionType === "single") {
+      const checkbox = event.target.closest("[data-option-correct]");
+      body.querySelectorAll("[data-option-correct]").forEach(other => { if (other !== checkbox) other.checked = false; });
+      if (typeof onChange === "function") onChange();
+    } else if (event.target.closest("[data-pair-add]")) {
+      body.querySelector("[data-pairs]")?.insertAdjacentHTML("beforeend", renderQuizCustomPairRowHtml());
+      if (typeof hydrateIcons === "function") hydrateIcons(body);
+      if (typeof onChange === "function") onChange();
+    } else if (event.target.closest("[data-pair-remove]")) {
+      const rows = body.querySelectorAll("[data-pair-row]");
+      if (rows.length > 2) event.target.closest("[data-pair-row]").remove();
+      if (typeof onChange === "function") onChange();
+    } else if (event.target.closest("[data-item-add]")) {
+      body.querySelector("[data-items]")?.insertAdjacentHTML("beforeend", renderQuizCustomItemRowHtml());
+      if (typeof hydrateIcons === "function") hydrateIcons(body);
+      if (typeof onChange === "function") onChange();
+    } else if (event.target.closest("[data-item-remove]")) {
+      const rows = body.querySelectorAll("[data-item-row]");
+      if (rows.length > 2) event.target.closest("[data-item-row]").remove();
+      if (typeof onChange === "function") onChange();
+    }
+  });
+}
+
+function renderQuizImportPanelHtml() {
+  return `<details class="admin-quiz-import-panel" data-quiz-import-panel>
+    <summary>從文字匯入題目</summary>
+    <p class="admin-daily-quiz-note">貼上依格式撰寫的題目文字，解析後會直接取代下方的題目清單，送出前仍可逐題檢查修改。格式範例：<code>[單選] 題目 / A. 選項一 / B. 選項二 / 答案：A</code>，題型標籤支援「單選／多選／是非／配對／排序」。</p>
+    <textarea class="form-control" data-quiz-import-text rows="8" placeholder="[單選] 亞伯拉罕原本住在哪座城市？&#10;A. 哈蘭&#10;B. 吾珥&#10;答案：B"></textarea>
+    <div class="admin-daily-quiz-carousel-actions">
+      <button type="button" class="secondary-btn" data-quiz-import-parse>解析並取代題目清單</button>
+    </div>
+    <div class="admin-quiz-import-errors" data-quiz-import-errors hidden></div>
+  </details>`;
+}
+
+function bindQuizImportPanel(container, list, onChange) {
+  const textarea = container.querySelector("[data-quiz-import-text]");
+  const button = container.querySelector("[data-quiz-import-parse]");
+  const errorsBox = container.querySelector("[data-quiz-import-errors]");
+  if (!textarea || !button) return;
+
+  button.addEventListener("click", () => {
+    const { questions, errors } = parseQuizImportText(textarea.value);
+    if (errorsBox) {
+      if (errors.length) {
+        errorsBox.hidden = false;
+        errorsBox.innerHTML = `<p class="daily-quiz-answer-wrong">有 ${errors.length} 段解析失敗，已略過：</p>
+          <ul>${errors.map(error => `<li>${quizEscape(error.message)}</li>`).join("")}</ul>`;
+      } else {
+        errorsBox.hidden = true;
+        errorsBox.innerHTML = "";
+      }
+    }
+    if (!questions.length) {
+      if (typeof showToast === "function") showToast("沒有成功解析出任何題目，請檢查格式後再試一次。");
+      return;
+    }
+    if (questions.length > 10) {
+      questions.length = 10;
+      if (typeof showToast === "function") showToast("自訂題目最多 10 題，只取了前 10 題。");
+    }
+    list.innerHTML = questions.map((question, index) => renderQuizCustomQuestionBlock(index, question)).join("");
+    Array.from(list.children).forEach(fieldset => bindQuizCustomQuestionBlock(fieldset, onChange));
+    if (typeof hydrateIcons === "function") hydrateIcons(list);
+    if (typeof onChange === "function") onChange();
+    if (!errors.length && typeof showToast === "function") showToast(`已匯入 ${questions.length} 題，送出前請再檢查一遍。`);
+  });
 }
 
 function renderQuizCustomEditorHtml() {
   return `<div class="admin-daily-quiz-editor admin-quiz-custom-editor" data-quiz-custom-editor>
+    ${renderQuizImportPanelHtml()}
     <div class="admin-quiz-custom-questions" data-quiz-custom-questions>
       ${[0, 1].map(index => renderQuizCustomQuestionBlock(index)).join("")}
     </div>
@@ -3653,25 +3898,30 @@ function renderQuizCustomEditorHtml() {
   </div>`;
 }
 
+function renumberQuizCustomQuestions(list, addBtn) {
+  Array.from(list.children).forEach((block, index) => {
+    block.dataset.questionIndex = String(index);
+    const legend = block.querySelector("legend");
+    if (legend && legend.firstChild) legend.firstChild.textContent = `第 ${index + 1} 題 `;
+    const removeBtn = block.querySelector("[data-quiz-custom-remove]");
+    if (removeBtn) removeBtn.disabled = list.children.length <= 2;
+  });
+  if (addBtn) addBtn.disabled = list.children.length >= 10;
+}
+
 function bindQuizCustomEditor(container, onChange) {
   const list = container.querySelector("[data-quiz-custom-questions]");
   const addBtn = container.querySelector("[data-quiz-custom-add]");
   if (!list || !addBtn || container.dataset.customBound === "true") return;
   container.dataset.customBound = "true";
-  const renumber = () => {
-    Array.from(list.children).forEach((block, index) => {
-      block.dataset.questionIndex = String(index);
-      const legend = block.querySelector("legend");
-      if (legend && legend.firstChild) legend.firstChild.textContent = `第 ${index + 1} 題 `;
-      const removeBtn = block.querySelector("[data-quiz-custom-remove]");
-      if (removeBtn) removeBtn.disabled = list.children.length <= 2;
-    });
-    addBtn.disabled = list.children.length >= 10;
-  };
+
+  Array.from(list.children).forEach(fieldset => bindQuizCustomQuestionBlock(fieldset, onChange));
+
   addBtn.addEventListener("click", () => {
     if (list.children.length >= 10) return;
     list.insertAdjacentHTML("beforeend", renderQuizCustomQuestionBlock(list.children.length));
-    renumber();
+    bindQuizCustomQuestionBlock(list.lastElementChild, onChange);
+    renumberQuizCustomQuestions(list, addBtn);
     if (typeof hydrateIcons === "function") hydrateIcons(list.lastElementChild);
     if (typeof onChange === "function") onChange();
   });
@@ -3679,32 +3929,97 @@ function bindQuizCustomEditor(container, onChange) {
     const removeBtn = event.target.closest("[data-quiz-custom-remove]");
     if (!removeBtn || list.children.length <= 2) return;
     removeBtn.closest("[data-question-index]")?.remove();
-    renumber();
+    renumberQuizCustomQuestions(list, addBtn);
     if (typeof onChange === "function") onChange();
   });
   list.addEventListener("input", () => { if (typeof onChange === "function") onChange(); });
-  renumber();
+  renumberQuizCustomQuestions(list, addBtn);
+
+  bindQuizImportPanel(container, list, () => {
+    renumberQuizCustomQuestions(list, addBtn);
+    if (typeof onChange === "function") onChange();
+  });
+}
+
+function collectQuizCustomQuestionFromBlock(fieldset, index) {
+  const id = `c${index + 1}`;
+  const type = fieldset.querySelector('[data-field="type"]')?.value || "single";
+  const stem = fieldset.querySelector('[data-field="stem"]')?.value.trim() || "";
+  const explanation = fieldset.querySelector('[data-field="explanation"]')?.value.trim() || "";
+  const verseRef = fieldset.querySelector('[data-field="verseRef"]')?.value.trim() || "";
+  const base = { id, type, explanation, verseRef };
+
+  if (type === "truefalse") {
+    const answerKey = fieldset.querySelector('[data-field="answerKey"]')?.value === "true";
+    return { ...base, payload: { stem }, answerKey };
+  }
+  if (type === "single" || type === "multiple") {
+    const rows = Array.from(fieldset.querySelectorAll("[data-option-row]"));
+    const options = rows.map(row => row.querySelector("[data-option-text]")?.value.trim() || "");
+    if (type === "single") {
+      const correctIndex = rows.findIndex(row => row.querySelector("[data-option-correct]")?.checked);
+      return { ...base, payload: { stem, options }, answerKey: correctIndex };
+    }
+    const answerKey = rows.reduce((acc, row, optionIndex) => {
+      if (row.querySelector("[data-option-correct]")?.checked) acc.push(optionIndex);
+      return acc;
+    }, []);
+    return { ...base, payload: { stem, options }, answerKey };
+  }
+  if (type === "matching") {
+    const rows = Array.from(fieldset.querySelectorAll("[data-pair-row]"));
+    const left = rows.map((row, i) => ({ id: `${id}-L${i + 1}`, text: row.querySelector("[data-pair-left]")?.value.trim() || "" }));
+    const right = rows.map((row, i) => ({ id: `${id}-R${i + 1}`, text: row.querySelector("[data-pair-right]")?.value.trim() || "" }));
+    const answerKey = {};
+    left.forEach((item, i) => { answerKey[item.id] = right[i].id; });
+    return { ...base, payload: { stem, left, right }, answerKey };
+  }
+  if (type === "ordering") {
+    const rows = Array.from(fieldset.querySelectorAll("[data-item-row]"));
+    const items = rows.map((row, i) => ({ id: `${id}-I${i + 1}`, text: row.querySelector("[data-item-text]")?.value.trim() || "" }));
+    return { ...base, payload: { stem, items }, answerKey: items.map(item => item.id) };
+  }
+  return { ...base, payload: { stem }, answerKey: null };
 }
 
 function collectQuizCustomQuestions(container) {
   const list = container.querySelector("[data-quiz-custom-questions]");
   if (!list) return [];
-  return Array.from(list.querySelectorAll("[data-question-index]")).map((field, index) => ({
-    id: `c${index + 1}`,
-    question: field.querySelector('[data-field="question"]')?.value.trim() || "",
-    options: [0, 1, 2, 3].map(optionIndex => field.querySelector(`[data-option-index="${optionIndex}"]`)?.value.trim() || ""),
-    correctIndex: Number(field.querySelector('[data-field="correctIndex"]')?.value || 0),
-    explanation: field.querySelector('[data-field="explanation"]')?.value.trim() || "",
-    verseRef: field.querySelector('[data-field="verseRef"]')?.value.trim() || ""
-  }));
+  return Array.from(list.querySelectorAll("[data-question-index]")).map((fieldset, index) =>
+    collectQuizCustomQuestionFromBlock(fieldset, index));
 }
 
 function quizCustomQuestionsAreValid(questions) {
   if (!Array.isArray(questions) || questions.length < 2 || questions.length > 10) return false;
-  return questions.every(question =>
-    question.question && question.verseRef && question.explanation
-    && Array.isArray(question.options) && question.options.length === 4 && question.options.every(option => option)
-  );
+  return questions.every(question => {
+    if (!question.payload?.stem) return false;
+    switch (question.type) {
+      case "truefalse":
+        return typeof question.answerKey === "boolean";
+      case "single": {
+        const options = question.payload.options || [];
+        return options.length >= 2 && options.every(Boolean)
+          && Number.isInteger(question.answerKey) && question.answerKey >= 0 && question.answerKey < options.length;
+      }
+      case "multiple": {
+        const options = question.payload.options || [];
+        return options.length >= 2 && options.every(Boolean)
+          && Array.isArray(question.answerKey) && question.answerKey.length > 0;
+      }
+      case "matching": {
+        const left = question.payload.left || [];
+        const right = question.payload.right || [];
+        return left.length >= 2 && left.length === right.length
+          && left.every(item => item.text) && right.every(item => item.text);
+      }
+      case "ordering": {
+        const items = question.payload.items || [];
+        return items.length >= 2 && items.every(item => item.text);
+      }
+      default:
+        return false;
+    }
+  });
 }
 
 function renderPublisherDailyQuiz(content, context, plan, quizDate) {

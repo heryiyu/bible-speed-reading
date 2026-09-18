@@ -13,7 +13,7 @@ import './design/icons.js';
 import './state.js?v=20260918_optimistic_boot_shell';
 import './auth.js?v=20260918_optimistic_boot_shell';
 import './auth-launch.mjs';
-import './db.js?v=20260918_optimistic_boot_shell';
+import './db.js?v=20260918_daily_quiz_answer_rpc';
 import './utils.js?v=20260918_optimistic_boot_shell';
 import './gamification.js?v=20260918_optimistic_boot_shell';
 import { initModalManager } from './modules/modal-manager.mjs';
