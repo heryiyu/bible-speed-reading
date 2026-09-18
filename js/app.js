@@ -2,20 +2,20 @@
 
 // Import support and core files needed before first paint.
 import '../config.js';
-import './data/bible_data.js?v=20260916_ended_plan_lockdown_and_icon_fix';
+import './data/bible_data.js?v=20260918_boot_perf_instrumentation';
 import './data/bible_verse_counts.js';
-import './copy/zh-Hant.js?v=20260916_ended_plan_lockdown_and_icon_fix';
-import './data/church_campaign.js?v=20260916_ended_plan_lockdown_and_icon_fix';
+import './copy/zh-Hant.js?v=20260918_boot_perf_instrumentation';
+import './data/church_campaign.js?v=20260918_boot_perf_instrumentation';
 import './design/design-tokens.js';
-import './design/design-system-helpers.js?v=20260916_ended_plan_lockdown_and_icon_fix';
-import './design/icon-registry.js?v=20260916_ended_plan_lockdown_and_icon_fix';
+import './design/design-system-helpers.js?v=20260918_boot_perf_instrumentation';
+import './design/icon-registry.js?v=20260918_boot_perf_instrumentation';
 import './design/icons.js';
-import './state.js?v=20260916_ended_plan_lockdown_and_icon_fix';
-import './auth.js?v=20260916_ended_plan_lockdown_and_icon_fix';
+import './state.js?v=20260918_boot_perf_instrumentation';
+import './auth.js?v=20260918_boot_perf_instrumentation';
 import './auth-launch.mjs';
-import './db.js?v=20260916_ended_plan_lockdown_and_icon_fix';
-import './utils.js?v=20260916_ended_plan_lockdown_and_icon_fix';
-import './gamification.js?v=20260916_ended_plan_lockdown_and_icon_fix';
+import './db.js?v=20260918_boot_perf_instrumentation';
+import './utils.js?v=20260918_boot_perf_instrumentation';
+import './gamification.js?v=20260918_boot_perf_instrumentation';
 import { initModalManager } from './modules/modal-manager.mjs';
 
 import {
@@ -23,14 +23,42 @@ import {
   consumeBibleHubResume,
   hubContinueHref,
   launchMemberHubContinue
-} from './login-onboarding-gate.mjs?v=20260916_ended_plan_lockdown_and_icon_fix';
+} from './login-onboarding-gate.mjs?v=20260918_boot_perf_instrumentation';
 import { cleanupProductionStorage } from './production-cleanup.mjs';
-import { initializePwa } from './pwa/PwaCoordinator.js?v=20260916_ended_plan_lockdown_and_icon_fix';
+import { initializePwa } from './pwa/PwaCoordinator.js?v=20260918_boot_perf_instrumentation';
 import { IndexedDbClient } from './pwa/IndexedDbClient.js';
 import { OfflineBibleRepository } from './pwa/OfflineBibleRepository.js';
 import { initOfflineBibleControls } from './pwa/OfflineBibleControls.js';
-import { SupabaseRepository } from './pwa/SupabaseRepository.js?v=20260916_ended_plan_lockdown_and_icon_fix';
+import { SupabaseRepository } from './pwa/SupabaseRepository.js?v=20260918_boot_perf_instrumentation';
 import { clearBadge, requestNotificationPermission } from '../lib/services/badge-service.ts';
+
+window.__bootMark?.("core-imports-done");
+
+// ── 暫時性開機耗時量測（找「5 秒才顯示內容」瓶頸用，確認完可整批移除）──
+// 收集 index.html/app.js/db.js 裡所有 boot:* mark，算出每段耗時，印到
+// console。跟 window.__bootMark 是同一套，不影響一般使用者操作。
+function reportBootPerf() {
+  try {
+    const marks = performance.getEntriesByType("mark")
+      .filter(m => m.name.startsWith("boot:"))
+      .sort((a, b) => a.startTime - b.startTime);
+    if (!marks.length) return;
+    let prev = 0;
+    const rows = marks.map(m => {
+      const row = {
+        "節點": m.name.replace("boot:", ""),
+        "距開頁(ms)": Math.round(m.startTime),
+        "距上一步(ms)": Math.round(m.startTime - prev)
+      };
+      prev = m.startTime;
+      return row;
+    });
+    console.log("%c[BootPerf] 開機各節點耗時（暫時量測，確認完瓶頸後會移除）", "font-weight:bold;color:#04A9D2;");
+    console.table(rows);
+  } catch (err) {
+    console.warn("[BootPerf] report failed:", err);
+  }
+}
 
 cleanupProductionStorage(window.localStorage);
 initModalManager();
@@ -41,7 +69,7 @@ if (!/^\d{14}$/.test(buildVersion)) {
 }
 buildVersion += "_clean_demo_mode_v20_quiz_manual_retry_v1_member_hub_name_sync_v1_quiz_load_error_v1_group_filter_reset_fix_v1_quiz_publish_flow_redesign_v1_row_cap_pagination_fix_v1_quiz_entry_reading_gate_v1_quiz_feature_reopen_restore_v1_admin_mobile_layout_v1_reader_audio_resume_fix_v1_joined_plan_collapse_v1_admin_tabs_lead_v1_0830_quiz_pledge_banner_v1_big_exam_p1_v1_fullscreen_resilience_v1_exam_p2_admin_v1_result_review_v1_feature_toggle_move_v1_paper_picker_v1_section_config_v1_exam_p3_stats_notify_v1_exam_announcement_flag_v1_exam_p4_resilience_v1_exam_no_shortanswer_hide_v1_exam_mode_switch_v1_noflash_sweep_v1_exam_p4_two_track_v1_notif_admin_anon_v1_exam_autoscore_toggle_v1_answer_only_editor_v1_exam_publish_results_lock_v1_push_guards_v1_result_pending_label_v1_staff_preview_label_v1_exam_close_ux_o1o2o3_v1_finalize_expired_v1_stats_team_size_v1_stats_scope_teamrank_v1_exam_practice_review_autoclose_v1_exam_multi_paper_profile_v1_exam_practice_grace_day_v1_exam_batch_grading_v1_region_cohort_v1_exam_empty_shortanswer_zero_v1_exam_team_fixed_divisor_v1_exam_full_result_paper_v1_exam_red_correction_overlay_v1_announcement_live_only_v1_result_numeric_answers_v1_match_review_draw_v1_choice_mark_v1_practice_to_review_rename_v1_pledge_copy_v1_registration_current_plan_default_v1_corrected_label_wording_v2_exam_token_resilience_v1_grading_full_sheet_v1_answers_export_v1_result_row_declutter_v1_perf_foreground_coordinator_a1_v1_perf_token_no_wipe_a2_v1_perf_badge_throttle_a5_v1_perf_chart_update_b7_v1_cohort_stage_kind_v1_ranking_baseline_schedule_v1_progress_baseline_round1_v1_level_teardown_v1_round_schedule_restore_v1_missed_chapters_reminder_v1_care_reminder_edit_merge_v1_reader_position_fromplan_fix_v1_reading_log_pagination_fix_v1_db_pagination_audit_v1_highlights_notes_review_v1_reader_next_chapter_jump_fix_v1_ten_verse_chapter_load_fix_v1_member_hub_org_dedupe_v1_profile_subpage_overlay_fix_v1_cohort_materialized_schedule_v1_cohort_plain_plan_award_only_v1_admin_section_nav_step1_v1_emergency_announcement_editor_v1_admin_section_open_fix_v1_admin_section_unified_v2_admin_section_mobile_drilldown_v1_r1final_monthly_split_v1_r1final_discover_lock_v1_r1final_award_aggregate_v1_exam_grading_fixes_v1_score_input_validation_v1_login_continuation_return_fix_v1_profile_subpage_close_selector_fix_v1_r1final_badge_puzzle_v1_devotion_editor_modal_video_v1_devotion_progress_notes_v1_devotion_ui_polish_v1_devotion_publish_all_v1_home_feature_cards_v1_home_cards_login_race_v1_myplans_devotion_order_v1_home_cards_no_planjs_dep_v1_gm_topic_passage_inline_v1_match_lines_on_top_v1_match_align_button_v1_devotion_share_copy_v1_devotion_share_scripture_v1_devotion_sync_log_v1_devotion_group_hidden_v1_devotion_hidden_toggle_v1_lock_ended_stage_team_v1_exam_grading_seq_v1_plan_gate_login_only_v1_lazy_supabase_lib_v1_lazy_chartjs_v1_boot_resilient_settled_v1_a1_revert_v1_lazy_html2canvas_v1_font_light_drop_v1_plan_audience_region_gate_v1_session_expiry_foreground_gate_v1_session_expired_event_v1_batch_select_capability_v1_batch_select_loaduserdata_v1_batch_select_orgstructure_v1_batch_select_globalplans_v1_read_dedup_v1_feature_settings_bulk_v1_org_structure_rpc_v1_batch_metric_label_v1_exam_pr_values_v1_issue_report_thread_exit_v1_verse_multi_select_v1_plan_series_filter_v1_team_invite_unfilled_v1_round_overflow_schedule_v1_book_badge_crowns_v1_prestige_svg_v1_exam_first_round_filter_v1_exam_paper_linked_plan_v1";
 const moduleCache = {};
-const RELEASE_ONBOARDING_MODULE_PATH = './modules/onboarding-helper.js?v=20260916_ended_plan_lockdown_and_icon_fix';
+const RELEASE_ONBOARDING_MODULE_PATH = './modules/onboarding-helper.js?v=20260918_boot_perf_instrumentation';
 const RELEASE_ONBOARDING_STORAGE_KEY = "bible_onboarding_seen_version";
 const ISSUE_REPORT_UI_MODULE_PATH = './modules/issue-report-ui.bundle.js?v=' + buildVersion;
 let releaseOnboardingModulePromise = null;
@@ -875,6 +903,7 @@ async function applyOfflineBibleVersionFallback({ notifyToast = false } = {}) {
 
 // Bootstrap the application on DomContentLoaded
 document.addEventListener("DOMContentLoaded", async () => {
+  window.__bootMark?.("dom-content-loaded");
   // Clear badge notification count on app startup / load
   clearBadge().catch(err => console.error("Failed to clear badge on startup:", err));
 
@@ -1008,11 +1037,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // db.init() handles: OIDC callback, session sync, and returns early after auth is established.
   // loadUserData() is called exactly once after init() to populate state.
   let initialSessionSyncSucceeded = false;
+  window.__bootMark?.("db-init-start");
   try {
     initialSessionSyncSucceeded = await db.init() === true;
   } catch (err) {
     console.error('Failed to initialize database connection & auth:', err);
   }
+  window.__bootMark?.("db-init-done");
 
   // Arm the proactive refresh timer even when db.init() reused an
   // already-valid cached session and never touched the tokens itself — that
@@ -1052,10 +1083,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     // db.init() has already shown the login gate for a bad session, and for a
     // session that only degraded mid-boot an empty dashboard the user can refresh
     // is still far better than a black screen.
+    window.__bootMark?.("initial-data-load-start");
     const [roleResult, userDataResult] = await Promise.allSettled([
       db.fetchRoleDefinitions(),
       db.loadUserData(true)
     ]);
+    window.__bootMark?.("initial-data-load-done");
     if (roleResult.status === "rejected") {
       console.error("Role definitions load failed during boot:", roleResult.reason);
     }
@@ -1084,6 +1117,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     }
     await appRouter.switchTab(resumePlan ? "plan-view" : "dashboard-view");
+    window.__bootMark?.("first-tab-rendered");
+    reportBootPerf();
     refreshCareReminderBadge({ force: true });
     maybeShowReleaseOnboarding({
       auth,
