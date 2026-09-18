@@ -500,6 +500,12 @@ Deno.serve(async (req: Request) => {
   }
   if (req.method !== "POST") return jsonResponse({ error: "method_not_allowed" }, 405);
 
+  // ── 暫時性伺服器端耗時量測（找 nlc-session 為何要幾秒鐘的瓶頸用，確認完可整批移除）──
+  // 宣告在 try 外面，這樣就算中途丟例外，catch 裡也拿得到已經量到的部分耗時。
+  const t0 = Date.now();
+  const timings: [string, number][] = [];
+  const mark = (label: string) => timings.push([label, Date.now() - t0]);
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -534,9 +540,11 @@ Deno.serve(async (req: Request) => {
     // resulting projection, so this does not run on every page navigation.
     try {
       const discovery = await fetchJson(`${issuer}/.well-known/openid-configuration`);
+      mark("oidc_discovery");
       const userinfoEndpoint = discovery.userinfo_endpoint;
       if (userinfoEndpoint) {
         const fullUserinfo = await fetchJson(userinfoEndpoint, { headers: bearerHeaders });
+        mark("logto_userinfo");
         if (fullUserinfo && fullUserinfo.sub) {
           freshUserinfo = fullUserinfo;
           userinfo = { ...userinfo, ...fullUserinfo };
@@ -556,6 +564,7 @@ Deno.serve(async (req: Request) => {
       const memberResponse = await fetchJson(`${memberHubUrl}/api/me/context`, {
         headers: bearerHeaders
       });
+      mark("member_hub_context");
       const validEnvelope = memberResponse?.ok === true
         && memberResponse.context
         && typeof memberResponse.context === "object"
@@ -593,6 +602,7 @@ Deno.serve(async (req: Request) => {
       if (platformOrganization?.careChain) {
         platformOrgFields = orgFromCareChain(platformOrganization.careChain);
       }
+      mark("platform_org");
     }
 
     let placementOrgFields = { great_region: null as string | null, pastoral_zone: null as string | null, small_group: null as string | null };
@@ -615,6 +625,7 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (identityError) throw identityError;
+    mark("identity_lookup");
 
     let profileId = existingIdentity?.profile_id || null;
     let existingProfile: any = null;
@@ -665,6 +676,7 @@ Deno.serve(async (req: Request) => {
       if (profileByIdError) throw profileByIdError;
       existingProfile = profileById || null;
     }
+    mark("profile_lookup");
 
 
     if (!profileId) {
@@ -702,6 +714,7 @@ Deno.serve(async (req: Request) => {
 
 
     const syncedRoleId = await resolveSyncedRoleId(supabaseAdmin, memberContext, existingProfile?.role_id, linkSource);
+    mark("role_resolution");
 
     // Member Hub is canonical only when the context endpoint was reachable for this session.
     const hubLinked = !!memberContext;
@@ -795,6 +808,7 @@ Deno.serve(async (req: Request) => {
       orgLinkStatus,
       orgLinkError
     } = await resolveLocalOrgLinks(supabaseAdmin, profilePayload, memberContext);
+    mark("org_links");
 
     profilePayload.great_region_id = (great_region_id || (profilePayload.great_region === existingProfile?.great_region ? existingProfile?.great_region_id : null)) || null;
     profilePayload.pastoral_zone_id = (pastoral_zone_id || (profilePayload.pastoral_zone === existingProfile?.pastoral_zone ? existingProfile?.pastoral_zone_id : null)) || null;
@@ -807,6 +821,7 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (profileError) throw profileError;
+    mark("profile_upsert");
 
     // Prune only after an authoritative Hub projection has been committed.
     // The database function applies a grace period so concurrent sessions can
@@ -826,6 +841,7 @@ Deno.serve(async (req: Request) => {
         orgCleanupResult = cleanupData;
       }
     }
+    mark("org_prune");
 
     const { error: clearPrimaryError } = await supabaseAdmin
       .from("user_identities")
@@ -833,6 +849,7 @@ Deno.serve(async (req: Request) => {
       .eq("profile_id", profileId);
 
     if (clearPrimaryError) throw clearPrimaryError;
+    mark("clear_primary");
 
     const identityMetadata: Record<string, unknown> = {
       issuer,
@@ -892,7 +909,9 @@ Deno.serve(async (req: Request) => {
       }, { onConflict: "provider,provider_user_id" });
 
     if (upsertIdentityError) throw upsertIdentityError;
+    mark("identity_upsert");
 
+    console.info("nlc-session timing", JSON.stringify({ total_ms: Date.now() - t0, steps: timings }));
     return jsonResponse({
       edge_session: true,
       profile,
@@ -907,6 +926,7 @@ Deno.serve(async (req: Request) => {
     // client. A stack trace can reveal internal file paths, function names,
     // and dependency versions to anyone who can trigger this failure path.
     console.error("nlc-session failed:", err);
+    console.info("nlc-session timing (failed)", JSON.stringify({ total_ms: Date.now() - t0, steps: timings }));
     return jsonResponse({
       error: "nlc_session_failed",
       message: err instanceof Error ? err.message : String(err)
