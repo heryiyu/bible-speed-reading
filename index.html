@@ -56,6 +56,13 @@
       }
       window.location.replace("/repair?version=" + Date.now());
     };
+    // ── 暫時性開機耗時量測（找「5 秒才顯示內容」瓶頸用，確認完可整批移除）──
+    // 每個 mark 的時間點都是相對於 navigation start，串起來就能看出 5 秒花在
+    // 哪一段：CDN script／core import chain／Logto 驗證／資料載入。見 app.js
+    // 裡的 reportBootPerf()。
+    window.__bootMark = function (name) {
+      try { performance.mark("boot:" + name); } catch (e) {}
+    };
   </script>
   <link rel="stylesheet" href="index.css?v=20260916_team_row_actionable" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/admin-registration-statistics.css?v=20260812_clean-user-directory-ui" onerror="window.showAppStyleRecovery(this)">
@@ -63,6 +70,7 @@
 
   <!-- Supabase JS Client library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0" crossorigin="anonymous"></script>
+  <script>window.__bootMark("supabase-cdn-loaded");</script>
   <!-- Chart.js — loaded lazily by js/modules/plan.js (ensureChartLib) the first time a
        stats/ranking chart needs to render. Kept off the first-paint critical path. -->
   <!-- html2canvas — loaded lazily by js/modules/home.js (ensureHtml2CanvasLib) the first
@@ -146,6 +154,7 @@
       },
     }
   </script>
+  <script>window.__bootMark("tailwind-cdn-ready");</script>
 </head>
 
 <body class="light-theme">
@@ -2754,7 +2763,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=20260916_ended_plan_lockdown_and_icon_fix"></script>
+  <script type="module" src="js/app.js?v=20260918_boot_perf_instrumentation"></script>
 </body>
 
 </html>

@@ -585,7 +585,9 @@ const db = {
 
         // ── OIDC Callback: Handle Logto redirect ──
         if (typeof auth !== "undefined") {
+          window.__bootMark?.("auth-handle-callback-start");
           const callbackHandled = await auth.handleCallback();
+          window.__bootMark?.("auth-handle-callback-done");
           if (callbackHandled) {
             console.log("Logto OIDC callback handled successfully.");
           }
@@ -596,6 +598,7 @@ const db = {
               return true;
             }
             let sessionSync = null;
+            window.__bootMark?.("nlc-session-sync-start");
             try {
               sessionSync = await this.syncNlcSessionWithSupabase(true);
             } catch (syncErr) {
@@ -607,6 +610,7 @@ const db = {
               // of being silently disguised as "offline reading mode".
               if (this.isNetworkUnreachableError(syncErr) && this.tryRestoreOfflineSession()) return true;
             }
+            window.__bootMark?.("nlc-session-sync-done");
             const block = getUserOnboardingBlock(state.currentUser);
             const hasValidTokens = auth.isLoggedIn();
             const copy = getLoginGateCopy(block, { hasTokens: hasValidTokens });
@@ -1232,6 +1236,7 @@ const db = {
       buttonEl,
       refreshActionsEl: document.getElementById("login-gate-refresh-actions")
     });
+    window.__bootMark?.("login-gate-shown");
     if (buttonEl) buttonEl.dataset.loginGateMode = copy.mode;
     return copy;
   },
@@ -1253,6 +1258,7 @@ const db = {
       if (state.isSupabaseMode) {
         if (loginGate) loginGate.classList.add("hidden");
         if (appLayout) appLayout.classList.remove("hidden");
+        window.__bootMark?.("app-shell-shown");
       }
     } else {
       // Online mode: Show login gate, hide app container
@@ -1267,10 +1273,12 @@ const db = {
           buttonEl: document.getElementById("btn-gate-nlc-login"),
           refreshActionsEl: document.getElementById("login-gate-refresh-actions")
         });
+        window.__bootMark?.("login-gate-shown");
       } else {
         // Demo mode: Ensure login gate is hidden and app is visible
         if (loginGate) loginGate.classList.add("hidden");
         if (appLayout) appLayout.classList.remove("hidden");
+        window.__bootMark?.("app-shell-shown");
       }
     }
 
