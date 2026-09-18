@@ -414,28 +414,40 @@ const db = {
     }
   },
 
-  tryRestoreOfflineSession() {
-    if (localStorage.getItem("offline_reading_enabled") === "false") return false;
+  // Shared by tryRestoreOfflineSession() (genuinely offline) and the
+  // optimistic-boot path in init() (online, but the 10-min edge-session
+  // cache already expired and we'd rather not block first paint on a
+  // network round trip that measured 3.5-5.2s in production). Same
+  // "trust a recently-verified local identity" logic either way — only
+  // the offline-specific chrome/lock differs.
+  applyCachedIdentitySnapshot({ markAsOffline }) {
     let identity = null;
     try { identity = JSON.parse(localStorage.getItem("offline_trusted_identity") || "null"); } catch { return false; }
     const verifiedAt = Date.parse(identity?.verifiedAt || "");
     const maxAgeMs = 30 * 24 * 60 * 60 * 1000;
     if (!identity?.profile?.id || !Number.isFinite(verifiedAt) || Date.now() - verifiedAt > maxAgeMs) return false;
 
-    state.offlineMode = true;
+    if (markAsOffline) state.offlineMode = true;
     state.supabase = this.createNlcDataClient();
     this.applyNlcProfile(identity.profile, identity.lockedFields || []);
-    document.documentElement.dataset.appConnection = "offline-reader";
-    const statusBadge = document.getElementById("connection-status");
-    if (statusBadge) {
-      statusBadge.className = "status-badge offline";
-      const label = statusBadge.querySelector(".status-text");
-      if (label) label.textContent = "離線閱讀";
+    if (markAsOffline) {
+      document.documentElement.dataset.appConnection = "offline-reader";
+      const statusBadge = document.getElementById("connection-status");
+      if (statusBadge) {
+        statusBadge.className = "status-badge offline";
+        const label = statusBadge.querySelector(".status-text");
+        if (label) label.textContent = "離線閱讀";
+      }
     }
-    this.updateAuthUI({ user: { id: identity.profile.id, offline: true } });
+    this.updateAuthUI({ user: { id: identity.profile.id, offline: markAsOffline } });
     this.refreshRoleDependentUI();
-    this.setOfflineNavLock(true);
+    if (markAsOffline) this.setOfflineNavLock(true);
     return true;
+  },
+
+  tryRestoreOfflineSession() {
+    if (localStorage.getItem("offline_reading_enabled") === "false") return false;
+    return this.applyCachedIdentitySnapshot({ markAsOffline: true });
   },
 
   loadOfflineSnapshot() {
@@ -597,10 +609,31 @@ const db = {
             if (navigator.onLine === false && this.tryRestoreOfflineSession()) {
               return true;
             }
+
+            // Optimistic boot: the 10-min edge-session cache below already
+            // expired (so the sync would have to pay the full, measured
+            // 3.5-5.2s nlc-session round trip), but we still have a
+            // recently-verified (<=30 day) local identity. Show the app
+            // immediately with that cached identity instead of blocking
+            // first paint on the network call; the real sync still runs,
+            // just in the background — see startBackgroundSessionReconciliation().
+            const cachedExpiresAt = Number(localStorage.getItem("nlc_edge_session_expires_at") || "0");
+            const edgeCacheFresh = cachedExpiresAt > Date.now() + 60000;
+            if (!edgeCacheFresh && this.applyCachedIdentitySnapshot({ markAsOffline: false })) {
+              window.__bootMark?.("optimistic-shell-shown");
+              state.optimisticBootPending = true;
+              this.startBackgroundSessionReconciliation();
+              return true;
+            }
+
             let sessionSync = null;
             window.__bootMark?.("nlc-session-sync-start");
             try {
-              sessionSync = await this.syncNlcSessionWithSupabase(true);
+              // force=false: trust the 10-minute edge-session cache when
+              // fresh instead of always re-hitting nlc-session, whose own
+              // round trip measured 3.5-5.2s in production (mostly Member
+              // Hub / Platform org calls this app can't speed up).
+              sessionSync = await this.syncNlcSessionWithSupabase(false);
             } catch (syncErr) {
               console.warn("⚠️ NLC session sync warning:", syncErr);
               // Only a genuine connectivity failure falls back to the cached
@@ -1144,6 +1177,60 @@ const db = {
     this.storeOfflineIdentity(payload.profile);
     this.setOfflineNavLock(false);
     return payload;
+  },
+
+  // Runs after the optimistic boot path in init() has already shown the app
+  // with a cached identity. Does the real, force=true nlc-session round trip
+  // in the background and reconciles the result:
+  //  - confirmed + unchanged  → nothing visible happens
+  //  - confirmed + changed    → re-apply the fresh profile (role/org/status)
+  //  - transient network fail → leave the optimistic view alone, same
+  //    tolerance the offline fallback already has for connectivity blips
+  //  - genuinely rejected     → downgrade gracefully via showConnectionError
+  //    instead of yanking the user out; nlc-data still re-verifies every
+  //    real write server-side regardless of what this shows, so a few
+  //    seconds of a stale optimistic view is a display-only risk, not a
+  //    security one.
+  async startBackgroundSessionReconciliation() {
+    if (this._backgroundReconcilePending) return;
+    this._backgroundReconcilePending = true;
+    let succeeded = false;
+    try {
+      window.__bootMark?.("background-reconcile-start");
+      const sessionSync = await this.syncNlcSessionWithSupabase(true);
+      const block = getUserOnboardingBlock(state.currentUser);
+      const hasValidTokens = typeof auth !== "undefined" && auth.isLoggedIn();
+      const copy = getLoginGateCopy(block, { hasTokens: hasValidTokens });
+      if (copy.enterApp) {
+        const userId = state.currentProfileId || (typeof auth !== "undefined" && typeof auth.getLogtoSubject === "function" ? auth.getLogtoSubject() : null);
+        this.updateAuthUI({ user: { id: userId || "authenticated-user" } });
+        this.refreshRoleDependentUI();
+        succeeded = Boolean(userId || (sessionSync && sessionSync.edge_session));
+      } else if (block?.reason === "member_context_unavailable") {
+        // Same caution as applyLoginOnboardingGate()'s retry-once handling:
+        // this reason is frequently a transient backend hiccup, not a real
+        // denial. Don't yank an already-rendered optimistic view over it.
+        console.warn("[BackgroundReconcile] member_context_unavailable after live check — keeping optimistic view.", block);
+      } else {
+        console.warn("[BackgroundReconcile] Cached session no longer valid after live check:", block);
+        this.showConnectionError(copy.subtitle || undefined);
+      }
+    } catch (syncErr) {
+      if (this.isNetworkUnreachableError(syncErr)) {
+        console.warn("[BackgroundReconcile] Network unreachable (kept optimistic view):", syncErr);
+      } else {
+        // Reachable but rejected (invalid/expired token, server-side error)
+        // — not a connectivity blip, so the optimistic view is actually
+        // wrong. Downgrade gracefully instead of leaving stale state up.
+        console.warn("[BackgroundReconcile] Session sync rejected after live check:", syncErr);
+        this.showConnectionError();
+      }
+    } finally {
+      window.__bootMark?.("background-reconcile-done");
+      this._backgroundReconcilePending = false;
+      state.optimisticBootPending = false;
+      window.dispatchEvent(new CustomEvent("auth:background-sync-settled", { detail: { success: succeeded } }));
+    }
   },
 
   async getCurrentDbUser() {

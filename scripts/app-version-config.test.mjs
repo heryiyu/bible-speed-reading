@@ -63,7 +63,13 @@ describe("release onboarding startup timing", () => {
   });
 
   it("only marks the initial session sync successful after a Logto profile sync", () => {
-    expect(db).toContain("sessionSync = await this.syncNlcSessionWithSupabase(true)");
+    // force=false as of the boot-perf fix: trust the existing 10-minute
+    // edge-session cache instead of unconditionally re-hitting nlc-session
+    // (measured 3.5-5.2s, almost entirely spent in Member Hub / Platform org
+    // calls) on every cold boot. Still the same single authoritative sync
+    // call gating `sessionSync`/`initialSessionSyncSucceeded`, just no longer
+    // forced past a still-fresh cache.
+    expect(db).toContain("sessionSync = await this.syncNlcSessionWithSupabase(false)");
   });
 
   it("does not auto-show after a failed initial sync and does auto-show after both startup syncs succeed", () => {

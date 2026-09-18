@@ -64,8 +64,11 @@ describe("plan entry: eligibility judged at login only (js/app.js + js/db.js)", 
 
   it("db.init evaluates the login gate right after a fresh member-context sync", () => {
     // 登入流程：同步 → getUserOnboardingBlock → getLoginGateCopy → 進 App 或停在登入卡
-    const initSlice = db.slice(db.indexOf("if (auth.isLoggedIn())"), db.indexOf("if (auth.isLoggedIn())") + 2400);
-    expect(initSlice).toContain("await this.syncNlcSessionWithSupabase(true)");
+    const initSlice = db.slice(db.indexOf("if (auth.isLoggedIn())"), db.indexOf("if (auth.isLoggedIn())") + 4000);
+    // force=false as of the boot-perf fix — see app-version-config.test.mjs
+    // for why: trusts the existing 10-minute edge-session cache instead of
+    // always re-hitting the slow nlc-session round trip on cold boot.
+    expect(initSlice).toContain("await this.syncNlcSessionWithSupabase(false)");
     expect(initSlice).toContain("const block = getUserOnboardingBlock(state.currentUser)");
     expect(initSlice).toContain("getLoginGateCopy(block");
     expect(initSlice).toContain("applyLoginGateView");

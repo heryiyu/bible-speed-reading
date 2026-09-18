@@ -18,7 +18,7 @@ import './design/icons.js';
 import './state.js?v=20260901_highlights_notes_review';
 import './auth.js?v=20260906_session_expired_event';
 import './auth-launch.mjs';
-import './db.js?v=20260918_boot_perf_instrumentation';
+import './db.js?v=20260918_optimistic_boot_shell';
 import './utils.js?v=20260916_reading_logs_pagination_fix';
 import './gamification.js?v=20260826_quiz_remove_duplicate_scope_filter';
 import { mountGradingWorkspace } from './modules/grading.js?v=20260915_grading_roster_search';
