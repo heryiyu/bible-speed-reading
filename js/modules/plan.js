@@ -3849,7 +3849,7 @@ function bindQuizCustomQuestionBlock(fieldset, onChange) {
 }
 
 function renderQuizImportPanelHtml() {
-  return `<details class="admin-quiz-import-panel" data-quiz-import-panel>
+  return `<details class="admin-quiz-import-panel" data-quiz-import-panel open>
     <summary>從文字匯入題目</summary>
     <p class="admin-daily-quiz-note">貼上依格式撰寫的題目文字，解析後會直接取代下方的題目清單，送出前仍可逐題檢查修改。格式範例：<code>[單選] 題目 / A. 選項一 / B. 選項二 / 答案：A</code>，題型標籤支援「單選／多選／是非／配對／排序」。</p>
     <textarea class="form-control" data-quiz-import-text rows="8" placeholder="[單選] 亞伯拉罕原本住在哪座城市？&#10;A. 哈蘭&#10;B. 吾珥&#10;答案：B"></textarea>
@@ -3896,6 +3896,11 @@ function bindQuizImportPanel(container, list, onChange) {
 
 function renderQuizCustomEditorHtml() {
   return `<div class="admin-daily-quiz-editor admin-quiz-custom-editor" data-quiz-custom-editor>
+    <div class="admin-quiz-custom-editor-topbar">
+      <button type="button" class="secondary-btn" data-quiz-custom-cancel>
+        <span class="nlc-icon" data-icon="close" aria-hidden="true"></span> 取消自訂題目
+      </button>
+    </div>
     ${renderQuizImportPanelHtml()}
     <div class="admin-quiz-custom-questions" data-quiz-custom-questions>
       ${[0, 1].map(index => renderQuizCustomQuestionBlock(index)).join("")}
@@ -3918,11 +3923,15 @@ function renumberQuizCustomQuestions(list, addBtn) {
   if (addBtn) addBtn.disabled = list.children.length >= 10;
 }
 
-function bindQuizCustomEditor(container, onChange) {
+function bindQuizCustomEditor(container, onChange, onCancel) {
   const list = container.querySelector("[data-quiz-custom-questions]");
   const addBtn = container.querySelector("[data-quiz-custom-add]");
   if (!list || !addBtn || container.dataset.customBound === "true") return;
   container.dataset.customBound = "true";
+
+  container.querySelector("[data-quiz-custom-cancel]")?.addEventListener("click", () => {
+    if (typeof onCancel === "function") onCancel();
+  });
 
   Array.from(list.children).forEach(fieldset => bindQuizCustomQuestionBlock(fieldset, onChange));
 
@@ -4091,7 +4100,12 @@ function renderPublisherDailyQuiz(content, context, plan, quizDate) {
         if (!customSlot.dataset.rendered) {
           customSlot.innerHTML = renderQuizCustomEditorHtml();
           customSlot.dataset.rendered = "true";
-          bindQuizCustomEditor(customSlot, refresh);
+          bindQuizCustomEditor(customSlot, refresh, () => {
+            selectedVersion = null;
+            versionButtons.forEach(other => other.classList.remove("active"));
+            customSlot.classList.add("hidden");
+            refresh();
+          });
           if (typeof hydrateIcons === "function") hydrateIcons(customSlot);
         }
         customSlot.classList.remove("hidden");
