@@ -18,6 +18,7 @@ import {
   formatTaiwanDate,
   prependTaiwanExportTime
 } from "./export-time.mjs";
+import { parseQuizImportText } from "./quiz-import.mjs";
 // Keep the ?v= in sync with any change to exam.js so a deploy isn't masked by a
 // Service Worker that cached /modules/exam.js at its bare (unversioned) URL.
 import { renderExamPanel } from "./exam.js?v=20260911_exam_paper_linked_plan";
@@ -2129,21 +2130,213 @@ function getAdminQuizScope(prefix) {
   return { scopeType: "all", scopeName: null };
 }
 
+// 自訂題目（"Version C"）編輯器：題型一~五，跟 quiz-import.mjs 解析出來的
+// {id, type, payload, answerKey, explanation, verseRef} 是同一種形狀，所以
+// 匯入面板可以直接把解析結果塞進這裡的區塊，不用另外轉換。AI 產生的 A/B 版
+// （reviewQuizzes[].questions）仍是舊的單選 flat 格式（見 migration 0185
+// 「舊格式（AI 產生 / 既有單選自訂題）：規則完全不變」），複製時用
+// adminAdaptLegacyQuizQuestion() 轉成新格式。
+
+const ADMIN_QUIZ_CUSTOM_TYPE_LABELS = { truefalse: '是非', single: '單選', multiple: '多選', matching: '配對', ordering: '排序' };
+
+function adminQuizCustomDefaultQuestion(type) {
+  switch (type) {
+    case 'truefalse': return { type, payload: { stem: '' }, answerKey: true, explanation: '', verseRef: '' };
+    case 'multiple': return { type, payload: { stem: '', options: ['', ''] }, answerKey: [], explanation: '', verseRef: '' };
+    case 'matching': return { type, payload: { stem: '', left: [{ text: '' }, { text: '' }], right: [{ text: '' }, { text: '' }] }, answerKey: {}, explanation: '', verseRef: '' };
+    case 'ordering': return { type, payload: { stem: '', items: [{ text: '' }, { text: '' }] }, answerKey: [], explanation: '', verseRef: '' };
+    default: return { type: 'single', payload: { stem: '', options: ['', '', '', ''] }, answerKey: 0, explanation: '', verseRef: '' };
+  }
+}
+
+function adminAdaptLegacyQuizQuestion(question = {}) {
+  return {
+    type: 'single',
+    payload: {
+      stem: question.question || '',
+      options: Array.isArray(question.options) && question.options.length ? question.options : ['', '', '', '']
+    },
+    answerKey: Number.isInteger(question.correctIndex) ? question.correctIndex : 0,
+    explanation: question.explanation || '',
+    verseRef: question.verseRef || ''
+  };
+}
+
+function renderAdminQuizCustomOptionRowHtml(text = '', checked = false) {
+  return `<div class="admin-quiz-custom-option-row" data-option-row>
+    <input type="checkbox" data-option-correct ${checked ? 'checked' : ''}>
+    <input class="form-control" data-option-text value="${adminQuizEscape(text)}" placeholder="選項文字">
+    <button type="button" class="icon-button icon-button--subtle" data-option-remove aria-label="移除選項"><span class="nlc-icon" data-icon="close" aria-hidden="true"></span></button>
+  </div>`;
+}
+
+function renderAdminQuizCustomPairRowHtml(leftText = '', rightText = '') {
+  return `<div class="admin-quiz-custom-pair-row" data-pair-row>
+    <input class="form-control" data-pair-left value="${adminQuizEscape(leftText)}" placeholder="左邊">
+    <span class="admin-quiz-custom-pair-arrow" aria-hidden="true">${'↔'}</span>
+    <input class="form-control" data-pair-right value="${adminQuizEscape(rightText)}" placeholder="右邊（正確配對）">
+    <button type="button" class="icon-button icon-button--subtle" data-pair-remove aria-label="移除這組配對"><span class="nlc-icon" data-icon="close" aria-hidden="true"></span></button>
+  </div>`;
+}
+
+function renderAdminQuizCustomItemRowHtml(text = '') {
+  return `<div class="admin-quiz-custom-item-row" data-item-row>
+    <input class="form-control" data-item-text value="${adminQuizEscape(text)}" placeholder="項目文字">
+    <button type="button" class="icon-button icon-button--subtle" data-item-remove aria-label="移除這個項目"><span class="nlc-icon" data-icon="close" aria-hidden="true"></span></button>
+  </div>`;
+}
+
+function renderAdminQuizCustomQuestionBodyHtml(question) {
+  const { type, payload = {}, answerKey } = question;
+  if (type === 'truefalse') {
+    return `<label>正確答案<select class="form-control" data-field="answerKey">
+      <option value="true" ${answerKey === true ? 'selected' : ''}>對</option>
+      <option value="false" ${answerKey === false ? 'selected' : ''}>錯</option>
+    </select></label>`;
+  }
+  if (type === 'single' || type === 'multiple') {
+    const correctSet = type === 'single'
+      ? new Set(Number.isInteger(answerKey) ? [answerKey] : [])
+      : new Set(Array.isArray(answerKey) ? answerKey : []);
+    const options = payload.options && payload.options.length ? payload.options : ['', ''];
+    return `<div class="admin-quiz-custom-options" data-options>
+      ${options.map((text, i) => renderAdminQuizCustomOptionRowHtml(text, correctSet.has(i))).join('')}
+    </div>
+    <button type="button" class="secondary-btn" data-option-add>新增選項</button>
+    <p class="admin-daily-quiz-note">勾選核取方塊標記正確答案${type === 'single' ? '（只能選一個）' : '（可複選）'}。</p>`;
+  }
+  if (type === 'matching') {
+    const left = payload.left && payload.left.length ? payload.left : [{ text: '' }, { text: '' }];
+    const right = payload.right && payload.right.length ? payload.right : [{ text: '' }, { text: '' }];
+    const rowCount = Math.max(left.length, right.length, 2);
+    return `<div class="admin-quiz-custom-pairs" data-pairs>
+      ${Array.from({ length: rowCount }).map((_, i) => renderAdminQuizCustomPairRowHtml(left[i]?.text || '', right[i]?.text || '')).join('')}
+    </div>
+    <button type="button" class="secondary-btn" data-pair-add>新增配對</button>
+    <p class="admin-daily-quiz-note">同一列的左右兩邊即為正確配對，作答時會友看到的左右順序會被打亂。</p>`;
+  }
+  if (type === 'ordering') {
+    const items = payload.items && payload.items.length ? payload.items : [{ text: '' }, { text: '' }];
+    return `<div class="admin-quiz-custom-items" data-items>
+      ${items.map(item => renderAdminQuizCustomItemRowHtml(item.text || '')).join('')}
+    </div>
+    <button type="button" class="secondary-btn" data-item-add>新增項目</button>
+    <p class="admin-daily-quiz-note">由上到下即為正確順序，作答時會友看到的順序會被打亂。</p>`;
+  }
+  return '';
+}
+
 function renderAdminQuizCustomQuestionBlock(index, question = {}) {
-  return `<fieldset class="admin-daily-quiz-question admin-quiz-custom-question" data-question-index="${index}">
+  const normalized = question.type ? question : adminQuizCustomDefaultQuestion('single');
+  const type = normalized.type || 'single';
+  return `<fieldset class="admin-daily-quiz-question admin-quiz-custom-question" data-question-index="${index}" data-question-type="${type}">
     <legend>第 ${index + 1} 題 <button type="button" class="icon-button icon-button--subtle" data-quiz-custom-remove aria-label="刪除第 ${index + 1} 題"><span class="nlc-icon" data-icon="close" aria-hidden="true"></span></button></legend>
-    <label>題目<textarea class="form-control" data-field="question" rows="2">${adminQuizEscape(question.question || '')}</textarea></label>
-    <div class="admin-daily-quiz-options">
-      ${[0, 1, 2, 3].map(optionIndex => `<label>選項 ${optionIndex + 1}<input class="form-control" data-option-index="${optionIndex}" value="${adminQuizEscape((question.options || [])[optionIndex] || '')}"></label>`).join('')}
-    </div>
+    <label>題型<select class="form-control" data-field="type">
+      ${Object.entries(ADMIN_QUIZ_CUSTOM_TYPE_LABELS).map(([value, label]) => `<option value="${value}" ${type === value ? 'selected' : ''}>${label}</option>`).join('')}
+    </select></label>
+    <label>題目<textarea class="form-control" data-field="stem" rows="2">${adminQuizEscape(normalized.payload?.stem || '')}</textarea></label>
+    <div data-question-body>${renderAdminQuizCustomQuestionBodyHtml(normalized)}</div>
     <div class="admin-daily-quiz-answer-row">
-      <label>正確答案<select class="form-control" data-field="correctIndex">
-        ${[0, 1, 2, 3].map(optionIndex => `<option value="${optionIndex}" ${Number(question.correctIndex) === optionIndex ? 'selected' : ''}>選項 ${optionIndex + 1}</option>`).join('')}
-      </select></label>
-      <label>經文出處<input class="form-control" data-field="verseRef" value="${adminQuizEscape(question.verseRef || '')}"></label>
+      <label>經文出處（選填）<input class="form-control" data-field="verseRef" value="${adminQuizEscape(normalized.verseRef || '')}"></label>
     </div>
-    <label>解說<textarea class="form-control" data-field="explanation" rows="2">${adminQuizEscape(question.explanation || '')}</textarea></label>
+    <label>解說（選填）<textarea class="form-control" data-field="explanation" rows="2">${adminQuizEscape(normalized.explanation || '')}</textarea></label>
   </fieldset>`;
+}
+
+// 題型切換／新增選項｜配對｜項目 都會改動 DOM 結構，input 事件不會自動涵蓋到
+// 這些「按按鈕才變動」的操作，要各自明確呼叫 onChange 通知外層重新檢查是否
+// 可以送出。勾選「正確答案」核取方塊會自然觸發 input 事件（外層的委派監聽
+// 已經接住），這裡只需要額外處理「單選只能勾一個」的互斥邏輯。
+function bindAdminQuizCustomQuestionBlock(fieldset, onChange) {
+  const typeSelect = fieldset.querySelector('[data-field="type"]');
+  const body = fieldset.querySelector('[data-question-body]');
+  if (!typeSelect || !body) return;
+
+  typeSelect.addEventListener('change', () => {
+    const nextType = typeSelect.value;
+    fieldset.dataset.questionType = nextType;
+    body.innerHTML = renderAdminQuizCustomQuestionBodyHtml(adminQuizCustomDefaultQuestion(nextType));
+    if (typeof hydrateIcons === 'function') hydrateIcons(body);
+    if (typeof onChange === 'function') onChange();
+  });
+
+  fieldset.addEventListener('click', event => {
+    if (event.target.closest('[data-option-add]')) {
+      body.querySelector('[data-options]')?.insertAdjacentHTML('beforeend', renderAdminQuizCustomOptionRowHtml());
+      if (typeof hydrateIcons === 'function') hydrateIcons(body);
+      if (typeof onChange === 'function') onChange();
+    } else if (event.target.closest('[data-option-remove]')) {
+      const rows = body.querySelectorAll('[data-option-row]');
+      if (rows.length > 2) event.target.closest('[data-option-row]').remove();
+      if (typeof onChange === 'function') onChange();
+    } else if (event.target.closest('[data-option-correct]') && fieldset.dataset.questionType === 'single') {
+      const checkbox = event.target.closest('[data-option-correct]');
+      body.querySelectorAll('[data-option-correct]').forEach(other => { if (other !== checkbox) other.checked = false; });
+      if (typeof onChange === 'function') onChange();
+    } else if (event.target.closest('[data-pair-add]')) {
+      body.querySelector('[data-pairs]')?.insertAdjacentHTML('beforeend', renderAdminQuizCustomPairRowHtml());
+      if (typeof hydrateIcons === 'function') hydrateIcons(body);
+      if (typeof onChange === 'function') onChange();
+    } else if (event.target.closest('[data-pair-remove]')) {
+      const rows = body.querySelectorAll('[data-pair-row]');
+      if (rows.length > 2) event.target.closest('[data-pair-row]').remove();
+      if (typeof onChange === 'function') onChange();
+    } else if (event.target.closest('[data-item-add]')) {
+      body.querySelector('[data-items]')?.insertAdjacentHTML('beforeend', renderAdminQuizCustomItemRowHtml());
+      if (typeof hydrateIcons === 'function') hydrateIcons(body);
+      if (typeof onChange === 'function') onChange();
+    } else if (event.target.closest('[data-item-remove]')) {
+      const rows = body.querySelectorAll('[data-item-row]');
+      if (rows.length > 2) event.target.closest('[data-item-row]').remove();
+      if (typeof onChange === 'function') onChange();
+    }
+  });
+}
+
+function renderAdminQuizImportPanelHtml() {
+  return `<details class="admin-quiz-import-panel" data-quiz-import-panel open>
+    <summary>從文字匯入題目</summary>
+    <p class="admin-daily-quiz-note">貼上依格式撰寫的題目文字，解析後會直接取代下方的題目清單，送出前仍可逐題檢查修改。格式範例：<code>[單選] 題目 / A. 選項一 / B. 選項二 / 答案：A</code>，題型標籤支援「單選／多選／是非／配對／排序」。</p>
+    <textarea class="form-control" data-quiz-import-text rows="8" placeholder="[單選] 亞伯拉罕原本住在哪座城市？&#10;A. 哈蘭&#10;B. 吾珥&#10;答案：B"></textarea>
+    <div class="admin-daily-quiz-carousel-actions">
+      <button type="button" class="secondary-btn" data-quiz-import-parse>解析並取代題目清單</button>
+    </div>
+    <div class="admin-quiz-import-errors" data-quiz-import-errors hidden></div>
+  </details>`;
+}
+
+function bindAdminQuizImportPanel(container, list, onChange) {
+  const textarea = container.querySelector('[data-quiz-import-text]');
+  const button = container.querySelector('[data-quiz-import-parse]');
+  const errorsBox = container.querySelector('[data-quiz-import-errors]');
+  if (!textarea || !button) return;
+
+  button.addEventListener('click', () => {
+    const { questions, errors } = parseQuizImportText(textarea.value);
+    if (errorsBox) {
+      if (errors.length) {
+        errorsBox.hidden = false;
+        errorsBox.innerHTML = `<p class="daily-quiz-answer-wrong">有 ${errors.length} 段解析失敗，已略過：</p>
+          <ul>${errors.map(error => `<li>${adminQuizEscape(error.message)}</li>`).join('')}</ul>`;
+      } else {
+        errorsBox.hidden = true;
+        errorsBox.innerHTML = '';
+      }
+    }
+    if (!questions.length) {
+      if (typeof showToast === 'function') showToast('沒有成功解析出任何題目，請檢查格式後再試一次。');
+      return;
+    }
+    if (questions.length > 10) {
+      questions.length = 10;
+      if (typeof showToast === 'function') showToast('自訂題目最多 10 題，只取了前 10 題。');
+    }
+    list.innerHTML = questions.map((question, index) => renderAdminQuizCustomQuestionBlock(index, question)).join('');
+    Array.from(list.children).forEach(fieldset => bindAdminQuizCustomQuestionBlock(fieldset, onChange));
+    if (typeof hydrateIcons === 'function') hydrateIcons(list);
+    if (typeof onChange === 'function') onChange();
+    if (!errors.length && typeof showToast === 'function') showToast(`已匯入 ${questions.length} 題，送出前請再檢查一遍。`);
+  });
 }
 
 function renderAdminQuizCustomEditorHtml(context) {
@@ -2155,13 +2348,14 @@ function renderAdminQuizCustomEditorHtml(context) {
       <button type="button" class="secondary-btn" data-quiz-custom-copy="A" ${canCopy('A') ? '' : 'disabled'}>複製 A 版題目</button>
       <button type="button" class="secondary-btn" data-quiz-custom-copy="B" ${canCopy('B') ? '' : 'disabled'}>複製 B 版題目</button>
     </div>
+    ${renderAdminQuizImportPanelHtml()}
     <div class="admin-quiz-custom-questions" data-quiz-custom-questions>
       ${[0, 1].map(index => renderAdminQuizCustomQuestionBlock(index)).join('')}
     </div>
     <div class="admin-daily-quiz-carousel-actions">
       <button type="button" class="secondary-btn" data-quiz-custom-add>新增題目</button>
     </div>
-    <p class="admin-daily-quiz-note">自訂題目 2～10 題，發佈者自行負責內容，不需牧者審核，也不會出現在牧者共用審核清單。可先複製 A／B 版題目再修改。</p>
+    <p class="admin-daily-quiz-note">自訂題目 2～10 題，發佈者自行負責內容，不需牧者審核，也不會出現在牧者共用審核清單。可先複製 A／B 版題目或用文字批次匯入，再修改。</p>
   </div>`;
 }
 
@@ -2181,9 +2375,13 @@ function bindAdminQuizCustomEditor(container, onChange) {
     addBtn.disabled = list.children.length >= 10;
   };
   container._quizCustomRenumber = renumber;
+
+  Array.from(list.children).forEach(fieldset => bindAdminQuizCustomQuestionBlock(fieldset, onChange));
+
   addBtn.addEventListener('click', () => {
     if (list.children.length >= 10) return;
     list.insertAdjacentHTML('beforeend', renderAdminQuizCustomQuestionBlock(list.children.length));
+    bindAdminQuizCustomQuestionBlock(list.lastElementChild, onChange);
     renumber();
     if (typeof hydrateIcons === 'function') hydrateIcons(list.lastElementChild);
     if (typeof onChange === 'function') onChange();
@@ -2197,6 +2395,11 @@ function bindAdminQuizCustomEditor(container, onChange) {
   });
   list.addEventListener('input', () => { if (typeof onChange === 'function') onChange(); });
   renumber();
+
+  bindAdminQuizImportPanel(container, list, () => {
+    renumber();
+    if (typeof onChange === 'function') onChange();
+  });
 }
 
 function bindAdminQuizCustomCopyButtons(container, context, onChange) {
@@ -2209,9 +2412,10 @@ function bindAdminQuizCustomCopyButtons(container, context, onChange) {
       const source = (context.reviewQuizzes || []).find(item => item.variant === variant && Array.isArray(item.questions) && item.questions.length);
       if (!source) return;
       const hasContent = collectAdminQuizCustomQuestions(container).some(question =>
-        question.question || question.verseRef || question.explanation || question.options.some(Boolean));
+        question.payload?.stem || question.verseRef || question.explanation || (question.payload?.options || []).some(Boolean));
       if (hasContent && !window.confirm(`複製版本 ${variant} 的題目會覆蓋目前已輸入的自訂題目，確定要複製嗎？`)) return;
-      list.innerHTML = source.questions.map((question, index) => renderAdminQuizCustomQuestionBlock(index, question)).join('');
+      list.innerHTML = source.questions.map((question, index) => renderAdminQuizCustomQuestionBlock(index, adminAdaptLegacyQuizQuestion(question))).join('');
+      Array.from(list.children).forEach(fieldset => bindAdminQuizCustomQuestionBlock(fieldset, onChange));
       if (typeof container._quizCustomRenumber === 'function') container._quizCustomRenumber();
       if (typeof hydrateIcons === 'function') hydrateIcons(list);
       if (typeof onChange === 'function') onChange();
@@ -2219,25 +2423,85 @@ function bindAdminQuizCustomCopyButtons(container, context, onChange) {
   });
 }
 
+function collectAdminQuizCustomQuestionFromBlock(fieldset, index) {
+  const id = `c${index + 1}`;
+  const type = fieldset.querySelector('[data-field="type"]')?.value || 'single';
+  const stem = fieldset.querySelector('[data-field="stem"]')?.value.trim() || '';
+  const explanation = fieldset.querySelector('[data-field="explanation"]')?.value.trim() || '';
+  const verseRef = fieldset.querySelector('[data-field="verseRef"]')?.value.trim() || '';
+  const base = { id, type, explanation, verseRef };
+
+  if (type === 'truefalse') {
+    const answerKey = fieldset.querySelector('[data-field="answerKey"]')?.value === 'true';
+    return { ...base, payload: { stem }, answerKey };
+  }
+  if (type === 'single' || type === 'multiple') {
+    const rows = Array.from(fieldset.querySelectorAll('[data-option-row]'));
+    const options = rows.map(row => row.querySelector('[data-option-text]')?.value.trim() || '');
+    if (type === 'single') {
+      const correctIndex = rows.findIndex(row => row.querySelector('[data-option-correct]')?.checked);
+      return { ...base, payload: { stem, options }, answerKey: correctIndex };
+    }
+    const answerKey = rows.reduce((acc, row, optionIndex) => {
+      if (row.querySelector('[data-option-correct]')?.checked) acc.push(optionIndex);
+      return acc;
+    }, []);
+    return { ...base, payload: { stem, options }, answerKey };
+  }
+  if (type === 'matching') {
+    const rows = Array.from(fieldset.querySelectorAll('[data-pair-row]'));
+    const left = rows.map((row, i) => ({ id: `${id}-L${i + 1}`, text: row.querySelector('[data-pair-left]')?.value.trim() || '' }));
+    const right = rows.map((row, i) => ({ id: `${id}-R${i + 1}`, text: row.querySelector('[data-pair-right]')?.value.trim() || '' }));
+    const answerKey = {};
+    left.forEach((item, i) => { answerKey[item.id] = right[i].id; });
+    return { ...base, payload: { stem, left, right }, answerKey };
+  }
+  if (type === 'ordering') {
+    const rows = Array.from(fieldset.querySelectorAll('[data-item-row]'));
+    const items = rows.map((row, i) => ({ id: `${id}-I${i + 1}`, text: row.querySelector('[data-item-text]')?.value.trim() || '' }));
+    return { ...base, payload: { stem, items }, answerKey: items.map(item => item.id) };
+  }
+  return { ...base, payload: { stem }, answerKey: null };
+}
+
 function collectAdminQuizCustomQuestions(container) {
   const list = container.querySelector('[data-quiz-custom-questions]');
   if (!list) return [];
-  return Array.from(list.querySelectorAll('[data-question-index]')).map((field, index) => ({
-    id: `c${index + 1}`,
-    question: field.querySelector('[data-field="question"]')?.value.trim() || '',
-    options: [0, 1, 2, 3].map(optionIndex => field.querySelector(`[data-option-index="${optionIndex}"]`)?.value.trim() || ''),
-    correctIndex: Number(field.querySelector('[data-field="correctIndex"]')?.value || 0),
-    explanation: field.querySelector('[data-field="explanation"]')?.value.trim() || '',
-    verseRef: field.querySelector('[data-field="verseRef"]')?.value.trim() || ''
-  }));
+  return Array.from(list.querySelectorAll('[data-question-index]')).map((fieldset, index) =>
+    collectAdminQuizCustomQuestionFromBlock(fieldset, index));
 }
 
 function adminQuizCustomQuestionsAreValid(questions) {
   if (!Array.isArray(questions) || questions.length < 2 || questions.length > 10) return false;
-  return questions.every(question =>
-    question.question && question.verseRef && question.explanation
-    && Array.isArray(question.options) && question.options.length === 4 && question.options.every(option => option)
-  );
+  return questions.every(question => {
+    if (!question.payload?.stem) return false;
+    switch (question.type) {
+      case 'truefalse':
+        return typeof question.answerKey === 'boolean';
+      case 'single': {
+        const options = question.payload.options || [];
+        return options.length >= 2 && options.every(Boolean)
+          && Number.isInteger(question.answerKey) && question.answerKey >= 0 && question.answerKey < options.length;
+      }
+      case 'multiple': {
+        const options = question.payload.options || [];
+        return options.length >= 2 && options.every(Boolean)
+          && Array.isArray(question.answerKey) && question.answerKey.length > 0;
+      }
+      case 'matching': {
+        const left = question.payload.left || [];
+        const right = question.payload.right || [];
+        return left.length >= 2 && left.length === right.length
+          && left.every(item => item.text) && right.every(item => item.text);
+      }
+      case 'ordering': {
+        const items = question.payload.items || [];
+        return items.length >= 2 && items.every(item => item.text);
+      }
+      default:
+        return false;
+    }
+  });
 }
 
 function renderAdminQuizPublishPanel(context) {
@@ -2247,6 +2511,9 @@ function renderAdminQuizPublishPanel(context) {
     <div class="admin-daily-quiz-heading">
       <div><p class="admin-registration-statistics__eyebrow">組織發佈</p><h2>發佈小測驗</h2></div>
     </div>
+    ${approvedVariants.length === 0
+      ? '<p class="daily-quiz-publisher-notice">今日 AI 題目尚未完成審核，審核通過後會顯示可發佈版本；你也可以直接用自訂題目發佈。</p>'
+      : ''}
     <div class="admin-quiz-publish-step">
       <p class="admin-quiz-publish-step-label">1. 發佈範圍</p>
       ${renderAdminQuizScopeSelectorHtml('admin-quiz-publish')}
@@ -2682,6 +2949,40 @@ function bindAdminQuizStatsPanel(root, plan) {
   queryBtn.addEventListener('click', () => { void runQuery(); });
 }
 
+// 小測驗後台原本審核／發佈／統計全塞在同一長頁面裡往下滑；改成分頁籤各自
+// 收起，切換時只是顯示/隱藏既有 DOM（不重新 fetch、不重新綁定），選到哪個
+// 分頁存在 root.dataset 上，換日期／重新整理後還是停在原本那個分頁。
+function renderAdminQuizSubtabNavHtml(active) {
+  const items = [
+    { key: 'review', label: '題目審核' },
+    { key: 'publish', label: '發佈' },
+    { key: 'stats', label: '統計' }
+  ];
+  return `<div class="segment-track admin-quiz-subtab-nav" role="tablist" aria-label="小測驗管理">
+    ${items.map(item => `<button type="button" class="segment-toggle-btn${item.key === active ? ' active' : ''}" data-quiz-subtab="${item.key}" role="tab" aria-selected="${item.key === active ? 'true' : 'false'}">${item.label}</button>`).join('')}
+  </div>`;
+}
+
+function bindAdminQuizSubtabNav(root) {
+  const nav = root.querySelector('.admin-quiz-subtab-nav');
+  if (!nav) return;
+  nav.querySelectorAll('[data-quiz-subtab]').forEach(button => {
+    button.addEventListener('click', () => {
+      const target = button.dataset.quizSubtab;
+      if (root.dataset.quizActiveSubtab === target) return;
+      root.dataset.quizActiveSubtab = target;
+      nav.querySelectorAll('[data-quiz-subtab]').forEach(other => {
+        const isActive = other === button;
+        other.classList.toggle('active', isActive);
+        other.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      root.querySelectorAll('[data-quiz-subtab-panel]').forEach(panel => {
+        panel.classList.toggle('hidden', panel.dataset.quizSubtabPanel !== target);
+      });
+    });
+  });
+}
+
 async function renderAdminDailyQuizManagement(forceRefresh = false, requestedDate = '', prefetchedResult = null) {
   const root = document.getElementById('admin-daily-quiz-root');
   if (!root || !state.activePlan) return;
@@ -2753,14 +3054,19 @@ async function renderAdminDailyQuizManagement(forceRefresh = false, requestedDat
   }
   const context = result.context || {};
   const approvedCount = Array.isArray(context.approvedVariants) ? context.approvedVariants.length : 0;
+  const activeSubtab = ['review', 'publish', 'stats'].includes(root.dataset.quizActiveSubtab)
+    ? root.dataset.quizActiveSubtab
+    : 'review';
   root.innerHTML = `
     <div class="admin-daily-quiz-toolbar">
       <label for="admin-daily-quiz-date">測驗日期<input id="admin-daily-quiz-date" class="form-control" type="date" value="${adminQuizEscape(quizDate)}"></label>
       <span>${approvedCount} 版已審核</span>
     </div>
-    ${renderAdminQuizReviewCards(context)}
-    ${renderAdminQuizPublishPanel(context)}
-    ${renderAdminQuizStatsSectionHtml()}`;
+    ${renderAdminQuizSubtabNavHtml(activeSubtab)}
+    <div data-quiz-subtab-panel="review" class="${activeSubtab === 'review' ? '' : 'hidden'}">${renderAdminQuizReviewCards(context)}</div>
+    <div data-quiz-subtab-panel="publish" class="${activeSubtab === 'publish' ? '' : 'hidden'}">${renderAdminQuizPublishPanel(context)}</div>
+    <div data-quiz-subtab-panel="stats" class="${activeSubtab === 'stats' ? '' : 'hidden'}">${renderAdminQuizStatsSectionHtml()}</div>`;
+  bindAdminQuizSubtabNav(root);
   await bindAdminDailyQuizActions(root, context, quizDate);
   bindAdminQuizCarousels(root);
   bindAdminQuizPublishPanel(root, context, quizDate);

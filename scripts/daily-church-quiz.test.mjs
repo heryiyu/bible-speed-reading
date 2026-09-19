@@ -104,7 +104,12 @@ describe("daily church quiz", () => {
   it("places the member entrance below chapter progress only after assignment", () => {
     expect(html).toContain('id="daily-quiz-section"');
     expect(html.indexOf('id="daily-quiz-section"')).toBeGreaterThan(html.indexOf('id="plan-tasks-list"'));
-    expect(plan).toContain("if (!context.myQuiz && !context.canPublish)");
+    // 發佈／編輯／匯入題目已搬去系統管理後台（admin.js），打卡清單只保留
+    // 會友「進入小測驗/作答」的入口，所以 gate 只看 context.myQuiz，且
+    // renderPublisherDailyQuiz 這個函式本身已經整個搬走、不在 plan.js 裡了。
+    expect(plan).toContain("if (!context.myQuiz) {");
+    expect(plan).not.toContain("context.canPublish");
+    expect(plan).not.toContain("renderPublisherDailyQuiz");
     expect(plan).toContain("renderDailyQuizEntry");
     expect(plan).toContain('id="daily-quiz-entry-button"');
     expect(plan).toContain("getDailyQuizReadingProgress");
@@ -113,17 +118,31 @@ describe("daily church quiz", () => {
     expect(plan).toContain("quizDate !== getDailyQuizTaiwanToday()");
     expect(plan).toContain("if (options.open === true)");
     expect(plan).toContain("renderAssignedDailyQuiz");
-    expect(plan).toContain("renderPublisherDailyQuiz");
     expect(css).toContain(".daily-quiz-entry-button {");
     expect(css).toContain("font-size: 14px;");
   });
 
   it("shows approved version numbers only to publishers after review", () => {
-    expect(plan).toContain('const approvedVariants = (Array.isArray(context.approvedVariants)');
-    expect(plan).toContain('data-quiz-version-choice="A"');
-    expect(plan).toContain('data-quiz-version-choice="B"');
-    expect(plan).toContain('data-quiz-version-choice="C"');
-    expect(plan).toContain('今日 AI 題目尚未完成審核');
+    // 這整組發佈 UI（範圍/版本挑選/自訂題目編輯器）現在只活在系統管理後台。
+    expect(admin).toContain('const approvedVariants = Array.isArray(context.approvedVariants)');
+    expect(admin).toContain('data-quiz-version-choice="A"');
+    expect(admin).toContain('data-quiz-version-choice="B"');
+    expect(admin).toContain('data-quiz-version-choice="C"');
+    expect(admin).toContain('今日 AI 題目尚未完成審核');
+    expect(plan).not.toContain('data-quiz-version-choice');
+  });
+
+  it("moves the five-question-type custom editor and text importer into the admin backend", () => {
+    // 上一輪「五種題型＋文字匯入」擴充當初加錯地方（打卡清單），這裡鎖住
+    // 它們現在只存在於後台，不會又悄悄跑回 plan.js 的打卡清單流程。
+    expect(admin).toContain("import { parseQuizImportText } from \"./quiz-import.mjs\"");
+    expect(admin).toContain("function renderAdminQuizImportPanelHtml()");
+    expect(admin).toContain("從文字匯入題目");
+    expect(admin).toContain("ADMIN_QUIZ_CUSTOM_TYPE_LABELS");
+    expect(admin).toContain("truefalse: '是非'");
+    expect(admin).toContain("function adminAdaptLegacyQuizQuestion(question = {})");
+    expect(plan).not.toContain("quiz-import.mjs");
+    expect(plan).not.toContain("QUIZ_CUSTOM_TYPE_LABELS");
   });
 
   it("adds review, publishing and scoped member results to plan management", () => {
@@ -172,7 +191,8 @@ describe("daily church quiz", () => {
     expect(admin).not.toContain("每日三版題目");
     expect(admin).toContain("<h2>發佈小測驗</h2>");
     expect(admin).not.toContain("發布小測驗");
-    expect(plan).toContain("發佈小測驗");
+    // 「發佈小測驗」的文案／流程已經整個搬去後台，打卡清單不該再出現它。
+    expect(plan).not.toContain("發佈小測驗");
     expect(plan).not.toContain("發布小測驗");
   });
 
