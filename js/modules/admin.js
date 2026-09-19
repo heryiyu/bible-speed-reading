@@ -2504,6 +2504,57 @@ function adminQuizCustomQuestionsAreValid(questions) {
   });
 }
 
+// 自訂題目自成一個分頁，跟「發佈」分開：出題／匯入／複製 AI 題目都在這裡完成，
+// 要點「確認自訂題目」才算數（root.dataset.quizCustomConfirmed），發佈分頁的
+// 「自訂題目」版本要選得到，就是看這個旗標，不是看當下題目填得完不完整——
+// 這樣發佈分頁才不需要放任何編輯題目的東西，純粹選範圍、選版本、按發佈。
+function renderAdminQuizCustomSectionHtml(context) {
+  return `<section class="glass-card admin-daily-quiz-block" id="admin-quiz-custom-panel">
+    <div class="admin-daily-quiz-heading">
+      <div><p class="admin-registration-statistics__eyebrow">自己出題</p><h2>自訂題目</h2></div>
+      <span class="role-badge" data-quiz-custom-status>尚未確認</span>
+    </div>
+    ${renderAdminQuizCustomEditorHtml(context)}
+    <div class="admin-quiz-publish-step">
+      <button type="button" class="primary-btn" data-quiz-custom-confirm>確認自訂題目</button>
+      <p class="admin-daily-quiz-note">確認後才能在「發佈」分頁選擇自訂題目發佈；之後再修改題目內容，需要重新確認一次。</p>
+    </div>
+  </section>`;
+}
+
+function bindAdminQuizCustomSection(root, context) {
+  const panel = root.querySelector('#admin-quiz-custom-panel');
+  if (!panel || panel.dataset.customSectionBound === 'true') return;
+  panel.dataset.customSectionBound = 'true';
+  const statusEl = panel.querySelector('[data-quiz-custom-status]');
+
+  const markUnconfirmed = () => {
+    root.dataset.quizCustomConfirmed = 'false';
+    if (statusEl) { statusEl.textContent = '尚未確認'; statusEl.classList.remove('approved'); }
+    if (typeof root._refreshQuizPublishState === 'function') root._refreshQuizPublishState();
+  };
+
+  bindAdminQuizCustomEditor(panel, markUnconfirmed);
+  bindAdminQuizCustomCopyButtons(panel, context, markUnconfirmed);
+
+  panel.querySelector('[data-quiz-custom-confirm]')?.addEventListener('click', () => {
+    const questions = collectAdminQuizCustomQuestions(panel);
+    if (!adminQuizCustomQuestionsAreValid(questions)) {
+      if (typeof showToast === 'function') showToast('自訂題目需要 2 至 10 題，且每題都要填寫完整，才能確認。');
+      return;
+    }
+    root.dataset.quizCustomConfirmed = 'true';
+    if (statusEl) { statusEl.textContent = '已確認'; statusEl.classList.add('approved'); }
+    if (typeof showToast === 'function') showToast('已確認自訂題目，可以到「發佈」分頁選擇發佈了。');
+    if (typeof root._refreshQuizPublishState === 'function') root._refreshQuizPublishState();
+  });
+
+  markUnconfirmed();
+}
+
+// 發佈分頁只做「選範圍、選版本、按發佈」——不放任何題目編輯 UI。自訂題目
+// 是否選得了，看的是自訂題目分頁存在 root.dataset.quizCustomConfirmed 上的
+// 「已確認」旗標（bindAdminQuizCustomSection 設的），不是這裡即時算。
 function renderAdminQuizPublishPanel(context) {
   const approvedVariants = Array.isArray(context.approvedVariants) ? context.approvedVariants : [];
   const hasApproved = variant => approvedVariants.some(item => item.variant === variant);
@@ -2512,7 +2563,7 @@ function renderAdminQuizPublishPanel(context) {
       <div><p class="admin-registration-statistics__eyebrow">組織發佈</p><h2>發佈小測驗</h2></div>
     </div>
     ${approvedVariants.length === 0
-      ? '<p class="daily-quiz-publisher-notice">今日 AI 題目尚未完成審核，審核通過後會顯示可發佈版本；你也可以直接用自訂題目發佈。</p>'
+      ? '<p class="daily-quiz-publisher-notice">今日 AI 題目尚未完成審核，審核通過後會顯示可發佈版本；你也可以到「自訂題目」分頁自己出題並確認後發佈。</p>'
       : ''}
     <div class="admin-quiz-publish-step">
       <p class="admin-quiz-publish-step-label">1. 發佈範圍</p>
@@ -2523,9 +2574,9 @@ function renderAdminQuizPublishPanel(context) {
       <div class="admin-quiz-version-choice" role="radiogroup" aria-label="題目版本">
         <button type="button" class="secondary-btn admin-quiz-version-btn" data-quiz-version-choice="A" ${hasApproved('A') ? '' : 'disabled'}>版本 A</button>
         <button type="button" class="secondary-btn admin-quiz-version-btn" data-quiz-version-choice="B" ${hasApproved('B') ? '' : 'disabled'}>版本 B</button>
-        <button type="button" class="secondary-btn admin-quiz-version-btn" data-quiz-version-choice="C">自訂題目</button>
+        <button type="button" class="secondary-btn admin-quiz-version-btn" data-quiz-version-choice="C" data-quiz-custom-option>自訂題目</button>
       </div>
-      <div class="admin-quiz-custom-editor-slot hidden" data-quiz-custom-slot></div>
+      <p class="admin-daily-quiz-note hidden" data-quiz-custom-hint>尚未在「自訂題目」分頁確認題目，請先切到那個分頁完成並確認。</p>
     </div>
     <div class="admin-quiz-publish-step">
       <button type="button" class="primary-btn" id="admin-quiz-publish-btn" disabled>發佈</button>
@@ -2539,13 +2590,17 @@ function updateAdminQuizPublishState(root, context, selectedVersion) {
   const resultsEl = root.querySelector('#admin-quiz-publish-results');
   if (resultsEl) resultsEl.innerHTML = renderAdminQuizScopeResults(context, scope);
   const publishBtn = root.querySelector('#admin-quiz-publish-btn');
+  const customOption = root.querySelector('[data-quiz-custom-option]');
+  const customHint = root.querySelector('[data-quiz-custom-hint]');
+  const customConfirmed = root.dataset.quizCustomConfirmed === 'true';
+  if (customOption) customOption.disabled = !customConfirmed;
+  if (customHint) customHint.classList.toggle('hidden', customConfirmed);
   if (!publishBtn) return;
   let ready = false;
   if (selectedVersion === 'A' || selectedVersion === 'B') {
     ready = (context.approvedVariants || []).some(item => item.variant === selectedVersion);
   } else if (selectedVersion === 'C') {
-    const slot = root.querySelector('[data-quiz-custom-slot]');
-    ready = slot ? adminQuizCustomQuestionsAreValid(collectAdminQuizCustomQuestions(slot)) : false;
+    ready = customConfirmed;
   }
   publishBtn.disabled = !ready;
 }
@@ -2558,8 +2613,8 @@ function bindAdminQuizPublishPanel(root, context, quizDate) {
   }
   let selectedVersion = null;
   const versionButtons = Array.from(panel.querySelectorAll('[data-quiz-version-choice]'));
-  const customSlot = panel.querySelector('[data-quiz-custom-slot]');
   const refresh = () => updateAdminQuizPublishState(root, context, selectedVersion);
+  root._refreshQuizPublishState = refresh;
 
   ['region', 'zone', 'group'].forEach(part => {
     panel.querySelector(`#admin-quiz-publish-${part}-select`)?.addEventListener('change', refresh);
@@ -2570,18 +2625,6 @@ function bindAdminQuizPublishPanel(root, context, quizDate) {
       if (button.disabled) return;
       selectedVersion = button.dataset.quizVersionChoice;
       versionButtons.forEach(other => other.classList.toggle('active', other === button));
-      if (selectedVersion === 'C') {
-        if (!customSlot.dataset.rendered) {
-          customSlot.innerHTML = renderAdminQuizCustomEditorHtml(context);
-          customSlot.dataset.rendered = 'true';
-          bindAdminQuizCustomEditor(customSlot, refresh);
-          bindAdminQuizCustomCopyButtons(customSlot, context, refresh);
-          if (typeof hydrateIcons === 'function') hydrateIcons(customSlot);
-        }
-        customSlot.classList.remove('hidden');
-      } else {
-        customSlot.classList.add('hidden');
-      }
       refresh();
     });
   });
@@ -2593,9 +2636,13 @@ function bindAdminQuizPublishPanel(root, context, quizDate) {
     const scopeLabel = scope.scopeType === 'all' ? '你負責的全部小組' : scope.scopeName;
     let selection;
     if (selectedVersion === 'C') {
-      const questions = collectAdminQuizCustomQuestions(customSlot);
+      if (root.dataset.quizCustomConfirmed !== 'true') {
+        if (typeof showToast === 'function') showToast('請先到「自訂題目」分頁完成並確認題目。');
+        return;
+      }
+      const questions = collectAdminQuizCustomQuestions(root);
       if (!adminQuizCustomQuestionsAreValid(questions)) {
-        if (typeof showToast === 'function') showToast('自訂題目需要 2 至 10 題，且每題都要填寫完整。');
+        if (typeof showToast === 'function') showToast('自訂題目需要 2 至 10 題，且每題都要填寫完整，請回「自訂題目」分頁確認。');
         return;
       }
       selection = { customQuestions: questions };
@@ -2954,6 +3001,7 @@ function bindAdminQuizStatsPanel(root, plan) {
 // 分頁存在 root.dataset 上，換日期／重新整理後還是停在原本那個分頁。
 function renderAdminQuizSubtabNavHtml(active) {
   const items = [
+    { key: 'custom', label: '自訂題目' },
     { key: 'review', label: '題目審核' },
     { key: 'publish', label: '發佈' },
     { key: 'stats', label: '統計' }
@@ -2979,6 +3027,11 @@ function bindAdminQuizSubtabNav(root) {
       root.querySelectorAll('[data-quiz-subtab-panel]').forEach(panel => {
         panel.classList.toggle('hidden', panel.dataset.quizSubtabPanel !== target);
       });
+      // 發佈分頁的「自訂題目」選項是否可選，要看自訂題目分頁目前是否已確認
+      // ——切過去時重新算一次，不用等使用者手動觸發什麼事件。
+      if (target === 'publish' && typeof root._refreshQuizPublishState === 'function') {
+        root._refreshQuizPublishState();
+      }
     });
   });
 }
@@ -3054,21 +3107,23 @@ async function renderAdminDailyQuizManagement(forceRefresh = false, requestedDat
   }
   const context = result.context || {};
   const approvedCount = Array.isArray(context.approvedVariants) ? context.approvedVariants.length : 0;
-  const activeSubtab = ['review', 'publish', 'stats'].includes(root.dataset.quizActiveSubtab)
+  const activeSubtab = ['custom', 'review', 'publish', 'stats'].includes(root.dataset.quizActiveSubtab)
     ? root.dataset.quizActiveSubtab
-    : 'review';
+    : 'custom';
   root.innerHTML = `
     <div class="admin-daily-quiz-toolbar">
       <label for="admin-daily-quiz-date">測驗日期<input id="admin-daily-quiz-date" class="form-control" type="date" value="${adminQuizEscape(quizDate)}"></label>
       <span>${approvedCount} 版已審核</span>
     </div>
     ${renderAdminQuizSubtabNavHtml(activeSubtab)}
+    <div data-quiz-subtab-panel="custom" class="${activeSubtab === 'custom' ? '' : 'hidden'}">${renderAdminQuizCustomSectionHtml(context)}</div>
     <div data-quiz-subtab-panel="review" class="${activeSubtab === 'review' ? '' : 'hidden'}">${renderAdminQuizReviewCards(context)}</div>
     <div data-quiz-subtab-panel="publish" class="${activeSubtab === 'publish' ? '' : 'hidden'}">${renderAdminQuizPublishPanel(context)}</div>
     <div data-quiz-subtab-panel="stats" class="${activeSubtab === 'stats' ? '' : 'hidden'}">${renderAdminQuizStatsSectionHtml()}</div>`;
   bindAdminQuizSubtabNav(root);
   await bindAdminDailyQuizActions(root, context, quizDate);
   bindAdminQuizCarousels(root);
+  bindAdminQuizCustomSection(root, context);
   bindAdminQuizPublishPanel(root, context, quizDate);
   bindAdminQuizStatsPanel(root, state.activePlan);
   if (typeof hydrateIcons === 'function') hydrateIcons(root);

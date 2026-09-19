@@ -145,6 +145,27 @@ describe("daily church quiz", () => {
     expect(plan).not.toContain("QUIZ_CUSTOM_TYPE_LABELS");
   });
 
+  it("keeps custom-question authoring out of the publish tab, gated by an explicit confirm step", () => {
+    // 「自訂題目」自成一個分頁（排在題目審核前面），出題/匯入/複製都在那裡
+    // 完成；要按「確認自訂題目」才算數，發佈分頁只看這個旗標，完全不放編輯
+    // 題目的東西——範圍/版本/發佈按鈕以外什麼都沒有。
+    expect(admin).toContain("{ key: 'custom', label: '自訂題目' }");
+    expect(admin.indexOf("{ key: 'custom'")).toBeLessThan(admin.indexOf("{ key: 'review'"));
+    expect(admin).toContain("function renderAdminQuizCustomSectionHtml(context)");
+    expect(admin).toContain("data-quiz-custom-confirm");
+    expect(admin).toContain("確認自訂題目");
+    expect(admin).toContain("root.dataset.quizCustomConfirmed = 'true'");
+    expect(admin).toContain("root.dataset.quizCustomConfirmed = 'false'");
+    expect(admin).toContain("ready = customConfirmed;");
+    expect(admin).not.toContain("data-quiz-custom-slot");
+    // renderAdminQuizPublishPanel 本身不該再呼叫題目編輯器的 render/bind 函式。
+    const publishPanelSource = admin.slice(admin.indexOf("function renderAdminQuizPublishPanel"), admin.indexOf("function updateAdminQuizPublishState"));
+    expect(publishPanelSource).not.toContain("renderAdminQuizCustomEditorHtml");
+    const bindPublishPanelSource = admin.slice(admin.indexOf("function bindAdminQuizPublishPanel"), admin.indexOf("function collectAdminQuizQuestions"));
+    expect(bindPublishPanelSource).not.toContain("bindAdminQuizCustomEditor(");
+    expect(bindPublishPanelSource).not.toContain("bindAdminQuizCustomCopyButtons(");
+  });
+
   it("adds review, publishing and scoped member results to plan management", () => {
     // Admin nav moved from data-plan-subtab tabs to unified #admin-section-* panels.
     expect(html).toContain('id="admin-section-quizzes"');
