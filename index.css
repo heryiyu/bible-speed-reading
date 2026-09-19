@@ -7061,6 +7061,12 @@ body.admin-quiz-editor-open {
   flex: 1;
 }
 
+.admin-quiz-custom-editor-topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
 .admin-quiz-import-panel {
   margin-bottom: 1rem;
   padding: 0.85rem 1rem;
