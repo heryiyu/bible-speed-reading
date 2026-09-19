@@ -64,7 +64,7 @@
       try { performance.mark("boot:" + name); } catch (e) {}
     };
   </script>
-  <link rel="stylesheet" href="index.css?v=20260919_daily_quiz_stats_panel" onerror="window.showAppStyleRecovery(this)">
+  <link rel="stylesheet" href="index.css?v=20260919_daily_quiz_pr_display" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/admin-registration-statistics.css?v=20260812_clean-user-directory-ui" onerror="window.showAppStyleRecovery(this)">
   <link rel="stylesheet" href="css/team-registration.css?v=20260906_plan_gate_login_only" onerror="window.showAppStyleRecovery(this)">
 
@@ -2418,6 +2418,10 @@
     <div class="profile-subpage__body">
       <p class="profile-exams__intro">正式作答與複習分開保存；只有正式作答列入評分。</p>
       <div id="profile-exams-list" class="profile-exams__list" aria-live="polite"></div>
+
+      <h4 class="profile-daily-quiz-results__heading">小測驗</h4>
+      <p class="profile-exams__intro">PR 值公布前只顯示分數；公布後才會看到全教會／牧區／小組／讀經隊的 PR。</p>
+      <div id="profile-daily-quiz-results" class="profile-daily-quiz-results__list" aria-live="polite"></div>
     </div>
   </div>
 
