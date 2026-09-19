@@ -3509,7 +3509,9 @@ const db = {
       quiz_question_not_found: "找不到這一題，請重新整理頁面後再試一次。",
       quiz_attempt_not_found: "找不到這次的作答紀錄，請先作答至少一題。",
       quiz_stats_permission_required: "沒有權限查看這份小測驗結果統計。",
-      quiz_stats_date_range_required: "請選擇正確的日期區間。"
+      quiz_stats_date_range_required: "請選擇正確的日期區間。",
+      quiz_reveal_permission_required: "只有牧者或系統管理員可以公布小測驗 PR 值。",
+      quiz_not_found_for_date: "找不到這個日期的小測驗。"
     };
     const key = Object.keys(messages).find(code => raw.includes(code));
     return key ? messages[key] : "目前無法載入小測驗資料，請稍後再試。";
@@ -3631,6 +3633,33 @@ const db = {
       p_to_date: toDate
     });
     return result.success ? { success: true, stats: result.data || {} } : result;
+  },
+
+  // admin/pastor 專用：把某一天（該計畫全部版本）的 PR 解鎖給會友查看。
+  // 前三名不透過這裡公告，APP 裡從頭到尾不會出現名單/排名。
+  async revealDailyQuizLeaderboard(plan, quizDate) {
+    const planId = this._quizPlanId(plan);
+    if (!planId || !/^\d{4}-\d{2}-\d{2}$/.test(String(quizDate || ""))) {
+      return { success: false, message: "找不到小測驗對應的計畫日期。" };
+    }
+    return this._callQuizRpc("daily_quiz_reveal_leaderboard", {
+      p_global_plan_id: planId,
+      p_quiz_date: quizDate
+    });
+  },
+
+  // 會友端「我的測驗」小測驗分頁：只回傳呼叫者自己的分數；PR 公布前一律 NULL。
+  async getMyDailyQuizResults(plan, fromDate, toDate) {
+    const planId = this._quizPlanId(plan);
+    if (!planId || !/^\d{4}-\d{2}-\d{2}$/.test(String(fromDate || "")) || !/^\d{4}-\d{2}-\d{2}$/.test(String(toDate || ""))) {
+      return { success: false, message: "請選擇正確的日期區間。" };
+    }
+    const result = await this._callQuizRpc("daily_quiz_get_my_results", {
+      p_global_plan_id: planId,
+      p_from_date: fromDate,
+      p_to_date: toDate
+    });
+    return result.success ? { success: true, results: Array.isArray(result.data) ? result.data : [] } : result;
   },
 
   async fetchQuizNotifications() {

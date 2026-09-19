@@ -112,7 +112,10 @@ const QUIZ_RPC_FUNCTIONS = new Set([
   "daily_quiz_submit_answer",
   "daily_quiz_finalize_attempt",
   // 0186：後台結果統計（唯讀）；權限檢查在 SQL 端用 can_manage_quiz_group。
-  "daily_quiz_get_stats"
+  "daily_quiz_get_stats",
+  // 0188：PR 公布（admin/pastor，SQL 端自己查角色）+ 會友端「我的測驗」查詢。
+  "daily_quiz_reveal_leaderboard",
+  "daily_quiz_get_my_results"
 ]);
 // 速讀「大測驗」(migration 0096). Gated by the speed_reading_exam feature flag;
 // authoring/grading RPCs additionally require an admin/pastor profile.

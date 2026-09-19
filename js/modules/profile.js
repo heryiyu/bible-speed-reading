@@ -567,6 +567,55 @@ async function renderMyExamPapers() {
   });
 }
 
+// 小測驗只在使用者目前開著的計畫（state.activePlan）底下找——跟 plan.js 的
+// 小測驗發布/作答本來就是同一個計畫範圍，這裡沿用同一個慣例，不用另外選計畫。
+async function renderMyDailyQuizResults() {
+  const host = document.getElementById("profile-daily-quiz-results");
+  if (!host) return;
+  const plan = state.activePlan;
+  if (!plan || state.offlineMode || typeof db === "undefined" || typeof db.getMyDailyQuizResults !== "function") {
+    host.innerHTML = '<div class="profile-exams__empty">請先在「計畫」分頁開啟一個有小測驗的計畫。</div>';
+    return;
+  }
+  if (firstPaint(host)) host.innerHTML = '<div class="profile-exams__loading">正在整理小測驗紀錄…</div>';
+  const to = new Date().toISOString().slice(0, 10);
+  const fromDate = new Date();
+  fromDate.setDate(fromDate.getDate() - 29);
+  const from = fromDate.toISOString().slice(0, 10);
+  const result = await db.getMyDailyQuizResults(plan, from, to);
+  if (!result.success) {
+    host.innerHTML = `<div class="profile-exams__empty">${escapeHTML(result.message || "目前無法載入小測驗紀錄。")}</div>`;
+    return;
+  }
+  const results = Array.isArray(result.results) ? result.results : [];
+  if (!results.length) {
+    host.innerHTML = '<div class="profile-exams__empty">最近 30 天內還沒有小測驗作答紀錄。</div>';
+    return;
+  }
+  host.innerHTML = results.map(item => {
+    const correctRate = Number.isFinite(item.score) && Number.isFinite(item.total) && item.total > 0
+      ? Math.round((item.score / item.total) * 100) : null;
+    const prLines = [];
+    if (item.prPublished) {
+      if (item.prChurch != null) prLines.push(`全教會 PR ${item.prChurch}`);
+      if (item.prZone != null) prLines.push(`牧區 PR ${item.prZone}`);
+      if (item.prGroup != null) prLines.push(`小組 PR ${item.prGroup}`);
+      (Array.isArray(item.teams) ? item.teams : []).forEach(team => {
+        if (team?.pr != null) prLines.push(`${escapeHTML(String(team.division))} 人隊 PR ${team.pr}`);
+      });
+    }
+    return `<article class="profile-daily-quiz-result-card">
+      <div class="profile-daily-quiz-result-card__head">
+        <strong>${escapeHTML(item.quizDate)}</strong>
+        <span class="stat-badge stat-badge--brand">${escapeHTML(String(item.score))}／${escapeHTML(String(item.total))}${correctRate != null ? `（${correctRate}%）` : ""}</span>
+      </div>
+      ${item.prPublished
+        ? (prLines.length ? `<p class="profile-daily-quiz-result-card__pr">${prLines.map(line => escapeHTML(line)).join("　")}</p>` : "")
+        : '<p class="profile-daily-quiz-result-card__pr profile-daily-quiz-result-card__pr--pending">PR 尚未公布</p>'}
+    </article>`;
+  }).join("");
+}
+
 async function renderCareReminders() {
   const containerCol = document.getElementById("profile-care-reminders-col");
   if (!containerCol) return;
@@ -612,7 +661,7 @@ function openProfileDetail(key) {
   if (key === "badges" && typeof window.renderBadgeWall === "function") {
     window.renderBadgeWall("badges-grid");
   }
-  if (key === "exams") void renderMyExamPapers();
+  if (key === "exams") { void renderMyExamPapers(); void renderMyDailyQuizResults(); }
   if (key === "highlights-notes") {
     hnNotesCache = null;
     void renderHighlightsNotesView();
@@ -1102,7 +1151,10 @@ export function init() {
       await handleLogoutAndClearCache();
     });
   }
-  document.getElementById("profile-exams-refresh")?.addEventListener("click", () => renderMyExamPapers());
+  document.getElementById("profile-exams-refresh")?.addEventListener("click", () => {
+    void renderMyExamPapers();
+    void renderMyDailyQuizResults();
+  });
 
   const btnShareApp = document.getElementById("btn-share-app");
   if (btnShareApp && btnShareApp.dataset.bound !== "true") {

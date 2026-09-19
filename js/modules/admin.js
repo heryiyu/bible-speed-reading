@@ -2534,7 +2534,7 @@ function renderAdminQuizStatsBodyHtml(stats) {
   return `
     <div class="admin-quiz-stats-table-wrap">
       <table class="admin-quiz-stats-table">
-        <thead><tr><th>日期</th><th>參與率</th><th>作答／合格人數</th><th>平均分</th><th>平均時間</th></tr></thead>
+        <thead><tr><th>日期</th><th>參與率</th><th>作答／合格人數</th><th>平均分</th><th>平均時間</th><th>PR 公布</th></tr></thead>
         <tbody>
           ${trend.length ? trend.map(row => `<tr>
             <td>${adminQuizEscape(row.quizDate)}</td>
@@ -2542,9 +2542,13 @@ function renderAdminQuizStatsBodyHtml(stats) {
             <td>${row.submitted}／${row.eligible}</td>
             <td>${row.avgScore ?? '--'}</td>
             <td>${quizStatsFormatSeconds(row.avgTimeSeconds)}</td>
-          </tr>`).join('') : '<tr><td colspan="5" class="admin-daily-quiz-empty">這段期間沒有資料。</td></tr>'}
+            <td>${row.leaderboardPublished
+              ? '<span class="stat-badge stat-badge--success">已公布</span>'
+              : `<button type="button" class="secondary-btn" data-quiz-stats-reveal="${adminQuizEscape(row.quizDate)}">公布 PR</button>`}</td>
+          </tr>`).join('') : '<tr><td colspan="6" class="admin-daily-quiz-empty">這段期間沒有資料。</td></tr>'}
         </tbody>
       </table>
+      <p class="admin-daily-quiz-note">公布後，會友只會在「我的測驗」看到自己的分數與 PR 值（全教會/牧區/小組/讀經隊），不會出現任何名次或他人分數；前三名一律由你們另外公告。</p>
     </div>
 
     <div class="admin-quiz-stats-roster-toolbar">
@@ -2627,7 +2631,7 @@ function bindAdminQuizStatsPanel(root, plan) {
     });
   };
 
-  queryBtn.addEventListener('click', async () => {
+  const runQuery = async () => {
     if (!fromInput.value || !toInput.value) {
       if (typeof showToast === 'function') showToast('請選擇起訖日期。');
       return;
@@ -2656,7 +2660,26 @@ function bindAdminQuizStatsPanel(root, plan) {
         : currentRoster;
       exportDailyQuizRosterCSV(filtered);
     });
-  });
+    body.querySelectorAll('[data-quiz-stats-reveal]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const quizDate = button.dataset.quizStatsReveal;
+        if (!window.confirm(`確定要公布 ${quizDate} 的小測驗 PR 值嗎？公布後會友就能在「我的測驗」看到自己的 PR，這個動作無法復原。`)) return;
+        button.disabled = true;
+        button.textContent = '公布中…';
+        const revealResult = await db.revealDailyQuizLeaderboard(plan, quizDate);
+        if (!revealResult.success) {
+          button.disabled = false;
+          button.textContent = '公布 PR';
+          if (typeof showToast === 'function') showToast(revealResult.message || 'PR 公布失敗');
+          return;
+        }
+        if (typeof showToast === 'function') showToast(`已公布 ${quizDate} 的 PR`);
+        void runQuery();
+      });
+    });
+  };
+
+  queryBtn.addEventListener('click', () => { void runQuery(); });
 }
 
 async function renderAdminDailyQuizManagement(forceRefresh = false, requestedDate = '', prefetchedResult = null) {

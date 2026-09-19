@@ -12930,6 +12930,39 @@ body.profile-subpage-open .main-content {
 .profile-exams__empty,
 .profile-exams__loading { padding: 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.9375rem; }
 
+/* 小測驗紀錄（我的測驗子頁，緊接在大測驗清單下方） */
+.profile-daily-quiz-results__heading {
+  margin: 1.5rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.profile-daily-quiz-results__list { display: grid; gap: 0.75rem; margin-top: 0.75rem; }
+.profile-daily-quiz-result-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+.profile-daily-quiz-result-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.profile-daily-quiz-result-card__pr {
+  margin: 0;
+  color: var(--color-brand);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.profile-daily-quiz-result-card__pr--pending {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .profile-preferences-group {
   margin-bottom: 1rem;
 }
