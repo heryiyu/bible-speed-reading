@@ -2489,6 +2489,176 @@ async function bindAdminDailyQuizActions(root, context, quizDate) {
   });
 }
 
+// 後台結果統計：參與率/平均分/平均時間趨勢 + 搜尋/匯出的逐人作答明細。
+// 跟上面單日審核/發布是各自獨立的日期區間，不共用 quizDate。
+
+function quizStatsFormatSeconds(seconds) {
+  const value = Math.round(Number(seconds));
+  if (!Number.isFinite(value) || seconds === null || seconds === undefined) return '--';
+  const minutes = Math.floor(value / 60);
+  const remainder = value % 60;
+  return minutes > 0 ? `${minutes} 分 ${remainder} 秒` : `${remainder} 秒`;
+}
+
+function quizStatsCorrectRate(score, total) {
+  return Number.isFinite(score) && Number.isFinite(total) && total > 0
+    ? Math.round((score / total) * 100)
+    : null;
+}
+
+function adminQuizStatsDefaultRange() {
+  const to = adminQuizDateToday();
+  const from = new Date(`${to}T00:00:00`);
+  from.setDate(from.getDate() - 13);
+  return { from: from.toISOString().slice(0, 10), to };
+}
+
+function renderAdminQuizStatsSectionHtml() {
+  const { from, to } = adminQuizStatsDefaultRange();
+  return `<section class="glass-card admin-daily-quiz-block" aria-labelledby="admin-quiz-stats-title" data-quiz-stats-root>
+    <div class="admin-daily-quiz-heading">
+      <div><p class="admin-registration-statistics__eyebrow">結果統計</p><h2 id="admin-quiz-stats-title">小測驗結果</h2></div>
+    </div>
+    <div class="admin-daily-quiz-scope-row">
+      <label>起<input type="date" class="form-control" data-quiz-stats-from value="${adminQuizEscape(from)}"></label>
+      <label>迄<input type="date" class="form-control" data-quiz-stats-to value="${adminQuizEscape(to)}"></label>
+      <button type="button" class="secondary-btn" data-quiz-stats-query>查詢</button>
+    </div>
+    <div data-quiz-stats-body><p class="admin-daily-quiz-empty">選擇日期區間後點查詢。</p></div>
+  </section>`;
+}
+
+function renderAdminQuizStatsBodyHtml(stats) {
+  const trend = Array.isArray(stats.trend) ? stats.trend : [];
+  const roster = Array.isArray(stats.roster) ? stats.roster : [];
+  return `
+    <div class="admin-quiz-stats-table-wrap">
+      <table class="admin-quiz-stats-table">
+        <thead><tr><th>日期</th><th>參與率</th><th>作答／合格人數</th><th>平均分</th><th>平均時間</th></tr></thead>
+        <tbody>
+          ${trend.length ? trend.map(row => `<tr>
+            <td>${adminQuizEscape(row.quizDate)}</td>
+            <td>${row.participationRate != null ? `${row.participationRate}%` : '--'}</td>
+            <td>${row.submitted}／${row.eligible}</td>
+            <td>${row.avgScore ?? '--'}</td>
+            <td>${quizStatsFormatSeconds(row.avgTimeSeconds)}</td>
+          </tr>`).join('') : '<tr><td colspan="5" class="admin-daily-quiz-empty">這段期間沒有資料。</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="admin-quiz-stats-roster-toolbar">
+      <input type="search" class="form-control" data-quiz-stats-search placeholder="搜尋姓名／小組／牧區">
+      <button type="button" class="secondary-btn" data-quiz-stats-export>
+        <span class="nlc-icon" data-icon="download" aria-hidden="true"></span> 匯出 CSV
+      </button>
+    </div>
+    <div class="admin-quiz-stats-table-wrap">
+      <table class="admin-quiz-stats-table">
+        <thead><tr><th>姓名</th><th>小組</th><th>牧區</th><th>日期</th><th>分數</th><th>正確率</th><th>作答時間</th></tr></thead>
+        <tbody>
+          ${roster.length ? roster.map(row => {
+            const correctRate = quizStatsCorrectRate(row.score, row.total);
+            const searchText = `${row.name || ''} ${row.smallGroup || ''} ${row.pastoralZone || ''}`.toLowerCase();
+            return `<tr data-quiz-stats-row data-search-text="${adminQuizEscape(searchText)}">
+              <td>${adminQuizEscape(row.name || '未設定')}</td>
+              <td>${adminQuizEscape(row.smallGroup || '未分組')}</td>
+              <td>${adminQuizEscape(row.pastoralZone || '未分牧區')}</td>
+              <td>${adminQuizEscape(row.quizDate)}</td>
+              <td>${row.score}／${row.total}</td>
+              <td>${correctRate != null ? `${correctRate}%` : '--'}</td>
+              <td>${quizStatsFormatSeconds(row.timeSeconds)}</td>
+            </tr>`;
+          }).join('') : '<tr><td colspan="7" class="admin-daily-quiz-empty">這段期間沒有作答紀錄。</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+export function convertDailyQuizRosterToCSV(roster, exportedAt = new Date()) {
+  if (!roster || roster.length === 0) return '';
+  const headers = ['姓名', '小組', '牧區', '大區', '日期', '分數', '總題數', '正確率', '作答時間（秒）'];
+  const rows = roster.map(row => {
+    const correctRate = quizStatsCorrectRate(row.score, row.total);
+    return [
+      row.name || '未設定', row.smallGroup || '未分組', row.pastoralZone || '未分牧區', row.greatRegion || '未分區',
+      row.quizDate || '', row.score, row.total, correctRate == null ? '' : `${correctRate}%`,
+      row.timeSeconds ?? ''
+    ];
+  });
+  return prependTaiwanExportTime([
+    headers.join(','),
+    ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+  ].join('\n'), exportedAt);
+}
+
+export function exportDailyQuizRosterCSV(roster) {
+  if (!roster || roster.length === 0) {
+    if (typeof showToast === 'function') showToast('沒有可供匯出的小測驗結果。');
+    return;
+  }
+  const csvContent = convertDailyQuizRosterToCSV(roster);
+  const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const today = formatTaiwanDate();
+  link.setAttribute('href', url);
+  link.setAttribute('download', `daily_quiz_results_${today}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function bindAdminQuizStatsPanel(root, plan) {
+  const statsRoot = root.querySelector('[data-quiz-stats-root]');
+  if (!statsRoot || statsRoot.dataset.statsBound === 'true') return;
+  statsRoot.dataset.statsBound = 'true';
+  const fromInput = statsRoot.querySelector('[data-quiz-stats-from]');
+  const toInput = statsRoot.querySelector('[data-quiz-stats-to]');
+  const queryBtn = statsRoot.querySelector('[data-quiz-stats-query]');
+  const body = statsRoot.querySelector('[data-quiz-stats-body]');
+  if (!fromInput || !toInput || !queryBtn || !body) return;
+  let currentRoster = [];
+
+  const applySearchFilter = keyword => {
+    const normalized = keyword.trim().toLowerCase();
+    body.querySelectorAll('[data-quiz-stats-row]').forEach(row => {
+      row.classList.toggle('hidden', normalized !== '' && !(row.dataset.searchText || '').includes(normalized));
+    });
+  };
+
+  queryBtn.addEventListener('click', async () => {
+    if (!fromInput.value || !toInput.value) {
+      if (typeof showToast === 'function') showToast('請選擇起訖日期。');
+      return;
+    }
+    queryBtn.disabled = true;
+    const originalLabel = queryBtn.textContent;
+    queryBtn.textContent = '查詢中…';
+    const result = await db.getDailyQuizStats(plan, fromInput.value, toInput.value);
+    queryBtn.disabled = false;
+    queryBtn.textContent = originalLabel;
+    if (!result.success) {
+      body.innerHTML = `<p class="admin-daily-quiz-empty">${adminQuizEscape(result.message || '查詢失敗，請稍後再試。')}</p>`;
+      currentRoster = [];
+      return;
+    }
+    currentRoster = Array.isArray(result.stats.roster) ? result.stats.roster : [];
+    body.innerHTML = renderAdminQuizStatsBodyHtml(result.stats);
+    if (typeof hydrateIcons === 'function') hydrateIcons(body);
+
+    const searchInput = body.querySelector('[data-quiz-stats-search]');
+    searchInput?.addEventListener('input', () => applySearchFilter(searchInput.value));
+    body.querySelector('[data-quiz-stats-export]')?.addEventListener('click', () => {
+      const keyword = (searchInput?.value || '').trim().toLowerCase();
+      const filtered = keyword
+        ? currentRoster.filter(row => `${row.name || ''} ${row.smallGroup || ''} ${row.pastoralZone || ''}`.toLowerCase().includes(keyword))
+        : currentRoster;
+      exportDailyQuizRosterCSV(filtered);
+    });
+  });
+}
+
 async function renderAdminDailyQuizManagement(forceRefresh = false, requestedDate = '', prefetchedResult = null) {
   const root = document.getElementById('admin-daily-quiz-root');
   if (!root || !state.activePlan) return;
@@ -2566,10 +2736,12 @@ async function renderAdminDailyQuizManagement(forceRefresh = false, requestedDat
       <span>${approvedCount} 版已審核</span>
     </div>
     ${renderAdminQuizReviewCards(context)}
-    ${renderAdminQuizPublishPanel(context)}`;
+    ${renderAdminQuizPublishPanel(context)}
+    ${renderAdminQuizStatsSectionHtml()}`;
   await bindAdminDailyQuizActions(root, context, quizDate);
   bindAdminQuizCarousels(root);
   bindAdminQuizPublishPanel(root, context, quizDate);
+  bindAdminQuizStatsPanel(root, state.activePlan);
   if (typeof hydrateIcons === 'function') hydrateIcons(root);
 }
 

@@ -3497,9 +3497,19 @@ const db = {
       daily_quiz_feature_disabled: "每日小測驗功能目前已關閉。",
       quiz_answers_required: "請完成全部題目後再送出。",
       invalid_quiz_answer: "作答資料格式不正確，請重新選擇答案。",
-      invalid_quiz_question: "每題都需要題目、四個選項、答案、解說與經文出處。",
+      invalid_quiz_question: "題目格式不正確，請檢查題幹與選項／配對／排序項目是否都已填寫。",
       invalid_quiz_question_count: "自訂題目需要 2 至 10 題。",
-      quiz_already_published: "這一版已經發佈，為避免改變組員正在作答的內容，不能再修改或取消審核。"
+      invalid_quiz_question_type: "不支援的題型，請從是非／單選／多選／配對／排序中選擇。",
+      invalid_quiz_question_id: "每題都需要一個題目編號。",
+      duplicate_quiz_question_id: "有題目編號重複，請重新整理後再試一次。",
+      invalid_quiz_answer_key: "答案設定不正確，請檢查是否對應到題目的選項／配對／排序項目。",
+      quiz_already_published: "這一版已經發佈，為避免改變組員正在作答的內容，不能再修改或取消審核。",
+      quiz_already_submitted: "這份小測驗已經送出過了。",
+      quiz_incomplete: "還有題目尚未作答，請全部完成後再送出。",
+      quiz_question_not_found: "找不到這一題，請重新整理頁面後再試一次。",
+      quiz_attempt_not_found: "找不到這次的作答紀錄，請先作答至少一題。",
+      quiz_stats_permission_required: "沒有權限查看這份小測驗結果統計。",
+      quiz_stats_date_range_required: "請選擇正確的日期區間。"
     };
     const key = Object.keys(messages).find(code => raw.includes(code));
     return key ? messages[key] : "目前無法載入小測驗資料，請稍後再試。";
@@ -3588,6 +3598,39 @@ const db = {
       p_publication_id: publicationId,
       p_answers: answers
     });
+  },
+
+  // 逐題送出（取代 submitDailyQuiz 整份一次送出）：每次呼叫只帶一題，
+  // 同一題重送會覆蓋舊值，適合搭配離線佇列重試。回傳這一題對不對，
+  // 不是整份成績——成績要等 finalizeDailyQuizAttempt 才會結算。
+  async submitDailyQuizAnswer(publicationId, questionId, response, timeSpentSeconds = null) {
+    return this._callQuizRpc("daily_quiz_submit_answer", {
+      p_publication_id: publicationId,
+      p_question_id: questionId,
+      p_response: response,
+      p_time_spent_seconds: Number.isFinite(timeSpentSeconds) ? Math.round(timeSpentSeconds) : null
+    });
+  },
+
+  // 所有題目都送出後呼叫，結算分數並標記完成；本身不帶任何題目內容。
+  async finalizeDailyQuizAttempt(publicationId) {
+    return this._callQuizRpc("daily_quiz_finalize_attempt", {
+      p_publication_id: publicationId
+    });
+  },
+
+  // 後台結果統計：逐日參與率/平均分/平均時間趨勢、逐人作答明細、逐題答對率。
+  async getDailyQuizStats(plan, fromDate, toDate) {
+    const planId = this._quizPlanId(plan);
+    if (!planId || !/^\d{4}-\d{2}-\d{2}$/.test(String(fromDate || "")) || !/^\d{4}-\d{2}-\d{2}$/.test(String(toDate || ""))) {
+      return { success: false, message: "請選擇正確的日期區間。" };
+    }
+    const result = await this._callQuizRpc("daily_quiz_get_stats", {
+      p_global_plan_id: planId,
+      p_from_date: fromDate,
+      p_to_date: toDate
+    });
+    return result.success ? { success: true, stats: result.data || {} } : result;
   },
 
   async fetchQuizNotifications() {

@@ -5,6 +5,8 @@ import { ServiceWorkerRegistrar } from "./ServiceWorkerRegistrar.js";
 import { cleanupRetiredOfflineOperations } from "../production-cleanup.mjs";
 
 const READING_OPERATION = "SET_CHAPTER_READ_STATE";
+const QUIZ_ANSWER_OPERATION = "SUBMIT_DAILY_QUIZ_ANSWER";
+const QUIZ_FINALIZE_OPERATION = "FINALIZE_DAILY_QUIZ_ATTEMPT";
 
 export class PwaCoordinator {
   constructor() {
@@ -13,6 +15,8 @@ export class PwaCoordinator {
     this.registrar = new ServiceWorkerRegistrar();
     this.syncManager = null;
     this.originalLogChapterRead = null;
+    this.originalSubmitDailyQuizAnswer = null;
+    this.originalFinalizeDailyQuizAttempt = null;
   }
 
   async initialize() {
@@ -39,7 +43,11 @@ export class PwaCoordinator {
     this.syncManager = new OfflineSyncManager({
       queueRepository: this.queueRepository,
       registration,
-      handlers: { [READING_OPERATION]: payload => this.syncReadingOperation(payload) }
+      handlers: {
+        [READING_OPERATION]: payload => this.syncReadingOperation(payload),
+        [QUIZ_ANSWER_OPERATION]: payload => this.syncQuizAnswerOperation(payload),
+        [QUIZ_FINALIZE_OPERATION]: payload => this.syncQuizFinalizeOperation(payload)
+      }
     });
     this.syncManager.addEventListener("status", event => {
       window.dispatchEvent(new CustomEvent("pwa:sync-status", { detail: event.detail }));
@@ -50,6 +58,8 @@ export class PwaCoordinator {
     window.addEventListener("online", () => this.syncManager.syncPending().catch(error => console.warn("[PWA] Sync failed.", error)));
 
     this.installReadingLogQueue();
+    this.installQuizAnswerQueue();
+    this.installQuizFinalizeQueue();
     if (navigator.onLine) this.syncManager.syncPending().catch(error => console.warn("[PWA] Initial sync failed.", error));
     return this;
   }
@@ -102,6 +112,90 @@ export class PwaCoordinator {
     const identity = window.state?.currentProfileId || window.state?.currentUser?.id || window.state?.currentUser?.name || "current";
     const key = ["reading", identity, payload.planId || payload.presetKey || "personal", payload.book, payload.chapter, payload.round].join(":");
     await this.syncManager.queue({ type: READING_OPERATION, payload, idempotencyKey: key });
+  }
+
+  // 小測驗逐題送出／最後結算：跟讀經記錄同一套離線佇列，但攔截點不一樣——
+  // db.submitDailyQuizAnswer/finalizeDailyQuizAttempt（_callQuizRpc）本身
+  // 從不 throw，失敗一律回傳 {success:false,...}，所以這裡要檢查回傳結果，
+  // 不能像 logChapterRead 那樣單純包 try/catch 抓例外。
+  installQuizAnswerQueue() {
+    if (!window.db || typeof window.db.submitDailyQuizAnswer !== "function" || this.originalSubmitDailyQuizAnswer) return;
+    this.originalSubmitDailyQuizAnswer = window.db.submitDailyQuizAnswer.bind(window.db);
+    window.db.submitDailyQuizAnswer = async (publicationId, questionId, response, timeSpentSeconds = null) => {
+      const payload = { publicationId, questionId, response, timeSpentSeconds };
+      if (!navigator.onLine && this.shouldQueue()) {
+        await this.queueQuizAnswerOperation(payload);
+        return { success: true, queued: true, offline: true };
+      }
+      const result = await this.originalSubmitDailyQuizAnswer(publicationId, questionId, response, timeSpentSeconds);
+      if (!result.success && this.shouldQueue() && this.isNetworkFailure(result.error || new Error(result.message || ""))) {
+        await this.queueQuizAnswerOperation(payload);
+        return { success: true, queued: true, offline: true };
+      }
+      return result;
+    };
+  }
+
+  installQuizFinalizeQueue() {
+    if (!window.db || typeof window.db.finalizeDailyQuizAttempt !== "function" || this.originalFinalizeDailyQuizAttempt) return;
+    this.originalFinalizeDailyQuizAttempt = window.db.finalizeDailyQuizAttempt.bind(window.db);
+    window.db.finalizeDailyQuizAttempt = async publicationId => {
+      const payload = { publicationId };
+      if (!navigator.onLine && this.shouldQueue()) {
+        await this.queueQuizFinalizeOperation(payload);
+        return { success: true, queued: true, offline: true };
+      }
+      const result = await this.originalFinalizeDailyQuizAttempt(publicationId);
+      if (!result.success && this.shouldQueue() && this.isNetworkFailure(result.error || new Error(result.message || ""))) {
+        await this.queueQuizFinalizeOperation(payload);
+        return { success: true, queued: true, offline: true };
+      }
+      return result;
+    };
+  }
+
+  async queueQuizAnswerOperation(payload) {
+    const identity = window.state?.currentProfileId || window.state?.currentUser?.id || window.state?.currentUser?.name || "current";
+    // 同一題重新作答＝同一個 idempotencyKey，佇列裡的舊值會被新值取代
+    // （OfflineQueueRepository.enqueue 本來就是 upsert by idempotencyKey），
+    // 不會排隊出兩筆同一題的送出動作。
+    const key = ["quiz-answer", identity, payload.publicationId, payload.questionId].join(":");
+    await this.syncManager.queue({ type: QUIZ_ANSWER_OPERATION, payload, idempotencyKey: key });
+  }
+
+  async queueQuizFinalizeOperation(payload) {
+    const identity = window.state?.currentProfileId || window.state?.currentUser?.id || window.state?.currentUser?.name || "current";
+    const key = ["quiz-finalize", identity, payload.publicationId].join(":");
+    await this.syncManager.queue({ type: QUIZ_FINALIZE_OPERATION, payload, idempotencyKey: key });
+  }
+
+  // 佇列裡的動作要嘛全部先送完逐題答案、要嘛全部先送完再結算——background sync
+  // 是逐筆依建立時間處理（getPending 依 createdAt 排序），送出時已經先
+  // Promise.all 把每題現在的答案都排進佇列了，所以 finalize 這筆一定排在
+  // 它們後面，恢復連線後會自然照順序送達，不用額外做依賴排序。
+  async syncQuizAnswerOperation(payload) {
+    if (!navigator.onLine) throw new TypeError("Network unavailable");
+    const result = await this.originalSubmitDailyQuizAnswer(
+      payload.publicationId, payload.questionId, payload.response, payload.timeSpentSeconds
+    );
+    if (!result.success) {
+      const error = new Error(result.message || result.error?.message || "quiz_answer_sync_failed");
+      error.status = Number(result.error?.status || 0);
+      error.code = result.error?.code || null;
+      throw error;
+    }
+  }
+
+  async syncQuizFinalizeOperation(payload) {
+    if (!navigator.onLine) throw new TypeError("Network unavailable");
+    const result = await this.originalFinalizeDailyQuizAttempt(payload.publicationId);
+    if (!result.success) {
+      const error = new Error(result.message || result.error?.message || "quiz_finalize_sync_failed");
+      error.status = Number(result.error?.status || 0);
+      error.code = result.error?.code || null;
+      throw error;
+    }
+    window.dispatchEvent(new CustomEvent("app:dataRefresh", { detail: { scope: "plan", source: "offline-sync" } }));
   }
 
   async persistCheckedReadingLog(dataClient, repository, row, cacheKey) {
