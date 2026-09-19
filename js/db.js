@@ -3507,7 +3507,9 @@ const db = {
       quiz_already_submitted: "這份小測驗已經送出過了。",
       quiz_incomplete: "還有題目尚未作答，請全部完成後再送出。",
       quiz_question_not_found: "找不到這一題，請重新整理頁面後再試一次。",
-      quiz_attempt_not_found: "找不到這次的作答紀錄，請先作答至少一題。"
+      quiz_attempt_not_found: "找不到這次的作答紀錄，請先作答至少一題。",
+      quiz_stats_permission_required: "沒有權限查看這份小測驗結果統計。",
+      quiz_stats_date_range_required: "請選擇正確的日期區間。"
     };
     const key = Object.keys(messages).find(code => raw.includes(code));
     return key ? messages[key] : "目前無法載入小測驗資料，請稍後再試。";
@@ -3615,6 +3617,20 @@ const db = {
     return this._callQuizRpc("daily_quiz_finalize_attempt", {
       p_publication_id: publicationId
     });
+  },
+
+  // 後台結果統計：逐日參與率/平均分/平均時間趨勢、逐人作答明細、逐題答對率。
+  async getDailyQuizStats(plan, fromDate, toDate) {
+    const planId = this._quizPlanId(plan);
+    if (!planId || !/^\d{4}-\d{2}-\d{2}$/.test(String(fromDate || "")) || !/^\d{4}-\d{2}-\d{2}$/.test(String(toDate || ""))) {
+      return { success: false, message: "請選擇正確的日期區間。" };
+    }
+    const result = await this._callQuizRpc("daily_quiz_get_stats", {
+      p_global_plan_id: planId,
+      p_from_date: fromDate,
+      p_to_date: toDate
+    });
+    return result.success ? { success: true, stats: result.data || {} } : result;
   },
 
   async fetchQuizNotifications() {

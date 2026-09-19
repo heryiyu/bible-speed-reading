@@ -110,7 +110,9 @@ const QUIZ_RPC_FUNCTIONS = new Set([
   // 0185：逐題送出＋最後結算，取代「整份一次送出」；submit_daily_quiz 保留
   // 給還沒切過去的舊前端用，兩者並存。
   "daily_quiz_submit_answer",
-  "daily_quiz_finalize_attempt"
+  "daily_quiz_finalize_attempt",
+  // 0186：後台結果統計（唯讀）；權限檢查在 SQL 端用 can_manage_quiz_group。
+  "daily_quiz_get_stats"
 ]);
 // 速讀「大測驗」(migration 0096). Gated by the speed_reading_exam feature flag;
 // authoring/grading RPCs additionally require an admin/pastor profile.

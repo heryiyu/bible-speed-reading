@@ -3646,6 +3646,15 @@ function bindDailyQuizAnswering(content, quiz, questions, plan, quizDate) {
       if (typeof showToast === "function") showToast(result.message || "小測驗送出失敗");
       return;
     }
+    // 離線時 db.finalizeDailyQuizAttempt 被 PwaCoordinator 攔截排進佇列，
+    // 回傳 success:true 但沒有 data.score（伺服器還沒真的結算）。這裡先不要
+    // 當作已完成重繪（伺服器端狀態其實還是 in_progress），恢復連線後佇列會
+    // 自動送出，屆時再重新整理就能看到真正的分數。
+    if (result.queued) {
+      if (button) button.textContent = "已離線儲存，待連線後自動送出";
+      if (typeof showToast === "function") showToast("目前離線，答案已安全儲存，恢復連線後會自動送出並計算成績。");
+      return;
+    }
     if (typeof showToast === "function") showToast(`作答完成：${result.data.score}／${result.data.total}`);
     void renderDailyQuizSection(plan, { isoDate: quizDate }, lastTrackerRequestId, { open: true });
   });

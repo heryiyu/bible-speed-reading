@@ -7090,6 +7090,51 @@ body.admin-quiz-editor-open {
   padding-left: 1.25rem;
 }
 
+/* 小測驗後台結果統計：趨勢表 + 搜尋/匯出 + 逐人明細表 */
+.admin-quiz-stats-table-wrap {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+}
+
+.admin-quiz-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-quiz-stats-table th,
+.admin-quiz-stats-table td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-card);
+}
+
+.admin-quiz-stats-table th {
+  color: var(--text-secondary);
+  font-weight: 500;
+  background: var(--bg-surface);
+}
+
+.admin-quiz-stats-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-quiz-stats-roster-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.admin-quiz-stats-roster-toolbar input[type="search"] {
+  flex: 1;
+  min-width: 180px;
+}
+
 .admin-quiz-custom-copy-row {
   display: flex;
   align-items: center;
